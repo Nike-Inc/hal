@@ -1,0 +1,51 @@
+name:                aws-lambda-runtime
+version:             0.1.0
+homepage:            https://github.com/githubuser/aws-lambda-runtime#readme
+github: Nike-inc/aws-lambda-runtime
+license:             BSD3
+author:              Nike, Inc.
+copyright:           2018 Nike, Inc.
+category:            Web,AWS
+extra-source-files:
+- README.md
+
+dependencies:
+  - base >= 4.7 && < 5
+
+default-extensions:
+  - OverloadedStrings
+  - BangPatterns
+  - DefaultSignatures
+  - DeriveFoldable
+  - DeriveFunctor
+  - DeriveGeneric
+  - DeriveLift
+  - DeriveTraversable
+  - DerivingStrategies
+  - EmptyCase
+  - GeneralizedNewtypeDeriving
+  - InstanceSigs
+  - LambdaCase
+  - MultiParamTypeClasses
+  - MultiWayIf
+  - OverloadedStrings
+  - PatternSynonyms
+  - ScopedTypeVariables
+
+ghc-options:
+  - -Wall
+  - -Wcompat
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wredundant-constraints
+  - -fno-warn-partial-type-signatures
+  - -fno-warn-name-shadowing
+  - -fwarn-tabs
+  - -fwarn-unused-imports
+  - -fwarn-missing-signatures
+  - -fwarn-incomplete-patterns
+
+executables:
+  aws-lambda-runtime:
+    source-dirs:      src
+    main:             Main.hs
