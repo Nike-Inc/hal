@@ -1,6 +1,5 @@
 name:                aws-lambda-runtime
 version:             0.1.0
-homepage:            https://github.com/githubuser/aws-lambda-runtime#readme
 github: Nike-inc/aws-lambda-runtime
 license:             BSD3
 author:              Nike, Inc.
