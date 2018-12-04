@@ -10,6 +10,12 @@ extra-source-files:
 
 dependencies:
   - base >= 4.7 && < 5
+  - req
+  - text
+  - bytestring
+  - transformers
+  - data-default-class
+  - aeson
 
 default-extensions:
   - OverloadedStrings
