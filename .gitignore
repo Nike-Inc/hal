@@ -115,6 +115,9 @@ cabal.project.local~
 # CMake
 cmake-build-*/
 
+# Nix
+result/
+
 # Mongo Explorer plugin
 .idea/**/mongoSettings.xml
 

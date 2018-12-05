@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Monad (forever)
 import Control.Monad.IO.Class
 import Data.Aeson
 import Data.ByteString.Char8 hiding (putStrLn)
@@ -18,7 +19,7 @@ instance ToJSON HardCodedEvent
 instance FromJSON HardCodedEvent
 
 main :: IO ()
-main = runReq def $ do
+main = forever $ runReq def $ do
   -- Retreive settings
   awsLambdaRuntimeApi <- liftIO $ getEnv "AWS_LAMBDA_RUNTIME_API"
   -- TODO: Is baseOptions an appropriate way to get/pass the port?
