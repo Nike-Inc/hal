@@ -12,8 +12,7 @@
 
 ```bash
 docker pull fpco/stack-build:lts-12.21 #first build only
-stack build
-cp .stack-work/install/x86_64-linux-${docker_image_hash}/lts-12.21/8.4.4/bin/aws-lambda-runtime result/bootstrap
+stack build --copy-bins
 ```
 
 ### Execute

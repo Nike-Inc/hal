@@ -8,9 +8,6 @@ category:            Web,AWS
 extra-source-files:
 - README.md
 
-docker:
-  enable: true
-
 dependencies:
   - base >= 4.7 && < 5
   - req
@@ -54,6 +51,6 @@ ghc-options:
   - -fwarn-incomplete-patterns
 
 executables:
-  aws-lambda-runtime:
+  bootstrap:
     source-dirs:      src
     main:             Main.hs
