@@ -3,12 +3,10 @@ module Main where
 import Control.Monad (forever)
 import Control.Monad.IO.Class
 import Data.Aeson
-import Data.ByteString.Char8 hiding (putStrLn)
-import Data.Default.Class
-import Data.Maybe (fromJust)
-import Data.Text.Encoding
+import Data.ByteString hiding (head, unpack)
+import Data.ByteString.Char8 hiding (head)
 import GHC.Generics
-import Network.HTTP.Req
+import Network.HTTP.Simple
 import System.Environment
 
 data HardCodedEvent = HardCodedEvent
@@ -19,29 +17,32 @@ instance ToJSON HardCodedEvent
 instance FromJSON HardCodedEvent
 
 main :: IO ()
-main = forever $ runReq def $ do
+main = forever $ do
   -- Retreive settings
   awsLambdaRuntimeApi <- liftIO $ getEnv "AWS_LAMBDA_RUNTIME_API"
   -- TODO: Is baseOptions an appropriate way to get/pass the port?
-  let (baseUrl, baseOptions) = fromJust (parseUrlHttp (pack ("http://" ++ awsLambdaRuntimeApi)))
+  baseRequest <- parseRequest $ "http://" ++ awsLambdaRuntimeApi
 
   -- Get an event
-  let nextUrl = baseUrl /: "2018-06-01" /: "runtime" /: "invocation" /: "next"
-  nextRes <- req GET nextUrl NoReqBody jsonResponse baseOptions
+  nextRes <- httpJSON $ setRequestPath "2018-06-01/runtime/invocation/next" baseRequest
 
   -- Propagate the tracing header
-  let traceId = fromJust $ responseHeader nextRes "Lambda-Runtime-Trace-Id"
+  let traceId = head $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
   liftIO $ setEnv "_X_AMZN_TRACE_ID" (unpack traceId)
 
   -- TODO: Create a context object
-  let reqId = fromJust $ responseHeader nextRes "Lambda-Runtime-Aws-Request-Id"
+  let reqId = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
 
   -- TODO: Invoke the function handler
-  let event = responseBody nextRes :: HardCodedEvent
+  let event = getResponseBody nextRes :: HardCodedEvent
 
   -- Handle the response (successes)
-  let successUrl = baseUrl /: "runtime" /: "invocation" /: decodeUtf8 reqId /: "response"
-  _ <- req POST successUrl (ReqBodyJson event) ignoreResponse baseOptions
+  let successUrl
+        = setRequestBodyJSON event
+        $ setRequestMethod "POST"
+        $ setRequestPath (Data.ByteString.concat ["2018-06-01/runtime/invocation/", reqId, "/response"])
+        $ baseRequest
+  r <- httpNoBody successUrl
 
   -- TODO: Handle errors
   return ()

@@ -10,11 +10,8 @@ extra-source-files:
 
 dependencies:
   - base >= 4.7 && < 5
-  - req
-  - text
+  - http-conduit
   - bytestring
-  - transformers
-  - data-default-class
   - aeson
 
 default-extensions:
