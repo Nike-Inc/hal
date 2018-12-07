@@ -18,5 +18,5 @@ stack build --copy-bins
 ### Execute
 
 ```bash
-echo '{ "value": 7 }' | sam local invoke --region us-east-1
+echo '{ "accountId": "***REMOVED***" }' | sam local invoke --region us-east-1
 ```
