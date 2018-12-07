@@ -2,11 +2,14 @@
 
 module Main where
 
-import           AWS.Lambda.Runtime  (pureLambdaRuntime)
-import           Data.Aeson          (FromJSON (..), ToJSON (..))
-import           Data.HashMap.Strict (HashMap)
+import           AWS.Lambda.Runtime     (ioLambdaRuntime)
+import           Data.Aeson             (FromJSON (..), ToJSON (..))
+import           Data.HashMap.Strict    (HashMap)
 import qualified Data.HashMap.Strict as M
-import           GHC.Generics        (Generic (..))
+import           Control.Exception.Base (ioError)
+import           GHC.Generics           (Generic (..))
+import           System.IO              (hPutStrLn, stderr)
+import           System.IO.Error        (userError)
 
 data AccountIdEvent = AccountIdEvent {
   accountId :: String
@@ -28,5 +31,12 @@ awsAccountHandler AccountIdEvent { accountId } =
     Nothing   -> Left "Not Found"
     Just acct -> Right acct
 
+-- Note that you have to write to stderr to get into Cloudwatch
+printHelloHandler :: AccountIdEvent -> IO (Either String ())
+printHelloHandler event =
+  case awsAccountHandler event of
+    Left es -> ioError $ userError es
+    Right acct -> fmap Right $ hPutStrLn stderr $ "Hello, " ++ acct ++ "!"
+
 main :: IO ()
-main = pureLambdaRuntime awsAccountHandler
+main = ioLambdaRuntime printHelloHandler
