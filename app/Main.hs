@@ -1,22 +1,32 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 module Main where
 
-import Data.Aeson (ToJSON(..), FromJSON(..))
-import GHC.Generics (Generic(..))
-import AWS.Lambda.Runtime (pureLambdaRuntime)
+import           AWS.Lambda.Runtime  (pureLambdaRuntime)
+import           Data.Aeson          (FromJSON (..), ToJSON (..))
+import           Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as M
+import           GHC.Generics        (Generic (..))
 
-data HardCodedEvent = HardCodedEvent
-  { value  :: Int
-  } deriving (Show, Generic)
+data AccountIdEvent = AccountIdEvent {
+  accountId :: String
+} deriving (Show, Generic)
 
-instance ToJSON HardCodedEvent
-instance FromJSON HardCodedEvent
+instance ToJSON AccountIdEvent
+instance FromJSON AccountIdEvent
 
--- Some test functions
-handler :: HardCodedEvent -> HardCodedEvent
-handler = id
+knownAccounts :: HashMap String String
+knownAccounts = M.fromList [
+    ("***REMOVED***", "***REMOVED***"),
+    ("***REMOVED***", "***REMOVED***"),
+    ("***REMOVED***", "***REMOVED***")
+  ]
 
-fallibleHandler :: HardCodedEvent -> Either String Int
-fallibleHandler _ = Left "I always fail, sucker."
+awsAccountHandler :: AccountIdEvent -> Either String String
+awsAccountHandler AccountIdEvent { accountId } =
+  case M.lookup accountId knownAccounts of
+    Nothing   -> Left "Not Found"
+    Just acct -> Right acct
 
 main :: IO ()
-main = pureLambdaRuntime fallibleHandler
+main = pureLambdaRuntime awsAccountHandler
