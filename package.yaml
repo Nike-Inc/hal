@@ -10,9 +10,6 @@ extra-source-files:
 
 dependencies:
   - base >= 4.7 && < 5
-  - http-conduit
-  - bytestring
-  - aeson
 
 default-extensions:
   - OverloadedStrings
@@ -47,7 +44,18 @@ ghc-options:
   - -fwarn-missing-signatures
   - -fwarn-incomplete-patterns
 
+library:
+  source-dirs: src
+  dependencies:
+    - http-conduit
+    - bytestring
+    - aeson
+
 executables:
   bootstrap:
-    source-dirs:      src
+    source-dirs:      app
     main:             Main.hs
+    dependencies:
+      - aws-lambda-runtime
+      - aeson
+      - unordered-containers
