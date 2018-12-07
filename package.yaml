@@ -58,3 +58,4 @@ executables:
     dependencies:
       - aws-lambda-runtime
       - aeson
+      - unordered-containers
