@@ -1,9 +1,12 @@
 module AWS.Lambda.Runtime (
+  ioLambdaRuntime,
   pureLambdaRuntime,
   simpleLambdaRuntime
 ) where
 
-import           Control.Monad         (forever)
+import           Data.Bifunctor        (first)
+import           Control.Exception     (displayException, evaluate, SomeException, try)
+import           Control.Monad         (forever, join)
 import           Data.Aeson            (FromJSON (..), ToJSON (..))
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Char8 as BSC
@@ -23,10 +26,10 @@ data LambdaError = LambdaError
 
 instance ToJSON LambdaError
 
--- | For pure functions that can still fail.
-pureLambdaRuntime :: (FromJSON event, ToJSON result) =>
-  (event -> Either String result) -> IO ()
-pureLambdaRuntime fn = forever $ do
+-- | For functions with IO that can fail in a pure way (or via throwM).
+ioLambdaRuntime :: (FromJSON event, ToJSON result) =>
+  (event -> IO (Either String result)) -> IO ()
+ioLambdaRuntime fn = forever $ do
   -- Retreive settings
   awsLambdaRuntimeApi <- getEnv "AWS_LAMBDA_RUNTIME_API"
   baseRequest <- parseRequest $ "http://" ++ awsLambdaRuntimeApi
@@ -42,7 +45,16 @@ pureLambdaRuntime fn = forever $ do
   let reqId = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
 
   let event = getResponseBody nextRes
-  let result = fn event
+  {- Note1: catching like this is _usually_ considered bad practice, but this is a true
+       case where we want to both catch all errors and propogate information about them.
+       See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
+     Note2: This might make BYOMonad harder, we're really exepecting an Either now.
+       catch is the alternative, but has us working harder with the exception itself.
+  -}
+  -- Put the exception in an Either, so we get nested Eithers
+  caughtResult <- try (fn event)
+  -- Map the outer Either (via first) so they are both of `Either String a`, then collapse them (via join)
+  let result = join $ first (displayException :: SomeException -> String) caughtResult
 
   case result of
     Right r -> do
@@ -67,6 +79,11 @@ pureLambdaRuntime fn = forever $ do
       _ <- httpNoBody failureUrl
       return ()
 
+-- | For pure functions that can still fail.
+pureLambdaRuntime :: (FromJSON event, ToJSON result) =>
+  (event -> Either String result) -> IO ()
+pureLambdaRuntime fn = ioLambdaRuntime (evaluate . fn)
+
 -- | For pure functions that can never fail.
 simpleLambdaRuntime :: (FromJSON event, ToJSON result) => (event -> result) -> IO ()
-simpleLambdaRuntime fn =  pureLambdaRuntime (Right . fn)
+simpleLambdaRuntime fn = pureLambdaRuntime (Right . fn)
