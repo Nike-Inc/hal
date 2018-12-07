@@ -1,16 +1,15 @@
-module Main where
+module AWS.Lambda.Runtime (
+  pureLambdaRuntime,
+  simpleLambdaRuntime
+) where
 
 import Control.Monad (forever)
-import Data.Aeson
+import Data.Aeson (ToJSON(..), FromJSON(..))
 import Data.ByteString hiding (head, unpack)
 import Data.ByteString.Char8 hiding (head)
-import GHC.Generics
+import GHC.Generics (Generic(..))
 import Network.HTTP.Simple
 import System.Environment
-
-data HardCodedEvent = HardCodedEvent
-  { value  :: Int
-  } deriving (Show, Generic)
 
 -- | Lambda runtime error that we pass back to AWS
 data LambdaError = LambdaError
@@ -19,8 +18,6 @@ data LambdaError = LambdaError
     stackTrace   :: [String]
   } deriving (Show, Generic)
 
-instance ToJSON HardCodedEvent
-instance FromJSON HardCodedEvent
 instance ToJSON LambdaError
 
 -- | For pure functions that can still fail.
@@ -70,13 +67,3 @@ pureLambdaRuntime fn = forever $ do
 -- | For pure functions that can never fail.
 simpleLambdaRuntime :: (FromJSON event, ToJSON result) => (event -> result) -> IO ()
 simpleLambdaRuntime fn =  pureLambdaRuntime (Right . fn)
-
--- Some test functions
-handler :: HardCodedEvent -> HardCodedEvent
-handler = id
-
-fallibleHandler :: HardCodedEvent -> Either String Int
-fallibleHandler _ = Left "I always fail, sucker."
-
-main :: IO ()
-main = pureLambdaRuntime fallibleHandler
