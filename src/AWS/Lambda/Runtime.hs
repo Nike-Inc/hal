@@ -5,16 +5,16 @@ module AWS.Lambda.Runtime (
 ) where
 
 import           Data.Bifunctor        (first)
-import           Control.Exception     (displayException, evaluate, SomeException, try)
+import           Control.Exception     (displayException, evaluate, SomeException, try, throw)
 import           Control.Monad         (forever, join)
 import           Data.Aeson            (FromJSON (..), ToJSON (..))
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Char8 as BSC
 import           GHC.Generics          (Generic (..))
 import           Network.HTTP.Simple   (getResponseBody, getResponseHeader,
-                                        httpJSON, httpNoBody, parseRequest,
+                                        httpJSONEither, httpNoBody, parseRequest,
                                         setRequestBodyJSON, setRequestHeader,
-                                        setRequestMethod, setRequestPath)
+                                        setRequestMethod, setRequestPath, JSONException(..))
 import           System.Environment    (getEnv, setEnv)
 
 -- | Lambda runtime error that we pass back to AWS
@@ -35,7 +35,7 @@ ioLambdaRuntime fn = forever $ do
   baseRequest <- parseRequest $ "http://" ++ awsLambdaRuntimeApi
 
   -- Get an event
-  nextRes <- httpJSON $ setRequestPath "2018-06-01/runtime/invocation/next" baseRequest
+  nextRes <- httpJSONEither $ setRequestPath "2018-06-01/runtime/invocation/next" baseRequest
 
   -- Propagate the tracing header
   let traceId = head $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
@@ -44,17 +44,27 @@ ioLambdaRuntime fn = forever $ do
   -- TODO: Create a context object
   let reqId = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
 
-  let event = getResponseBody nextRes
-  {- Note1: catching like this is _usually_ considered bad practice, but this is a true
-       case where we want to both catch all errors and propogate information about them.
-       See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
-     Note2: This might make BYOMonad harder, we're really exepecting an Either now.
-       catch is the alternative, but has us working harder with the exception itself.
-  -}
-  -- Put the exception in an Either, so we get nested Eithers
-  caughtResult <- try (fn event)
-  -- Map the outer Either (via first) so they are both of `Either String a`, then collapse them (via join)
-  let result = join $ first (displayException :: SomeException -> String) caughtResult
+  let eventOrJSONEx = getResponseBody nextRes
+  result <- case eventOrJSONEx of
+    Left ex ->
+      case ex of
+        -- If we failed to convert the JSON to the handler's event type, we consider
+        -- it a handler error without ever calling it.
+        JSONConversionException _ _ _ -> evaluate $ Left $ displayException ex
+        -- If the event was invalid JSON, it's an unrecoverable runtime error
+        JSONParseException _ _ _ -> throw ex
+    Right event -> do
+      {- Note1: catching like this is _usually_ considered bad practice, but this is a true
+           case where we want to both catch all errors and propogate information about them.
+           See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
+         Note2: This might make BYOMonad harder, we're really exepecting an Either now.
+           catch is the alternative, but has us working harder with the exception itself.
+      -}
+      -- Put the exception in an Either, so we get nested Eithers
+      caughtResult <- try (fn event)
+      -- Map the outer Either (via first) so they are both of `Either String a`, then collapse them (via join)
+      let handlerResult = join $ first (displayException :: SomeException -> String) caughtResult
+      return handlerResult
 
   case result of
     Right r -> do
