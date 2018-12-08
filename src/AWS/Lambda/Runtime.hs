@@ -46,13 +46,14 @@ ioLambdaRuntime fn = forever $ do
 
   let eventOrJSONEx = getResponseBody nextRes
   result <- case eventOrJSONEx of
-    Left ex ->
-      case ex of
-        -- If we failed to convert the JSON to the handler's event type, we consider
-        -- it a handler error without ever calling it.
-        JSONConversionException _ _ _ -> evaluate $ Left $ displayException ex
-        -- If the event was invalid JSON, it's an unrecoverable runtime error
-        JSONParseException _ _ _ -> throw ex
+    -- If the event was invalid JSON, it's an unrecoverable runtime error
+    Left ex@(JSONParseException _ _ _) -> throw ex
+
+    -- If we failed to convert the JSON to the handler's event type, we consider
+    -- it a handler error without ever calling it.
+    Left ex@(JSONConversionException _ _ _) -> evaluate $ Left $ displayException ex
+
+    -- Otherwise, we'll pass the event into the handler
     Right event -> do
       {- Note1: catching like this is _usually_ considered bad practice, but this is a true
            case where we want to both catch all errors and propogate information about them.
