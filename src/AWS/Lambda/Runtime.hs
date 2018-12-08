@@ -44,8 +44,7 @@ ioLambdaRuntime fn = forever $ do
   -- TODO: Create a context object
   let reqId = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
 
-  let eventOrJSONEx = getResponseBody nextRes
-  result <- case eventOrJSONEx of
+  result <- case getResponseBody nextRes of
     -- If the event was invalid JSON, it's an unrecoverable runtime error
     Left ex@(JSONParseException _ _ _) -> throw ex
 
@@ -64,8 +63,7 @@ ioLambdaRuntime fn = forever $ do
       -- Put the exception in an Either, so we get nested Eithers
       caughtResult <- try (fn event)
       -- Map the outer Either (via first) so they are both of `Either String a`, then collapse them (via join)
-      let handlerResult = join $ first (displayException :: SomeException -> String) caughtResult
-      return handlerResult
+      return $ join $ first (displayException :: SomeException -> String) caughtResult
 
   case result of
     Right r -> do
