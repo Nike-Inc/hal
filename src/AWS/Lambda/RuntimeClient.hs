@@ -2,13 +2,14 @@ module AWS.Lambda.RuntimeClient (
   getBaseRuntimeRequest,
   getNextEvent,
   postSuccess,
-  postHandlerError
+  postHandlerError,
+  postRuntimeError
 ) where
 
 import           Data.Aeson.Types      (FromJSON, ToJSON)
 import qualified Data.ByteString       as BS
 import           GHC.Generics          (Generic (..))
-import           Network.HTTP.Simple   (Request, Response, parseRequest, JSONException,
+import           Network.HTTP.Simple   (Request, Response, parseRequestThrow, JSONException,
                                         setRequestPath, httpJSONEither, setRequestBodyJSON,
                                         setRequestMethod, httpNoBody, setRequestHeader)
 import           System.Environment    (getEnv)
@@ -25,7 +26,7 @@ instance ToJSON LambdaError
 getBaseRuntimeRequest :: IO Request
 getBaseRuntimeRequest = do
   awsLambdaRuntimeApi <- getEnv "AWS_LAMBDA_RUNTIME_API"
-  parseRequest $ "http://" ++ awsLambdaRuntimeApi
+  parseRequestThrow $ "http://" ++ awsLambdaRuntimeApi
 
 -- TODO: Would a "genHandlers" method make sense that returns all runtime handlers
 -- with the baseRuntimeRequest pre-injected?
@@ -43,14 +44,30 @@ postSuccess baseRuntimeRequest reqId json = do
   _ <- httpNoBody successUrl
   return ()
 
+toBaseErrorRequest :: String -> Request -> Request
+toBaseErrorRequest e baseRuntimeRequest =
+  setRequestBodyJSON (LambdaError { errorMessage = e, stackTrace = [], errorType = "User"})
+    $ setRequestHeader "Content-Type" ["application/vnd.aws.lambda.error+json"]
+    $ setRequestMethod "POST"
+    $ baseRuntimeRequest
 
+-- TODO: These names `postHandlerError` and `postRuntimeError` are somewhat incorrect
+-- init/error is called if the next event cannot be retrieved, and all other errors
+-- get posted to invocation/reqId/error.
 postHandlerError :: Request -> BS.ByteString -> String -> IO ()
 postHandlerError baseRuntimeRequest reqId e = do
   let failureUrl
-        = setRequestBodyJSON (LambdaError { errorMessage = e, stackTrace = [], errorType = "User"})
-        $ setRequestHeader "Content-Type" ["application/vnd.aws.lambda.error+json"]
-        $ setRequestMethod "POST"
-        $ setRequestPath (BS.concat ["2018-06-01/runtime/invocation/", reqId, "/error"])
+        = setRequestPath (BS.concat ["2018-06-01/runtime/invocation/", reqId, "/error"])
+        $ toBaseErrorRequest e
+        $ baseRuntimeRequest
+  _ <- httpNoBody failureUrl
+  return ()
+
+postRuntimeError :: Request -> String -> IO ()
+postRuntimeError baseRuntimeRequest e = do
+  let failureUrl
+        = setRequestPath "2018-06-01/runtime/init/error"
+        $ toBaseErrorRequest e
         $ baseRuntimeRequest
   _ <- httpNoBody failureUrl
   return ()
