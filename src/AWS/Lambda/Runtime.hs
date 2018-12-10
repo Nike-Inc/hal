@@ -4,38 +4,24 @@ module AWS.Lambda.Runtime (
   simpleLambdaRuntime
 ) where
 
-import           Data.Bifunctor        (first)
-import           Control.Exception     (displayException, evaluate, SomeException, try, throw)
-import           Control.Monad         (forever, join)
-import           Data.Aeson            (FromJSON (..), ToJSON (..))
-import qualified Data.ByteString       as BS
+import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent, postSuccess, postHandlerError)
+import           Data.Bifunctor           (first)
+import           Control.Exception        (displayException, evaluate, SomeException, try, throw)
+import           Control.Monad            (forever, join)
+import           Data.Aeson               (FromJSON (..), ToJSON (..))
 import qualified Data.ByteString.Char8 as BSC
-import           GHC.Generics          (Generic (..))
-import           Network.HTTP.Simple   (getResponseBody, getResponseHeader,
-                                        httpJSONEither, httpNoBody, parseRequest,
-                                        setRequestBodyJSON, setRequestHeader,
-                                        setRequestMethod, setRequestPath, JSONException(..))
-import           System.Environment    (getEnv, setEnv)
-
--- | Lambda runtime error that we pass back to AWS
-data LambdaError = LambdaError
-  { errorMessage :: String,
-    errorType    :: String,
-    stackTrace   :: [String]
-  } deriving (Show, Generic)
-
-instance ToJSON LambdaError
+import           Network.HTTP.Simple      (getResponseBody, getResponseHeader, JSONException(..))
+import           System.Environment       (setEnv)
 
 -- | For functions with IO that can fail in a pure way (or via throwM).
 ioLambdaRuntime :: (FromJSON event, ToJSON result) =>
   (event -> IO (Either String result)) -> IO ()
 ioLambdaRuntime fn = forever $ do
   -- Retreive settings
-  awsLambdaRuntimeApi <- getEnv "AWS_LAMBDA_RUNTIME_API"
-  baseRequest <- parseRequest $ "http://" ++ awsLambdaRuntimeApi
+  baseRuntimeRequest <- getBaseRuntimeRequest
 
   -- Get an event
-  nextRes <- httpJSONEither $ setRequestPath "2018-06-01/runtime/invocation/next" baseRequest
+  nextRes <- getNextEvent baseRuntimeRequest
 
   -- Propagate the tracing header
   let traceId = head $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
@@ -66,27 +52,8 @@ ioLambdaRuntime fn = forever $ do
       return $ join $ first (displayException :: SomeException -> String) caughtResult
 
   case result of
-    Right r -> do
-      -- Handle the response (successes)
-      let successUrl
-            = setRequestBodyJSON r
-            $ setRequestMethod "POST"
-            $ setRequestPath (BS.concat ["2018-06-01/runtime/invocation/", reqId, "/response"])
-            $ baseRequest
-      _ <- httpNoBody successUrl
-
-      -- TODO: Handle errors
-      return ()
-
-    Left e -> do
-      let failureUrl
-            = setRequestBodyJSON (LambdaError { errorMessage = e, stackTrace = [], errorType = "User"})
-            $ setRequestHeader "Content-Type" ["application/vnd.aws.lambda.error+json"]
-            $ setRequestMethod "POST"
-            $ setRequestPath (BS.concat ["2018-06-01/runtime/invocation/", reqId, "/error"])
-            $ baseRequest
-      _ <- httpNoBody failureUrl
-      return ()
+    Right r -> postSuccess baseRuntimeRequest reqId r
+    Left e -> postHandlerError baseRuntimeRequest reqId e
 
 -- | For pure functions that can still fail.
 pureLambdaRuntime :: (FromJSON event, ToJSON result) =>
