@@ -46,6 +46,7 @@ postSuccess baseRuntimeRequest reqId json = do
 
 toBaseErrorRequest :: String -> Request -> Request
 toBaseErrorRequest e baseRuntimeRequest =
+  -- TODO: setRequestBodyJSON is overriding our "Content-Type" header
   setRequestBodyJSON (LambdaError { errorMessage = e, stackTrace = [], errorType = "User"})
     $ setRequestHeader "Content-Type" ["application/vnd.aws.lambda.error+json"]
     $ setRequestMethod "POST"
