@@ -1,11 +1,8 @@
 module AWS.Lambda.RuntimeClient (
   getBaseRuntimeRequest,
   getNextEvent,
-  getNextEvent',
-  postEventSuccess,
-  postEventSuccess',
-  postEventError,
-  postInitError
+  sendEventSuccess,
+  sendEventError
 ) where
 
 import           Control.Exception         (displayException, try)
@@ -29,10 +26,19 @@ data LambdaError = LambdaError
 
 instance ToJSON LambdaError
 
--- Damn this thing is uuuuuugly
-getNextEvent' :: FromJSON a => Request -> IO (Response (Either JSONException a))
-getNextEvent' baseRuntimeRequest = do
-  resOrEx <- try $ getNextEvent baseRuntimeRequest
+-- Exposed Handlers
+
+-- TODO: Would a "genHandlers" method make sense that returns all runtime handlers
+-- with the baseRuntimeRequest pre-injected?
+-- Then these functions serve as a very low-level API
+getBaseRuntimeRequest :: IO Request
+getBaseRuntimeRequest = do
+  awsLambdaRuntimeApi <- getEnv "AWS_LAMBDA_RUNTIME_API"
+  parseRequest $ "http://" ++ awsLambdaRuntimeApi
+
+getNextEvent :: FromJSON a => Request -> IO (Response (Either JSONException a))
+getNextEvent baseRuntimeRequest = do
+  resOrEx <- try $ httpJSONEither $ toNextEventRequest baseRuntimeRequest
   let checkStatus res = if not $ statusIsSuccessful $ getResponseStatus res then
         Left "Unexpected Runtime Error:  Could retrieve next event."
       else
@@ -40,14 +46,13 @@ getNextEvent' baseRuntimeRequest = do
   let resOrMsg = first (displayException :: HttpException -> String) resOrEx >>= checkStatus
   case resOrMsg of
     Left msg -> do
-      _ <- postInitError baseRuntimeRequest msg
+      _ <- httpNoBody $ toInitErrorRequest msg baseRuntimeRequest
       error msg
     Right y -> return y
 
--- Damn this thing is uuuuuugly
-postEventSuccess' :: ToJSON a => Request -> BS.ByteString -> a -> IO ()
-postEventSuccess' baseRuntimeRequest reqId json = do
-  resOrEx <- try $ postEventSuccess baseRuntimeRequest reqId json
+sendEventSuccess :: ToJSON a => Request -> BS.ByteString -> a -> IO ()
+sendEventSuccess baseRuntimeRequest reqId json = do
+  resOrEx <- try $ httpNoBody $ toEventSuccessRequest reqId json baseRuntimeRequest
 
   let resOrTypedMsg = case resOrEx of
         Left ex ->
@@ -68,53 +73,38 @@ postEventSuccess' baseRuntimeRequest reqId json = do
   case resOrTypedMsg of
     Left (Left msg) ->
       -- If an exception occurs here, we want that to propogate
-      postEventError baseRuntimeRequest reqId msg
+      sendEventError baseRuntimeRequest reqId msg
     Left (Right msg) -> error msg
     Right () -> return ()
 
-getBaseRuntimeRequest :: IO Request
-getBaseRuntimeRequest = do
-  awsLambdaRuntimeApi <- getEnv "AWS_LAMBDA_RUNTIME_API"
-  parseRequest $ "http://" ++ awsLambdaRuntimeApi
+sendEventError :: Request -> BS.ByteString -> String -> IO ()
+sendEventError baseRuntimeRequest reqId e =
+  fmap (const ()) $ httpNoBody $ toEventErrorRequest reqId e baseRuntimeRequest
 
--- TODO: Would a "genHandlers" method make sense that returns all runtime handlers
--- with the baseRuntimeRequest pre-injected?
--- Then these functions serve as a very low-level API
-getNextEvent :: FromJSON a => Request -> IO (Response (Either JSONException a))
-getNextEvent = httpJSONEither . setRequestPath "2018-06-01/runtime/invocation/next"
 
-postEventSuccess :: ToJSON a => Request -> BS.ByteString -> a -> IO (Response ())
-postEventSuccess baseRuntimeRequest reqId json = do
-  let successUrl
-        = setRequestBodyJSON json
-        $ setRequestMethod "POST"
-        $ setRequestPath (BS.concat ["2018-06-01/runtime/invocation/", reqId, "/response"])
-        $ baseRuntimeRequest
-  httpNoBody successUrl
+-- Request Transformers
+
+toNextEventRequest :: Request -> Request
+toNextEventRequest = setRequestPath "2018-06-01/runtime/invocation/next"
+
+toEventSuccessRequest :: ToJSON a => BS.ByteString -> a -> Request -> Request
+toEventSuccessRequest reqId json =
+  setRequestBodyJSON json .
+  setRequestMethod "POST" .
+  setRequestPath (BS.concat ["2018-06-01/runtime/invocation/", reqId, "/response"])
 
 toBaseErrorRequest :: String -> Request -> Request
-toBaseErrorRequest e baseRuntimeRequest =
+toBaseErrorRequest e =
   -- TODO: setRequestBodyJSON is overriding our "Content-Type" header
   setRequestBodyJSON (LambdaError { errorMessage = e, stackTrace = [], errorType = "User"})
-    $ setRequestHeader "Content-Type" ["application/vnd.aws.lambda.error+json"]
-    $ setRequestMethod "POST"
-    $ setRequestCheckStatus
-    $ baseRuntimeRequest
+    . setRequestHeader "Content-Type" ["application/vnd.aws.lambda.error+json"]
+    . setRequestMethod "POST"
+    . setRequestCheckStatus
 
-postEventError :: Request -> BS.ByteString -> String -> IO ()
-postEventError baseRuntimeRequest reqId e = do
-  let failureUrl
-        = setRequestPath (BS.concat ["2018-06-01/runtime/invocation/", reqId, "/error"])
-        $ toBaseErrorRequest e
-        $ baseRuntimeRequest
-  _ <- httpNoBody failureUrl
-  return ()
+toEventErrorRequest :: BS.ByteString -> String -> Request -> Request
+toEventErrorRequest reqId e =
+  setRequestPath (BS.concat ["2018-06-01/runtime/invocation/", reqId, "/error"]) . toBaseErrorRequest e
 
-postInitError :: Request -> String -> IO ()
-postInitError baseRuntimeRequest e = do
-  let failureUrl
-        = setRequestPath "2018-06-01/runtime/init/error"
-        $ toBaseErrorRequest e
-        $ baseRuntimeRequest
-  _ <- httpNoBody failureUrl
-  return ()
+toInitErrorRequest :: String -> Request -> Request
+toInitErrorRequest e =
+  setRequestPath "2018-06-01/runtime/init/error" . toBaseErrorRequest e
