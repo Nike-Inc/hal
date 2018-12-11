@@ -4,8 +4,8 @@ module AWS.Lambda.Runtime (
   simpleLambdaRuntime
 ) where
 
-import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent', postEventSuccess',
-                                           postEventError)
+import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent, sendEventSuccess,
+                                           sendEventError)
 import           Data.Bifunctor           (first)
 import           Control.Exception        (displayException, evaluate, SomeException, try, throw)
 import           Control.Monad            (forever, join)
@@ -18,7 +18,7 @@ runtimeLoop :: (FromJSON event, ToJSON result) => Request ->
   (event -> IO (Either String result)) -> IO ()
 runtimeLoop baseRuntimeRequest fn = do
   -- Get an event
-  nextRes <- getNextEvent' baseRuntimeRequest
+  nextRes <- getNextEvent baseRuntimeRequest
 
   -- Propagate the tracing header
   let traceId = head $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
@@ -49,8 +49,8 @@ runtimeLoop baseRuntimeRequest fn = do
       return $ join $ first (displayException :: SomeException -> String) caughtResult
 
   case result of
-    Right r -> postEventSuccess' baseRuntimeRequest reqId r
-    Left e -> postEventError baseRuntimeRequest reqId e
+    Right r -> sendEventSuccess baseRuntimeRequest reqId r
+    Left e -> sendEventError baseRuntimeRequest reqId e
 
 -- | For functions with IO that can fail in a pure way (or via throwM).
 ioLambdaRuntime :: (FromJSON event, ToJSON result) =>
