@@ -11,7 +11,7 @@ import           Control.Exception        (displayException, evaluate, SomeExcep
 import           Control.Monad            (forever, join)
 import           Data.Aeson               (FromJSON (..), ToJSON (..))
 import qualified Data.ByteString.Char8 as BSC
-import           Network.HTTP.Simple      (getResponseBody, getResponseHeader, JSONException, Request)
+import           Network.HTTP.Simple      (getResponseBody, getResponseHeader, Request)
 import           System.Environment       (setEnv)
 
 runtimeLoop :: (FromJSON event, ToJSON result) => Request ->
@@ -30,7 +30,7 @@ runtimeLoop baseRuntimeRequest fn = do
   result <- case getResponseBody nextRes of
     -- If we failed to parse or convert the JSON to the handler's event type, we consider
     -- it a handler error without ever calling it.
-    Left ex -> evaluate $ Left $ displayException (ex :: JSONException)
+    Left ex -> evaluate $ Left $ displayException ex
 
     -- Otherwise, we'll pass the event into the handler
     Right event -> do
