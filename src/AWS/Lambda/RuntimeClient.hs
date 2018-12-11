@@ -28,9 +28,11 @@ instance ToJSON LambdaError
 
 -- Exposed Handlers
 
--- TODO: Would a "genHandlers" method make sense that returns all runtime handlers
--- with the baseRuntimeRequest pre-injected?
--- Then these functions serve as a very low-level API
+-- TODO: It would be interesting if we could make the interface a sort of
+-- "chained" callback API.  So instead of getting back a base request to kick
+-- things off we get a 'getNextEvent' handler and then the 'getNextEvent'
+-- handler returns both the 'success' and 'error' handlers.  So things like
+-- baseRequest and reqId are pre-injected.
 getBaseRuntimeRequest :: IO Request
 getBaseRuntimeRequest = do
   awsLambdaRuntimeApi <- getEnv "AWS_LAMBDA_RUNTIME_API"
