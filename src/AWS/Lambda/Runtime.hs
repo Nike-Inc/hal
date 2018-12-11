@@ -4,10 +4,10 @@ module AWS.Lambda.Runtime (
   simpleLambdaRuntime
 ) where
 
-import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent, postSuccess,
-                                           postHandlerError, postRuntimeError)
+import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent', postEventSuccess',
+                                           postEventError)
 import           Data.Bifunctor           (first)
-import           Control.Exception        (displayException, evaluate, SomeException, try, throw, catch)
+import           Control.Exception        (displayException, evaluate, SomeException, try, throw)
 import           Control.Monad            (forever, join)
 import           Data.Aeson               (FromJSON (..), ToJSON (..))
 import qualified Data.ByteString.Char8 as BSC
@@ -18,7 +18,7 @@ runtimeLoop :: (FromJSON event, ToJSON result) => Request ->
   (event -> IO (Either String result)) -> IO ()
 runtimeLoop baseRuntimeRequest fn = do
   -- Get an event
-  nextRes <- getNextEvent baseRuntimeRequest
+  nextRes <- getNextEvent' baseRuntimeRequest
 
   -- Propagate the tracing header
   let traceId = head $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
@@ -49,29 +49,15 @@ runtimeLoop baseRuntimeRequest fn = do
       return $ join $ first (displayException :: SomeException -> String) caughtResult
 
   case result of
-    Right r ->
-      -- TODO: 4xx errors should propogate the returned error to the postHandlerError.
-      -- It appears that after successful event retreival, postRunTimeError cannot be called.
-      -- It gives this error message: "Transition from STATE_INVOKE_NEXT to STATE_INIT_ERROR is not allowed."
-      -- Where should that logic be handled?
-      postSuccess baseRuntimeRequest reqId r
-    Left e -> postHandlerError baseRuntimeRequest reqId e
+    Right r -> postEventSuccess' baseRuntimeRequest reqId r
+    Left e -> postEventError baseRuntimeRequest reqId e
 
 -- | For functions with IO that can fail in a pure way (or via throwM).
 ioLambdaRuntime :: (FromJSON event, ToJSON result) =>
   (event -> IO (Either String result)) -> IO ()
 ioLambdaRuntime fn = do
-  -- Retreive settings; if this fails there is no hope of any useful recovery
   baseRuntimeRequest <- getBaseRuntimeRequest
-  catch
-    (forever $ runtimeLoop baseRuntimeRequest fn)
-    (\ex -> do
-      -- Catching all exceptions is _usually_ bad practice,
-      -- but this is clearly appropriate as it our top level handler
-      let msg = displayException (ex :: SomeException)
-      _ <- postRuntimeError baseRuntimeRequest msg
-      error "Runtime error, exiting now."
-    )
+  forever $ runtimeLoop baseRuntimeRequest fn
 
 -- | For pure functions that can still fail.
 pureLambdaRuntime :: (FromJSON event, ToJSON result) =>

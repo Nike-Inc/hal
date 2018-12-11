@@ -50,6 +50,7 @@ library:
     - http-conduit
     - bytestring
     - aeson
+    - http-types
 
 executables:
   bootstrap:
