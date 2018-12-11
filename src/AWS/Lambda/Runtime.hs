@@ -7,11 +7,11 @@ module AWS.Lambda.Runtime (
 import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent, sendEventSuccess,
                                            sendEventError)
 import           Data.Bifunctor           (first)
-import           Control.Exception        (displayException, evaluate, SomeException, try, throw)
+import           Control.Exception        (displayException, evaluate, SomeException, try)
 import           Control.Monad            (forever, join)
 import           Data.Aeson               (FromJSON (..), ToJSON (..))
 import qualified Data.ByteString.Char8 as BSC
-import           Network.HTTP.Simple      (getResponseBody, getResponseHeader, JSONException(..), Request)
+import           Network.HTTP.Simple      (getResponseBody, getResponseHeader, JSONException, Request)
 import           System.Environment       (setEnv)
 
 runtimeLoop :: (FromJSON event, ToJSON result) => Request ->
@@ -28,12 +28,9 @@ runtimeLoop baseRuntimeRequest fn = do
   let reqId = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
 
   result <- case getResponseBody nextRes of
-    -- If the event was invalid JSON, it's an unrecoverable runtime error
-    Left ex@(JSONParseException _ _ _) -> throw ex
-
-    -- If we failed to convert the JSON to the handler's event type, we consider
+    -- If we failed to parse or convert the JSON to the handler's event type, we consider
     -- it a handler error without ever calling it.
-    Left ex@(JSONConversionException _ _ _) -> evaluate $ Left $ displayException ex
+    Left ex -> evaluate $ Left $ displayException (ex :: JSONException)
 
     -- Otherwise, we'll pass the event into the handler
     Right event -> do
