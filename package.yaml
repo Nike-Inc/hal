@@ -47,10 +47,11 @@ ghc-options:
 library:
   source-dirs: src
   dependencies:
-    - http-conduit
-    - bytestring
     - aeson
+    - bytestring
     - envy
+    - http-conduit
+    - http-types
 
 executables:
   bootstrap:
