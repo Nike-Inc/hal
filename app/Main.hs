@@ -2,7 +2,7 @@
 
 module Main where
 
-import           AWS.Lambda.Runtime     (ioLambdaRuntime)
+import           AWS.Lambda.Runtime     (ioLambdaRuntime, LambdaContext)
 import           Data.Aeson             (FromJSON (..), ToJSON (..))
 import           Data.HashMap.Strict    (HashMap)
 import qualified Data.HashMap.Strict as M
@@ -38,5 +38,9 @@ printHelloHandler event =
     Left es -> ioError $ userError es
     Right acct -> fmap Right $ hPutStrLn stderr $ "Hello, " ++ acct ++ "!"
 
+testEnvHandler :: LambdaContext -> AccountIdEvent -> IO (Either String String)
+testEnvHandler ctx _ = do
+  return $ Right (show ctx)
+
 main :: IO ()
-main = ioLambdaRuntime printHelloHandler
+main = ioLambdaRuntime testEnvHandler
