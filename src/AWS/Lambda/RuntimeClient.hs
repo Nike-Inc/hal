@@ -10,11 +10,15 @@ import           Data.Aeson.Types          (FromJSON, ToJSON)
 import           Data.Bifunctor            (first)
 import qualified Data.ByteString           as BS
 import           GHC.Generics              (Generic (..))
-import           Network.HTTP.Simple       (Request, Response, parseRequest, JSONException,
-                                            setRequestPath, httpJSONEither, setRequestBodyJSON,
-                                            setRequestMethod, httpNoBody, setRequestHeader,
-                                            HttpException, getResponseStatus, setRequestCheckStatus)
-import           Network.HTTP.Types.Status (statusIsSuccessful, status413)
+import           Network.HTTP.Simple       (HttpException, JSONException,
+                                            Request, Response,
+                                            getResponseStatus, httpJSONEither,
+                                            httpNoBody, parseRequest,
+                                            setRequestBodyJSON,
+                                            setRequestCheckStatus,
+                                            setRequestHeader, setRequestMethod,
+                                            setRequestPath)
+import           Network.HTTP.Types.Status (status413, statusIsSuccessful)
 import           System.Environment        (getEnv)
 
 -- | Lambda runtime error that we pass back to AWS

@@ -2,11 +2,12 @@
 
 module Main where
 
-import           AWS.Lambda.Runtime     (ioLambdaRuntime)
+import           AWS.Lambda.Runtime     (LambdaContext,
+                                         ioLambdaRuntimeWithContext)
+import           Control.Exception.Base (ioError)
 import           Data.Aeson             (FromJSON (..), ToJSON (..))
 import           Data.HashMap.Strict    (HashMap)
-import qualified Data.HashMap.Strict as M
-import           Control.Exception.Base (ioError)
+import qualified Data.HashMap.Strict    as M
 import           GHC.Generics           (Generic (..))
 import           System.IO              (hPutStrLn, stderr)
 import           System.IO.Error        (userError)
@@ -35,8 +36,12 @@ awsAccountHandler AccountIdEvent { accountId } =
 printHelloHandler :: AccountIdEvent -> IO (Either String ())
 printHelloHandler event =
   case awsAccountHandler event of
-    Left es -> ioError $ userError es
+    Left es    -> ioError $ userError es
     Right acct -> fmap Right $ hPutStrLn stderr $ "Hello, " ++ acct ++ "!"
 
+testEnvHandler :: LambdaContext -> AccountIdEvent -> IO (Either String String)
+testEnvHandler ctx _ = do
+  return $ Right (show ctx)
+
 main :: IO ()
-main = ioLambdaRuntime printHelloHandler
+main = ioLambdaRuntimeWithContext testEnvHandler
