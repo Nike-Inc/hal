@@ -66,7 +66,7 @@ main = simpleLambdaRuntime idHandler
 Don't forget to define your [CloudFormation] stack:
 
 ```yaml
-# file: cf_template.yaml
+# file: template.yaml
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
 Description: Test for the Haskell Runtime.
