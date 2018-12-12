@@ -1,21 +1,49 @@
 module AWS.Lambda.Runtime (
   ioLambdaRuntime,
   pureLambdaRuntime,
-  simpleLambdaRuntime
+  pureLambdaRuntimeWithContext,
+  simpleLambdaRuntime,
+  simpleLambdaRuntimeWithContext,
+  LambdaContext(..)
 ) where
 
 import           Data.Bifunctor        (first)
 import           Control.Exception     (displayException, evaluate, SomeException, try)
 import           Control.Monad         (forever, join)
-import           Data.Aeson            (FromJSON (..), ToJSON (..))
+import           Data.Aeson            (FromJSON, ToJSON)
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Char8 as BSC
-import           GHC.Generics          (Generic (..))
+import           GHC.Generics          (Generic)
 import           Network.HTTP.Simple   (getResponseBody, getResponseHeader,
                                         httpJSON, httpNoBody, parseRequest,
                                         setRequestBodyJSON, setRequestHeader,
                                         setRequestMethod, setRequestPath)
 import           System.Environment    (getEnv, setEnv)
+import System.Envy (FromEnv, DefConfig(..), decodeEnv, fromEnv, gFromEnvCustom, Option(..))
+import Data.Either (rights)
+
+data LambdaContext = LambdaContext
+  { getRemainingTimeInMillis :: Double, -- TODO doesn't seem to be in env
+    functionName             :: String,
+    functionVersion          :: String,
+    functionMemorySize       :: String,
+    invokedFunctionArn       :: String, -- TODO doesn't seem to be in env
+    awsRequestId             :: String, -- TODO doesn't seem to be in env
+    logGroupName             :: String,
+    logStreamName            :: String,
+    deadlineMs               :: Double  -- TODO doesn't seem to be in env
+  } deriving (Show, Generic)
+
+-- TODO not sure how I feel about defaults yet, I think we may want to report
+-- some kind of error if we don't find it in the environment?
+instance DefConfig LambdaContext where
+  defConfig = LambdaContext 0 "" "" "" "" "" "" "" 0
+
+instance FromEnv LambdaContext where
+  fromEnv = gFromEnvCustom Option {
+                    dropPrefixCount = 0,
+                    customPrefix = "AWS_LAMBDA"
+          }
 
 -- | Lambda runtime error that we pass back to AWS
 data LambdaError = LambdaError
@@ -28,7 +56,7 @@ instance ToJSON LambdaError
 
 -- | For functions with IO that can fail in a pure way (or via throwM).
 ioLambdaRuntime :: (FromJSON event, ToJSON result) =>
-  (event -> IO (Either String result)) -> IO ()
+  (LambdaContext -> event -> IO (Either String result)) -> IO ()
 ioLambdaRuntime fn = forever $ do
   -- Retreive settings
   awsLambdaRuntimeApi <- getEnv "AWS_LAMBDA_RUNTIME_API"
@@ -41,8 +69,11 @@ ioLambdaRuntime fn = forever $ do
   let traceId = head $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
   setEnv "_X_AMZN_TRACE_ID" (BSC.unpack traceId)
 
-  -- TODO: Create a context object
   let reqId = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
+
+  possibleCtx <- (decodeEnv :: IO (Either String LambdaContext))
+  -- TODO this is a temporary hack before merging in Nathan's error handling work
+  let ctx = head $ Data.Either.rights [possibleCtx]
 
   let event = getResponseBody nextRes
   {- Note1: catching like this is _usually_ considered bad practice, but this is a true
@@ -52,7 +83,7 @@ ioLambdaRuntime fn = forever $ do
        catch is the alternative, but has us working harder with the exception itself.
   -}
   -- Put the exception in an Either, so we get nested Eithers
-  caughtResult <- try (fn event)
+  caughtResult <- try (fn ctx event)
   -- Map the outer Either (via first) so they are both of `Either String a`, then collapse them (via join)
   let result = join $ first (displayException :: SomeException -> String) caughtResult
 
@@ -79,10 +110,22 @@ ioLambdaRuntime fn = forever $ do
       _ <- httpNoBody failureUrl
       return ()
 
+pureLambdaRuntimeWithContext :: (FromJSON event, ToJSON result) =>
+  (LambdaContext -> event -> Either String result) -> IO ()
+pureLambdaRuntimeWithContext fn = ioLambdaRuntime wrapped
+  where wrapped c e = evaluate $ fn c e
+
 -- | For pure functions that can still fail.
 pureLambdaRuntime :: (FromJSON event, ToJSON result) =>
   (event -> Either String result) -> IO ()
-pureLambdaRuntime fn = ioLambdaRuntime (evaluate . fn)
+pureLambdaRuntime fn = pureLambdaRuntimeWithContext wrapped
+  where
+    wrapped _ e = fn e
+
+simpleLambdaRuntimeWithContext :: (FromJSON event, ToJSON result) =>
+  (LambdaContext -> event -> result) -> IO ()
+simpleLambdaRuntimeWithContext fn = pureLambdaRuntimeWithContext wrapped
+  where wrapped c e = Right $ fn c e
 
 -- | For pure functions that can never fail.
 simpleLambdaRuntime :: (FromJSON event, ToJSON result) => (event -> result) -> IO ()

@@ -50,6 +50,7 @@ library:
     - http-conduit
     - bytestring
     - aeson
+    - envy
 
 executables:
   bootstrap:
