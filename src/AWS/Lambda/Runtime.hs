@@ -10,9 +10,11 @@ module AWS.Lambda.Runtime (
 
 import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent,
                                            sendEventError, sendEventSuccess)
-import           Control.Exception        (SomeException, displayException,
-                                           evaluate, try)
-import           Control.Monad            (forever, join)
+import           Control.Exception        (SomeException, displayException)
+import           Control.Monad            (forever)
+import           Control.Monad.Catch      (try)
+import           Control.Monad.IO.Class   (liftIO)
+import           Control.Monad.Reader     (runReaderT, ReaderT, local, ask)
 import           Data.Aeson               (FromJSON, ToJSON)
 import           Data.Bifunctor           (first)
 import qualified Data.ByteString.Char8    as BSC
@@ -47,23 +49,23 @@ instance FromEnv LambdaContext where
           }
 
 runtimeLoop :: (FromJSON event, ToJSON result) => Request ->
-  (LambdaContext -> event -> IO (Either String result)) -> IO ()
+  (event -> ReaderT LambdaContext IO result) -> ReaderT LambdaContext IO ()
 runtimeLoop baseRuntimeRequest fn = do
   -- Get an event
-  nextRes <- getNextEvent baseRuntimeRequest
+  nextRes <- liftIO $ getNextEvent baseRuntimeRequest
 
   -- Propagate the tracing header
   let traceId = head $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
-  setEnv "_X_AMZN_TRACE_ID" (BSC.unpack traceId)
+  liftIO $ setEnv "_X_AMZN_TRACE_ID" (BSC.unpack traceId)
 
   let reqId = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
   let functionArn = head $ getResponseHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
   let deadlineInMs = head $ getResponseHeader "Lambda-Runtime-Deadline-Ms" nextRes
 
-  possibleCtx <- (decodeEnv :: IO (Either String LambdaContext))
+  possibleCtx <- liftIO $ (decodeEnv :: IO (Either String LambdaContext))
 
   case possibleCtx of
-    Left err -> sendEventError baseRuntimeRequest reqId err
+    Left err -> liftIO $ sendEventError baseRuntimeRequest reqId err
     Right c -> do
 
       -- Populate the context with values from headers
@@ -73,35 +75,44 @@ runtimeLoop baseRuntimeRequest fn = do
                     -- TODO I think there's a cleaner/safer way to do this, but here it is for now.
                     deadlineMs         = read . BSC.unpack $ deadlineInMs
                   }
+      local (\_ -> ctx) $ do
+        result <- case getResponseBody nextRes of
+          -- If we failed to parse or convert the JSON to the handler's event type, we consider
+          -- it a handler error without ever calling it.
+          Left ex -> return $ Left $ displayException ex
 
-      result <- case getResponseBody nextRes of
-        -- If we failed to parse or convert the JSON to the handler's event type, we consider
-        -- it a handler error without ever calling it.
-        Left ex -> evaluate $ Left $ displayException ex
+          -- Otherwise, we'll pass the event into the handler
+          Right event -> do
+            {- Note1: catching like this is _usually_ considered bad practice, but this is a true
+                 case where we want to both catch all errors and propogate information about them.
+                 See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
+            -}
+            -- Put any exceptions in an Either
+            caughtResult <- try (fn event)
+            -- Map the Either (via first) so it is an `Either String a`
+            return $ first (displayException :: SomeException -> String) caughtResult
 
-        -- Otherwise, we'll pass the event into the handler
-        Right event -> do
-          {- Note1: catching like this is _usually_ considered bad practice, but this is a true
-               case where we want to both catch all errors and propogate information about them.
-               See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
-             Note2: This might make BYOMonad harder, we're really exepecting an Either now.
-               catch is the alternative, but has us working harder with the exception itself.
-          -}
-          -- Put the exception in an Either, so we get nested Eithers
-          caughtResult <- try (fn ctx event)
-          -- Map the outer Either (via first) so they are both of `Either String a`, then collapse them (via join)
-          return $ join $ first (displayException :: SomeException -> String) caughtResult
+        liftIO $ case result of
+          Right r -> sendEventSuccess baseRuntimeRequest reqId r
+          Left e  -> sendEventError baseRuntimeRequest reqId e
 
-      case result of
-        Right r -> sendEventSuccess baseRuntimeRequest reqId r
-        Left e  -> sendEventError baseRuntimeRequest reqId e
+-- | For functions that can read the lambda context and use IO within the same monad.
+readerTLambdaRuntime :: (FromJSON event, ToJSON result) =>
+  (event -> ReaderT LambdaContext IO result) -> IO ()
+readerTLambdaRuntime fn = do
+  baseRuntimeRequest <- getBaseRuntimeRequest
+  forever $ runReaderT (runtimeLoop baseRuntimeRequest fn) $ LambdaContext 0 "" "" "" "" "" "" "" "" 0
 
 -- | For functions with IO that can fail in a pure way (or via throwM).
 ioLambdaRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> IO (Either String result)) -> IO ()
-ioLambdaRuntimeWithContext fn = do
-  baseRuntimeRequest <- getBaseRuntimeRequest
-  forever $ runtimeLoop baseRuntimeRequest fn
+ioLambdaRuntimeWithContext fn = readerTLambdaRuntime (\event -> do
+  config <- ask
+  result <- liftIO $ fn config event
+  case result of
+    Left e -> error e
+    Right x -> return x
+ )
 
 -- | For functions with IO that can fail in a pure way (or via throwM).
 ioLambdaRuntime :: (FromJSON event, ToJSON result) =>
@@ -113,7 +124,7 @@ ioLambdaRuntime fn = ioLambdaRuntimeWithContext wrapped
 pureLambdaRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> Either String result) -> IO ()
 pureLambdaRuntimeWithContext fn = ioLambdaRuntimeWithContext wrapped
-  where wrapped c e = evaluate $ fn c e
+  where wrapped c e = return $ fn c e
 
 -- | For pure functions that can still fail.
 pureLambdaRuntime :: (FromJSON event, ToJSON result) =>
