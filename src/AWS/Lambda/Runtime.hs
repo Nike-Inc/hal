@@ -102,7 +102,7 @@ readerTLambdaRuntime :: (FromJSON event, ToJSON result) =>
   (event -> ReaderT LambdaContext IO result) -> IO ()
 readerTLambdaRuntime fn = do
   baseRuntimeRequest <- getBaseRuntimeRequest
-  forever $ runReaderT (runtimeLoop baseRuntimeRequest fn) $ LambdaContext 0 "" "" "" "" "" "" "" "" 0
+  forever $ runReaderT (runtimeLoop baseRuntimeRequest fn) $ defConfig
 
 -- | For functions with IO that can fail in a pure way (or via throwM).
 ioLambdaRuntimeWithContext :: (FromJSON event, ToJSON result) =>
