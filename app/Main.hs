@@ -2,9 +2,11 @@
 
 module Main where
 
-import           AWS.Lambda.Runtime     (LambdaContext,
-                                         ioLambdaRuntimeWithContext)
+import           AWS.Lambda.Runtime     (LambdaContext(..),
+                                         readerTLambdaRuntime)
 import           Control.Exception.Base (ioError)
+import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad.Reader   (ReaderT, ask)
 import           Data.Aeson             (FromJSON (..), ToJSON (..))
 import           Data.HashMap.Strict    (HashMap)
 import qualified Data.HashMap.Strict    as M
@@ -43,5 +45,13 @@ testEnvHandler :: LambdaContext -> AccountIdEvent -> IO (Either String String)
 testEnvHandler ctx _ = do
   return $ Right (show ctx)
 
+testReaderT :: AccountIdEvent -> ReaderT LambdaContext IO String
+testReaderT AccountIdEvent { accountId } = do
+  LambdaContext { functionName, functionMemorySize } <- ask
+  liftIO $ hPutStrLn stderr $ "I hope " ++ functionMemorySize ++ "MB is enough to handle the lookup of " ++ accountId ++ "!"
+  case M.lookup accountId knownAccounts of
+    Nothing   -> error "Not Found"
+    Just acct -> return $ acct ++ " (this account name brought to you by " ++ functionName ++ ")"
+
 main :: IO ()
-main = ioLambdaRuntimeWithContext testEnvHandler
+main = readerTLambdaRuntime testReaderT
