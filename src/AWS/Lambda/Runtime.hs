@@ -84,7 +84,7 @@ runtimeLoop baseRuntimeRequest fn = do
 
           -- Otherwise, we'll pass the event into the handler
           Right event -> do
-            {- Note1: catching like this is _usually_ considered bad practice, but this is a true
+            {- Catching like this is _usually_ considered bad practice, but this is a true
                  case where we want to both catch all errors and propogate information about them.
                  See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
             -}
