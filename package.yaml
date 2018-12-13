@@ -63,3 +63,4 @@ executables:
       - aws-lambda-runtime
       - aeson
       - unordered-containers
+      - mtl

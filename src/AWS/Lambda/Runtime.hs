@@ -5,6 +5,7 @@ module AWS.Lambda.Runtime (
   simpleLambdaRuntimeWithContext,
   ioLambdaRuntime,
   ioLambdaRuntimeWithContext,
+  readerTLambdaRuntime,
   LambdaContext(..)
 ) where
 
