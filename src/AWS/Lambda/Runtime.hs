@@ -24,19 +24,21 @@ import           System.Envy              (DefConfig (..), FromEnv, Option (..),
                                            decodeEnv, fromEnv, gFromEnvCustom)
 
 data LambdaContext = LambdaContext
-  { getRemainingTimeInMillis :: Double, -- TODO doesn't seem to be in env
+  { getRemainingTimeInMillis :: Double, -- TODO this is calculated by "us", Nathan and I talked about moving this into a function.
     functionName             :: String,
     functionVersion          :: String,
     functionMemorySize       :: String,
-    invokedFunctionArn       :: String, -- TODO doesn't seem to be in env
-    awsRequestId             :: String, -- TODO doesn't seem to be in env
+    awsRequestId             :: String,
     logGroupName             :: String,
     logStreamName            :: String,
-    deadlineMs               :: Double  -- TODO doesn't seem to be in env
+    -- The following context values come from headers rather than env vars.
+    invokedFunctionArn       :: String,
+    xRayTraceId              :: String,
+    deadlineMs               :: Double
   } deriving (Show, Generic)
 
 instance DefConfig LambdaContext where
-  defConfig = LambdaContext 0 "" "" "" "" "" "" "" 0
+  defConfig = LambdaContext 0 "" "" "" "" "" "" "" "" 0
 
 instance FromEnv LambdaContext where
   fromEnv = gFromEnvCustom Option {
@@ -55,12 +57,23 @@ runtimeLoop baseRuntimeRequest fn = do
   setEnv "_X_AMZN_TRACE_ID" (BSC.unpack traceId)
 
   let reqId = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
+  let functionArn = head $ getResponseHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
+  let deadlineInMs = head $ getResponseHeader "Lambda-Runtime-Deadline-Ms" nextRes
 
   possibleCtx <- (decodeEnv :: IO (Either String LambdaContext))
 
   case possibleCtx of
     Left err -> sendEventError baseRuntimeRequest reqId err
-    Right ctx -> do
+    Right c -> do
+
+      -- Populate the context with values from headers
+      let ctx = c { awsRequestId       = BSC.unpack reqId,
+                    xRayTraceId        = BSC.unpack traceId,
+                    invokedFunctionArn = BSC.unpack functionArn,
+                    -- TODO I think there's a cleaner/safer way to do this, but here it is for now.
+                    deadlineMs         = read . BSC.unpack $ deadlineInMs
+                  }
+
       result <- case getResponseBody nextRes of
         -- If we failed to parse or convert the JSON to the handler's event type, we consider
         -- it a handler error without ever calling it.
