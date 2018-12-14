@@ -52,6 +52,8 @@ library:
     - envy
     - http-conduit
     - http-types
+    - exceptions
+    - mtl
 
 executables:
   bootstrap:
@@ -61,3 +63,4 @@ executables:
       - aws-lambda-runtime
       - aeson
       - unordered-containers
+      - mtl
