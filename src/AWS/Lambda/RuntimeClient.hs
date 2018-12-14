@@ -6,6 +6,7 @@ module AWS.Lambda.RuntimeClient (
 ) where
 
 import           Control.Exception         (displayException, try)
+import           Data.Aeson                (encode)
 import           Data.Aeson.Types          (FromJSON, ToJSON)
 import           Data.Bifunctor            (first)
 import qualified Data.ByteString           as BS
@@ -15,6 +16,7 @@ import           Network.HTTP.Simple       (HttpException, JSONException,
                                             getResponseStatus, httpJSONEither,
                                             httpNoBody, parseRequest,
                                             setRequestBodyJSON,
+                                            setRequestBodyLBS,
                                             setRequestCheckStatus,
                                             setRequestHeader, setRequestMethod,
                                             setRequestPath)
@@ -101,8 +103,7 @@ toEventSuccessRequest reqId json =
 
 toBaseErrorRequest :: String -> Request -> Request
 toBaseErrorRequest e =
-  -- TODO: setRequestBodyJSON is overriding our "Content-Type" header
-  setRequestBodyJSON (LambdaError { errorMessage = e, stackTrace = [], errorType = "User"})
+  setRequestBodyLBS (encode (LambdaError { errorMessage = e, stackTrace = [], errorType = "User"}))
     . setRequestHeader "Content-Type" ["application/vnd.aws.lambda.error+json"]
     . setRequestMethod "POST"
     . setRequestCheckStatus
