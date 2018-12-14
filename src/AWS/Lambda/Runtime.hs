@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module AWS.Lambda.Runtime (
   pureLambdaRuntime,
   pureLambdaRuntimeWithContext,
@@ -6,6 +7,8 @@ module AWS.Lambda.Runtime (
   ioLambdaRuntime,
   ioLambdaRuntimeWithContext,
   readerTLambdaRuntime,
+  mLambdaContextRuntime,
+  runReaderTLambdaContext,
   LambdaContext(..)
 ) where
 
@@ -13,9 +16,9 @@ import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent,
                                            sendEventError, sendEventSuccess)
 import           Control.Exception        (SomeException, displayException)
 import           Control.Monad            (forever)
-import           Control.Monad.Catch      (try)
-import           Control.Monad.IO.Class   (liftIO)
-import           Control.Monad.Reader     (runReaderT, ReaderT, local, ask)
+import           Control.Monad.Catch      (try, MonadCatch)
+import           Control.Monad.IO.Class   (liftIO, MonadIO)
+import           Control.Monad.Reader     (runReaderT, ReaderT, local, ask, MonadReader)
 import           Data.Aeson               (FromJSON, ToJSON)
 import           Data.Bifunctor           (first)
 import qualified Data.ByteString.Char8    as BSC
@@ -49,8 +52,8 @@ instance FromEnv LambdaContext where
                     customPrefix = "AWS_LAMBDA"
           }
 
-runtimeLoop :: (FromJSON event, ToJSON result) => Request ->
-  (event -> ReaderT LambdaContext IO result) -> ReaderT LambdaContext IO ()
+runtimeLoop :: (MonadCatch m, MonadReader LambdaContext m, MonadIO m, FromJSON event, ToJSON result) => Request ->
+  (event -> m result) -> m ()
 runtimeLoop baseRuntimeRequest fn = do
   -- Get an event
   nextRes <- liftIO $ getNextEvent baseRuntimeRequest
@@ -97,12 +100,23 @@ runtimeLoop baseRuntimeRequest fn = do
           Right r -> sendEventSuccess baseRuntimeRequest reqId r
           Left e  -> sendEventError baseRuntimeRequest reqId e
 
+--TODO: Revisit all names before we put them under contract
+
+-- | For any monad that supports IO/catch/Reader LambdaContext
+mLambdaContextRuntime :: (MonadCatch m, MonadReader LambdaContext m, MonadIO m, FromJSON event, ToJSON result) =>
+  (event -> m result) -> m ()
+mLambdaContextRuntime fn = do
+  baseRuntimeRequest <- liftIO getBaseRuntimeRequest
+  forever $ runtimeLoop baseRuntimeRequest fn
+
+-- | Helper for using arbitrary monads with only the LambdaContext in its Reader
+runReaderTLambdaContext :: ReaderT LambdaContext m a -> m a
+runReaderTLambdaContext = flip runReaderT defConfig
+
 -- | For functions that can read the lambda context and use IO within the same monad.
 readerTLambdaRuntime :: (FromJSON event, ToJSON result) =>
   (event -> ReaderT LambdaContext IO result) -> IO ()
-readerTLambdaRuntime fn = do
-  baseRuntimeRequest <- getBaseRuntimeRequest
-  forever $ runReaderT (runtimeLoop baseRuntimeRequest fn) $ defConfig
+readerTLambdaRuntime = runReaderTLambdaContext .  mLambdaContextRuntime
 
 -- | For functions with IO that can fail in a pure way (or via throwM).
 ioLambdaRuntimeWithContext :: (FromJSON event, ToJSON result) =>

@@ -3,10 +3,11 @@
 module Main where
 
 import           AWS.Lambda.Runtime     (LambdaContext(..),
-                                         readerTLambdaRuntime)
+                                         runReaderTLambdaContext, mLambdaContextRuntime)
 import           Control.Exception.Base (ioError)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader   (ReaderT, ask)
+import           Control.Monad.State    (StateT, get, put, evalStateT)
 import           Data.Aeson             (FromJSON (..), ToJSON (..))
 import           Data.HashMap.Strict    (HashMap)
 import qualified Data.HashMap.Strict    as M
@@ -53,5 +54,15 @@ testReaderT AccountIdEvent { accountId } = do
     Nothing   -> error "Not Found"
     Just acct -> return $ acct ++ " (this account name brought to you by " ++ functionName ++ ")"
 
+testStateT :: AccountIdEvent -> ReaderT LambdaContext (StateT Int IO) String
+testStateT AccountIdEvent { accountId } = do
+  LambdaContext { functionName } <- ask
+  executionNum <- get
+  liftIO $ hPutStrLn stderr $ "Execution #" ++ show executionNum ++ " for " ++ functionName
+  put $ executionNum + 1
+  case M.lookup accountId knownAccounts of
+    Nothing   -> error "Not Found"
+    Just acct -> return $ acct
+
 main :: IO ()
-main = readerTLambdaRuntime testReaderT
+main = flip evalStateT 1 $ runReaderTLambdaContext $ mLambdaContextRuntime testStateT
