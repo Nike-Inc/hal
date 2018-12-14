@@ -5,7 +5,8 @@ module AWS.Lambda.RuntimeClient (
   sendEventError
 ) where
 
-import           Control.Exception         (displayException, try)
+import           Control.Concurrent        (threadDelay)
+import           Control.Exception         (displayException, try, throw)
 import           Data.Aeson.Types          (FromJSON, ToJSON)
 import           Data.Bifunctor            (first)
 import qualified Data.ByteString           as BS
@@ -44,7 +45,7 @@ getBaseRuntimeRequest = do
 
 getNextEvent :: FromJSON a => Request -> IO (Response (Either JSONException a))
 getNextEvent baseRuntimeRequest = do
-  resOrEx <- try $ httpJSONEither $ toNextEventRequest baseRuntimeRequest
+  resOrEx <- runtimeClientRetryTry $ httpJSONEither $ toNextEventRequest baseRuntimeRequest
   let checkStatus res = if not $ statusIsSuccessful $ getResponseStatus res then
         Left "Unexpected Runtime Error:  Could retrieve next event."
       else
@@ -52,13 +53,13 @@ getNextEvent baseRuntimeRequest = do
   let resOrMsg = first (displayException :: HttpException -> String) resOrEx >>= checkStatus
   case resOrMsg of
     Left msg -> do
-      _ <- httpNoBody $ toInitErrorRequest msg baseRuntimeRequest
+      _ <- runtimeClientRetry $ httpNoBody $ toInitErrorRequest msg baseRuntimeRequest
       error msg
     Right y -> return y
 
 sendEventSuccess :: ToJSON a => Request -> BS.ByteString -> a -> IO ()
 sendEventSuccess baseRuntimeRequest reqId json = do
-  resOrEx <- try $ httpNoBody $ toEventSuccessRequest reqId json baseRuntimeRequest
+  resOrEx <- runtimeClientRetryTry $ httpNoBody $ toEventSuccessRequest reqId json baseRuntimeRequest
 
   let resOrTypedMsg = case resOrEx of
         Left ex ->
@@ -85,7 +86,24 @@ sendEventSuccess baseRuntimeRequest reqId json = do
 
 sendEventError :: Request -> BS.ByteString -> String -> IO ()
 sendEventError baseRuntimeRequest reqId e =
-  fmap (const ()) $ httpNoBody $ toEventErrorRequest reqId e baseRuntimeRequest
+  fmap (const ()) $ runtimeClientRetry $ httpNoBody $ toEventErrorRequest reqId e baseRuntimeRequest
+
+
+-- Retry Helpers
+
+runtimeClientRetryTry' :: Int -> IO (Response a) -> IO (Either HttpException (Response a))
+runtimeClientRetryTry' 1 f = try f
+runtimeClientRetryTry' i f = do
+  resOrEx <- try f
+  case resOrEx of
+    Left (_ :: HttpException) -> threadDelay 500 >> runtimeClientRetryTry' (i - 1) f
+    Right res -> return $ Right res
+
+runtimeClientRetryTry :: IO (Response a) -> IO (Either HttpException (Response a))
+runtimeClientRetryTry = runtimeClientRetryTry' 3
+
+runtimeClientRetry :: IO (Response a) -> IO (Response a)
+runtimeClientRetry = fmap (either throw id) . runtimeClientRetryTry
 
 
 -- Request Transformers
