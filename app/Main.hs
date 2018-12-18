@@ -2,10 +2,9 @@
 
 module Main where
 
-import           AWS.Lambda.Runtime     (LambdaContext (..),
-                                         withContext,
-                                         mLambdaContextRuntime,
-                                         runReaderTLambdaContext, HasLambdaContext, defConfig)
+import           AWS.Lambda.Runtime     (HasLambdaContext, LambdaContext (..),
+                                         defConfig, mLambdaContextRuntime,
+                                         runReaderTLambdaContext, withContext)
 import           Control.Exception.Base (ioError)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader   (ReaderT, ask, asks, runReaderT)
@@ -13,16 +12,16 @@ import           Control.Monad.State    (StateT, evalStateT, get, put)
 import           Data.Aeson             (FromJSON (..), ToJSON (..))
 import           Data.HashMap.Strict    (HashMap)
 import qualified Data.HashMap.Strict    as M
+import           Data.IORef             (IORef, newIORef, readIORef, writeIORef)
+import           Data.Maybe             (fromMaybe)
 import           GHC.Generics           (Generic (..))
+import qualified System.Environment     as Env
 import           System.IO              (hPutStrLn, stderr)
 import           System.IO.Error        (userError)
-import Data.IORef (IORef, writeIORef, readIORef, newIORef)
-import qualified System.Environment as Env
-import Data.Maybe (fromMaybe)
 
 data Environment = Environment
-  { apiKey :: IORef (Maybe String),
-    context   :: LambdaContext
+  { apiKey  :: IORef (Maybe String),
+    context :: LambdaContext
   }
 
 instance HasLambdaContext Environment where
