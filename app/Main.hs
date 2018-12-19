@@ -2,18 +2,30 @@
 
 module Main where
 
-import           AWS.Lambda.Runtime     (LambdaContext(..),
-                                         runReaderTLambdaContext, mLambdaContextRuntime)
+import           AWS.Lambda.Runtime     (HasLambdaContext, LambdaContext (..),
+                                         defConfig, mLambdaContextRuntime,
+                                         runReaderTLambdaContext, withContext)
 import           Control.Exception.Base (ioError)
 import           Control.Monad.IO.Class (liftIO)
-import           Control.Monad.Reader   (ReaderT, ask)
-import           Control.Monad.State    (StateT, get, put, evalStateT)
+import           Control.Monad.Reader   (ReaderT, ask, asks, runReaderT)
+import           Control.Monad.State    (StateT, evalStateT, get, put)
 import           Data.Aeson             (FromJSON (..), ToJSON (..))
 import           Data.HashMap.Strict    (HashMap)
 import qualified Data.HashMap.Strict    as M
+import           Data.IORef             (IORef, newIORef, readIORef, writeIORef)
+import           Data.Maybe             (fromMaybe)
 import           GHC.Generics           (Generic (..))
+import qualified System.Environment     as Env
 import           System.IO              (hPutStrLn, stderr)
 import           System.IO.Error        (userError)
+
+data Environment = Environment
+  { apiKey  :: IORef (Maybe String),
+    context :: LambdaContext
+  }
+
+instance HasLambdaContext Environment where
+  withContext ctx env = env { context = ctx }
 
 data AccountIdEvent = AccountIdEvent {
   accountId :: String
@@ -64,5 +76,29 @@ testStateT AccountIdEvent { accountId } = do
     Nothing   -> error "Not Found"
     Just acct -> return $ acct
 
+ioRefHandler :: AccountIdEvent -> ReaderT Environment IO String
+ioRefHandler AccountIdEvent { accountId } = do
+  apiKeyRef <- asks apiKey
+  LambdaContext { functionName } <- asks context
+  mApiKey <- liftIO $ readIORef apiKeyRef
+
+  key <- case mApiKey of
+            Nothing -> do
+              keyFromEnv <- liftIO $ Env.lookupEnv "API_TOKEN"
+
+              liftIO $ writeIORef apiKeyRef keyFromEnv
+
+              return $ fromMaybe "" keyFromEnv
+            Just key -> return key
+
+  liftIO $ hPutStrLn stderr $ key
+  liftIO $ hPutStrLn stderr $ functionName
+
+  return accountId
+
 main :: IO ()
-main = flip evalStateT 1 $ runReaderTLambdaContext $ mLambdaContextRuntime testStateT
+main = do
+  apiKeyRef <- newIORef Nothing
+  let env = Environment { apiKey = apiKeyRef, context = (defConfig :: LambdaContext) }
+
+  runReaderT (mLambdaContextRuntime ioRefHandler) env
