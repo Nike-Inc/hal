@@ -9,16 +9,19 @@ module AWS.Lambda.Runtime (
   readerTLambdaRuntime,
   mLambdaContextRuntime,
   runReaderTLambdaContext,
-  LambdaContext(..)
+  LambdaContext(..),
+  HasLambdaContext(..),
+  defConfig
 ) where
 
 import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent,
                                            sendEventError, sendEventSuccess)
 import           Control.Exception        (SomeException, displayException)
 import           Control.Monad            (forever)
-import           Control.Monad.Catch      (try, MonadCatch)
-import           Control.Monad.IO.Class   (liftIO, MonadIO)
-import           Control.Monad.Reader     (runReaderT, ReaderT, local, ask, MonadReader)
+import           Control.Monad.Catch      (MonadCatch, try)
+import           Control.Monad.IO.Class   (MonadIO, liftIO)
+import           Control.Monad.Reader     (MonadReader, ReaderT, ask, local,
+                                           runReaderT)
 import           Data.Aeson               (FromJSON, ToJSON)
 import           Data.Bifunctor           (first)
 import qualified Data.ByteString.Char8    as BSC
@@ -43,6 +46,12 @@ data LambdaContext = LambdaContext
     deadlineMs               :: Double
   } deriving (Show, Generic)
 
+class HasLambdaContext r where
+  withContext :: (LambdaContext -> r -> r)
+
+instance HasLambdaContext LambdaContext where
+  withContext = const
+
 instance DefConfig LambdaContext where
   defConfig = LambdaContext 0 "" "" "" "" "" "" "" "" 0
 
@@ -52,7 +61,7 @@ instance FromEnv LambdaContext where
                     customPrefix = "AWS_LAMBDA"
           }
 
-runtimeLoop :: (MonadCatch m, MonadReader LambdaContext m, MonadIO m, FromJSON event, ToJSON result) => Request ->
+runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => Request ->
   (event -> m result) -> m ()
 runtimeLoop baseRuntimeRequest fn = do
   -- Get an event
@@ -79,7 +88,9 @@ runtimeLoop baseRuntimeRequest fn = do
                     -- TODO I think there's a cleaner/safer way to do this, but here it is for now.
                     deadlineMs         = read . BSC.unpack $ deadlineInMs
                   }
-      local (\_ -> ctx) $ do
+
+      local (withContext ctx) $ do
+
         result <- case getResponseBody nextRes of
           -- If we failed to parse or convert the JSON to the handler's event type, we consider
           -- it a handler error without ever calling it.
@@ -101,9 +112,8 @@ runtimeLoop baseRuntimeRequest fn = do
           Left e  -> sendEventError baseRuntimeRequest reqId e
 
 --TODO: Revisit all names before we put them under contract
-
 -- | For any monad that supports IO/catch/Reader LambdaContext
-mLambdaContextRuntime :: (MonadCatch m, MonadReader LambdaContext m, MonadIO m, FromJSON event, ToJSON result) =>
+mLambdaContextRuntime :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>
   (event -> m result) -> m ()
 mLambdaContextRuntime fn = do
   baseRuntimeRequest <- liftIO getBaseRuntimeRequest
@@ -125,7 +135,7 @@ ioLambdaRuntimeWithContext fn = readerTLambdaRuntime (\event -> do
   config <- ask
   result <- liftIO $ fn config event
   case result of
-    Left e -> error e
+    Left e  -> error e
     Right x -> return x
  )
 
