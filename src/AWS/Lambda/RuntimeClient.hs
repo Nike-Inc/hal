@@ -2,7 +2,8 @@ module AWS.Lambda.RuntimeClient (
   getBaseRuntimeRequest,
   getNextEvent,
   sendEventSuccess,
-  sendEventError
+  sendEventError,
+  sendInitError
 ) where
 
 import           Control.Concurrent        (threadDelay)
@@ -55,7 +56,7 @@ getNextEvent baseRuntimeRequest = do
   let resOrMsg = first (displayException :: HttpException -> String) resOrEx >>= checkStatus
   case resOrMsg of
     Left msg -> do
-      _ <- runtimeClientRetry $ httpNoBody $ toInitErrorRequest msg baseRuntimeRequest
+      _ <- sendInitError baseRuntimeRequest msg
       error msg
     Right y -> return y
 
@@ -90,6 +91,9 @@ sendEventError :: Request -> BS.ByteString -> String -> IO ()
 sendEventError baseRuntimeRequest reqId e =
   fmap (const ()) $ runtimeClientRetry $ httpNoBody $ toEventErrorRequest reqId e baseRuntimeRequest
 
+sendInitError :: Request -> String -> IO ()
+sendInitError baseRuntimeRequest e =
+  fmap (const ()) $ runtimeClientRetry $ httpNoBody $ toInitErrorRequest e baseRuntimeRequest
 
 -- Retry Helpers
 
