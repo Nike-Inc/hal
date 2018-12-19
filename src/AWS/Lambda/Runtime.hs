@@ -15,7 +15,7 @@ module AWS.Lambda.Runtime (
 ) where
 
 import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent,
-                                           sendEventError, sendEventSuccess)
+                                           sendEventError, sendEventSuccess, sendInitError)
 import           Control.Exception        (SomeException, displayException)
 import           Control.Monad            (forever)
 import           Control.Monad.Catch      (MonadCatch, try)
@@ -61,9 +61,9 @@ instance FromEnv LambdaContext where
                     customPrefix = "AWS_LAMBDA"
           }
 
-runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => Request ->
+runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => Request -> LambdaContext ->
   (event -> m result) -> m ()
-runtimeLoop baseRuntimeRequest fn = do
+runtimeLoop baseRuntimeRequest baseContext fn = do
   -- Get an event
   nextRes <- liftIO $ getNextEvent baseRuntimeRequest
 
@@ -75,49 +75,54 @@ runtimeLoop baseRuntimeRequest fn = do
   let functionArn = head $ getResponseHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
   let deadlineInMs = head $ getResponseHeader "Lambda-Runtime-Deadline-Ms" nextRes
 
-  possibleCtx <- liftIO $ (decodeEnv :: IO (Either String LambdaContext))
+  -- Populate the context with values from headers
+  let ctx = baseContext { awsRequestId       = BSC.unpack reqId,
+                          xRayTraceId        = BSC.unpack traceId,
+                          invokedFunctionArn = BSC.unpack functionArn,
+                          -- TODO I think there's a cleaner/safer way to do this, but here it is for now.
+                          deadlineMs         = read . BSC.unpack $ deadlineInMs
+                        }
 
-  case possibleCtx of
-    Left err -> liftIO $ sendEventError baseRuntimeRequest reqId err
-    Right c -> do
+  local (withContext ctx) $ do
 
-      -- Populate the context with values from headers
-      let ctx = c { awsRequestId       = BSC.unpack reqId,
-                    xRayTraceId        = BSC.unpack traceId,
-                    invokedFunctionArn = BSC.unpack functionArn,
-                    -- TODO I think there's a cleaner/safer way to do this, but here it is for now.
-                    deadlineMs         = read . BSC.unpack $ deadlineInMs
-                  }
+    result <- case getResponseBody nextRes of
+      -- If we failed to parse or convert the JSON to the handler's event type, we consider
+      -- it a handler error without ever calling it.
+      Left ex -> return $ Left $ displayException ex
 
-      local (withContext ctx) $ do
+      -- Otherwise, we'll pass the event into the handler
+      Right event -> do
+        {- Catching like this is _usually_ considered bad practice, but this is a true
+             case where we want to both catch all errors and propogate information about them.
+             See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
+        -}
+        -- Put any exceptions in an Either
+        caughtResult <- try (fn event)
+        -- Map the Either (via first) so it is an `Either String a`
+        return $ first (displayException :: SomeException -> String) caughtResult
 
-        result <- case getResponseBody nextRes of
-          -- If we failed to parse or convert the JSON to the handler's event type, we consider
-          -- it a handler error without ever calling it.
-          Left ex -> return $ Left $ displayException ex
-
-          -- Otherwise, we'll pass the event into the handler
-          Right event -> do
-            {- Catching like this is _usually_ considered bad practice, but this is a true
-                 case where we want to both catch all errors and propogate information about them.
-                 See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
-            -}
-            -- Put any exceptions in an Either
-            caughtResult <- try (fn event)
-            -- Map the Either (via first) so it is an `Either String a`
-            return $ first (displayException :: SomeException -> String) caughtResult
-
-        liftIO $ case result of
-          Right r -> sendEventSuccess baseRuntimeRequest reqId r
-          Left e  -> sendEventError baseRuntimeRequest reqId e
+    liftIO $ case result of
+      Right r -> sendEventSuccess baseRuntimeRequest reqId r
+      Left e  -> sendEventError baseRuntimeRequest reqId e
 
 --TODO: Revisit all names before we put them under contract
 -- | For any monad that supports IO/catch/Reader LambdaContext
 mLambdaContextRuntime :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>
   (event -> m result) -> m ()
 mLambdaContextRuntime fn = do
+  -- TODO: instead of returning a `baseRequest`, in the vein of hiding
+  -- HTTP Details, we also could hide context retrieval details.
+  -- So this method could simply retrieve the `runtimeClientConfig`,
+  -- complete with error handling and baseContext/Request procurement
+  -- The user of the RuntimeClient would not know what's in the config,
+  -- they just are expected to pass it along.
   baseRuntimeRequest <- liftIO getBaseRuntimeRequest
-  forever $ runtimeLoop baseRuntimeRequest fn
+
+  possibleCtx <- liftIO $ (decodeEnv :: IO (Either String LambdaContext))
+
+  case possibleCtx of
+    Left err -> liftIO $ sendInitError baseRuntimeRequest err
+    Right baseContext -> forever $ runtimeLoop baseRuntimeRequest baseContext fn
 
 -- | Helper for using arbitrary monads with only the LambdaContext in its Reader
 runReaderTLambdaContext :: ReaderT LambdaContext m a -> m a
