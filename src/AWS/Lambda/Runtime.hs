@@ -50,7 +50,7 @@ class HasLambdaContext r where
   withContext :: (LambdaContext -> r -> r)
 
 instance HasLambdaContext LambdaContext where
-  withContext = flip const
+  withContext = const
 
 instance DefConfig LambdaContext where
   defConfig = LambdaContext 0 "" "" "" "" "" "" "" "" 0
