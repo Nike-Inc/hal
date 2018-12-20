@@ -14,6 +14,8 @@ module AWS.Lambda.Runtime (
 import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent,
                                            sendEventError, sendEventSuccess, sendInitError)
 import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..))
+import           AWS.Lambda.Internal      (StaticContext, DynamicContext(DynamicContext),
+                                           mkContext)
 import           Control.Applicative      ((<*>), liftA2)
 import           Control.Exception        (SomeException, displayException)
 import           Control.Monad            (forever)
@@ -62,9 +64,9 @@ decodeOptionalHeader header =
     _ -> Nothing
 
 
-runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => Request -> LambdaContext ->
+runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => Request -> StaticContext ->
   (event -> m result) -> m ()
-runtimeLoop baseRuntimeRequest baseContext fn = do
+runtimeLoop baseRuntimeRequest staticContext fn = do
   -- Get an event
   nextRes <- liftIO $ getNextEvent baseRuntimeRequest
 
@@ -78,26 +80,19 @@ runtimeLoop baseRuntimeRequest baseContext fn = do
   let mClientContext = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Client-Context" nextRes
   let mIdentity = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Cognito-Identity" nextRes
 
-  -- TODO: If this was DynamicContext, and we had a `mkContext :: StaticContext -> DynamicContext -> LambdaContext`
-  -- this would be not be needed and would just have:
-  -- fmap mkContext $ DynamicContext <$> mTraceId <*> mFunctionArn <*> mDeadlineMs <*> mClientContext <*> mIdentity
-  let buildContext a b c d e =
-        baseContext { awsRequestId       = BSC.unpack reqIdBS,
-                      xRayTraceId        = a,
-                      invokedFunctionArn = b,
-                      deadlineMs         = c,
-                      clientContext      = d,
-                      identity           = e
-                    }
-
   -- Populate the context with values from headers
-  let mCtx = buildContext
-               <$> mTraceId
-               <*> mFunctionArn
-               <*> mDeadlineMs
-               <*> mClientContext
-               <*> mIdentity
-  let eCtx = maybeToEither "Runtime Error: Unable to decode Context from event response." mCtx
+  let eCtx =
+        -- combine our StaticContext and possible DynamicContext into a LambdaContext
+        fmap (mkContext staticContext)
+        -- convert the Maybe DynamicContext into an Either String DynamicContext
+        $ maybeToEither "Runtime Error: Unable to decode Context from event response."
+        -- Build the Dynamic Context, collapsing individual Maybes into a single Maybe
+        $ DynamicContext (BSC.unpack reqIdBS)
+        <$> mTraceId
+        <*> mFunctionArn
+        <*> mDeadlineMs
+        <*> mClientContext
+        <*> mIdentity
 
   let eEvent = first displayException $ getResponseBody nextRes
 
@@ -126,19 +121,17 @@ runtimeLoop baseRuntimeRequest baseContext fn = do
 mLambdaContextRuntime :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>
   (event -> m result) -> m ()
 mLambdaContextRuntime fn = do
-  -- TODO: instead of returning a `baseRequest`, in the vein of hiding
-  -- HTTP Details, we also could hide context retrieval details.
-  -- So this method could simply retrieve the `runtimeClientConfig`,
-  -- complete with error handling and baseContext/Request procurement
-  -- The user of the RuntimeClient would not know what's in the config,
-  -- they just are expected to pass it along.
+  -- TODO: Hide the implementation details of Request and StaticContext.
+  -- If we instead have a method that returns an opaque RuntimeClientConfig
+  -- that encapsulates these details, and then all clientMethods accept
+  -- the RuntimeClientConfig instead of a baseRuntimeRequest.
   baseRuntimeRequest <- liftIO getBaseRuntimeRequest
 
-  possibleCtx <- liftIO $ (decodeEnv :: IO (Either String LambdaContext))
+  possibleStaticCtx <- liftIO $ (decodeEnv :: IO (Either String StaticContext))
 
-  case possibleCtx of
+  case possibleStaticCtx of
     Left err -> liftIO $ sendInitError baseRuntimeRequest err
-    Right baseContext -> forever $ runtimeLoop baseRuntimeRequest baseContext fn
+    Right staticContext -> forever $ runtimeLoop baseRuntimeRequest staticContext fn
 
 -- | Helper for using arbitrary monads with only the LambdaContext in its Reader
 runReaderTLambdaContext :: ReaderT LambdaContext m a -> m a

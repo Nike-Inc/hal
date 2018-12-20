@@ -45,26 +45,16 @@ data LambdaContext = LambdaContext
     functionName             :: String,
     functionVersion          :: String,
     functionMemorySize       :: String,
-    awsRequestId             :: String,
     logGroupName             :: String,
     logStreamName            :: String,
     -- The following context values come from headers rather than env vars.
+    awsRequestId             :: String,
     invokedFunctionArn       :: String,
     xRayTraceId              :: String,
     deadlineMs               :: Double,
     clientContext            :: Maybe ClientContext,
     identity                 :: Maybe CognitoIdentity
   } deriving (Show, Generic)
-
--- TODO: Separate out static and dynamic context so this is not needed
-instance Var ClientContext where
-  toVar _ = ""
-  fromVar _ = Just $ ClientContext (ClientApplication "" "" "" "") mempty mempty
-
--- TODO: Separate out static and dynamic context so this is not needed
-instance Var CognitoIdentity where
-  toVar _ = ""
-  fromVar _ = Just $ CognitoIdentity "" ""
 
 class HasLambdaContext r where
   withContext :: (LambdaContext -> r -> r)
@@ -74,9 +64,3 @@ instance HasLambdaContext LambdaContext where
 
 instance DefConfig LambdaContext where
   defConfig = LambdaContext 0 "" "" "" "" "" "" "" "" 0 Nothing Nothing
-
-instance FromEnv LambdaContext where
-  fromEnv = gFromEnvCustom Option {
-                    dropPrefixCount = 0,
-                    customPrefix = "AWS_LAMBDA"
-          }
