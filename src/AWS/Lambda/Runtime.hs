@@ -16,6 +16,7 @@ module AWS.Lambda.Runtime (
 
 import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent,
                                            sendEventError, sendEventSuccess, sendInitError)
+import           Control.Applicative      ((<*>), liftA2)
 import           Control.Exception        (SomeException, displayException)
 import           Control.Monad            (forever)
 import           Control.Monad.Catch      (MonadCatch, try)
@@ -103,48 +104,83 @@ instance FromEnv LambdaContext where
                     customPrefix = "AWS_LAMBDA"
           }
 
+exactlyOneHeader :: [a] -> Maybe a
+exactlyOneHeader [a] = Just a
+exactlyOneHeader _ = Nothing
+
+maybeToEither :: b -> Maybe a -> Either b a
+maybeToEither b ma = case ma of
+  Nothing -> Left b
+  Just a -> Right a
+
+-- Note: Does not allow whitespace
+readMaybe :: (Read a) => String -> Maybe a
+readMaybe s = case reads s of
+  [(x,"")] -> Just x
+  _ -> Nothing
+
+-- TODO: There must be a better way to do this
+decodeHeaderValue :: FromJSON a => BSC.ByteString -> Maybe a
+decodeHeaderValue = decode . BSW.pack . fmap BSI.c2w . BSC.unpack
+
+-- An empty array means we successfully decoded, but nothing was there
+-- If we have exactly one element, our outer maybe signals successful decode,
+--   and our inner maybe signals that there was content sent
+-- If we had more than one header value, the event was invalid
+decodeOptionalHeader :: FromJSON a => [BSC.ByteString] -> Maybe (Maybe a)
+decodeOptionalHeader header =
+  case header of
+    [] -> Just Nothing
+    [x] -> fmap Just $ decodeHeaderValue x
+    _ -> Nothing
+
+
 runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => Request -> LambdaContext ->
   (event -> m result) -> m ()
 runtimeLoop baseRuntimeRequest baseContext fn = do
   -- Get an event
   nextRes <- liftIO $ getNextEvent baseRuntimeRequest
 
-  -- Propagate the tracing header
-  let traceId = head $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
-  liftIO $ setEnv "_X_AMZN_TRACE_ID" (BSC.unpack traceId)
+  -- If we got an event but our requestId is invalid/missing, there's no hope of meaningful recovery
+  let reqIdBS = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
 
-  -- TODO: Handle the many possibilities of failure
-  let reqId = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
-  let functionArn = head $ getResponseHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
-  let deadlineInMs = head $ getResponseHeader "Lambda-Runtime-Deadline-Ms" nextRes
-  let cc = case getResponseHeader "Lambda-Runtime-Client-Context" nextRes of
-             (x:_) -> Just x
-             [] -> Nothing
-  let ci = case getResponseHeader "Lambda-Runtime-Cognito-Identity" nextRes of
-             (x:_) -> Just x
-             [] -> Nothing
+  let mTraceId = fmap BSC.unpack $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
+  let mFunctionArn = fmap BSC.unpack $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
+  let mDeadlineMs = readMaybe . BSC.unpack =<< exactlyOneHeader (getResponseHeader "Lambda-Runtime-Deadline-Ms" nextRes)
+
+  let mClientContext = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Client-Context" nextRes
+  let mIdentity = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Cognito-Identity" nextRes
+
+  -- TODO: If this was DynamicContext, and we had a `mkContext :: StaticContext -> DynamicContext -> LambdaContext`
+  -- this would be not be needed and would just have:
+  -- fmap mkContext $ DynamicContext <$> mTraceId <*> mFunctionArn <*> mDeadlineMs <*> mClientContext <*> mIdentity
+  let buildContext a b c d e =
+        baseContext { awsRequestId       = BSC.unpack reqIdBS,
+                      xRayTraceId        = a,
+                      invokedFunctionArn = b,
+                      deadlineMs         = c,
+                      clientContext      = d,
+                      identity           = e
+                    }
 
   -- Populate the context with values from headers
-  let ctx = baseContext { awsRequestId       = BSC.unpack reqId,
-                          xRayTraceId        = BSC.unpack traceId,
-                          invokedFunctionArn = BSC.unpack functionArn,
-                          -- TODO I think there's a cleaner/safer way to do this, but here it is for now.
-                          deadlineMs         = read . BSC.unpack $ deadlineInMs,
-                          -- This looks clever but is bad
-                          -- It confuses a parse error (bad) with a missing header (ok)
-                          clientContext      = cc >>= decode . BSW.pack . fmap BSI.c2w . BSC.unpack,
-                          identity           = ci >>= decode . BSW.pack . fmap BSI.c2w . BSC.unpack
-                        }
+  let mCtx = buildContext
+               <$> mTraceId
+               <*> mFunctionArn
+               <*> mDeadlineMs
+               <*> mClientContext
+               <*> mIdentity
+  let eCtx = maybeToEither "Runtime Error: Unable to decode Context from event response." mCtx
 
-  local (withContext ctx) $ do
+  let eEvent = first displayException $ getResponseBody nextRes
 
-    result <- case getResponseBody nextRes of
-      -- If we failed to parse or convert the JSON to the handler's event type, we consider
-      -- it a handler error without ever calling it.
-      Left ex -> return $ Left $ displayException ex
+  result <- case liftA2 (,) eCtx eEvent of
+    Left e -> return $ Left e
+    Right (ctx, event) ->
+      local (withContext ctx) $ do
+        -- Propagate the tracing header (Exception safe for this env var name)
+        liftIO $ setEnv "_X_AMZN_TRACE_ID" (xRayTraceId ctx)
 
-      -- Otherwise, we'll pass the event into the handler
-      Right event -> do
         {- Catching like this is _usually_ considered bad practice, but this is a true
              case where we want to both catch all errors and propogate information about them.
              See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
@@ -154,9 +190,9 @@ runtimeLoop baseRuntimeRequest baseContext fn = do
         -- Map the Either (via first) so it is an `Either String a`
         return $ first (displayException :: SomeException -> String) caughtResult
 
-    liftIO $ case result of
-      Right r -> sendEventSuccess baseRuntimeRequest reqId r
-      Left e  -> sendEventError baseRuntimeRequest reqId e
+  liftIO $ case result of
+    Right r -> sendEventSuccess baseRuntimeRequest reqIdBS r
+    Left e  -> sendEventError baseRuntimeRequest reqIdBS e
 
 --TODO: Revisit all names before we put them under contract
 -- | For any monad that supports IO/catch/Reader LambdaContext
