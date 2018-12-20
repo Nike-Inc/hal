@@ -131,7 +131,7 @@ stack build --copy-bins
 ### Execute
 
 ```bash
-echo '{ "accountId": "***REMOVED***" }' | sam local invoke --region us-east-1
+echo '{ "accountId": "byebye" }' | sam local invoke --region us-east-1
 ```
 
 [AWS Lambda]: https://docs.aws.amazon.com/lambda/latest/dg/welcome.html

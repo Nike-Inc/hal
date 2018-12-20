@@ -37,9 +37,9 @@ instance FromJSON AccountIdEvent
 
 knownAccounts :: HashMap String String
 knownAccounts = M.fromList [
-    ("***REMOVED***", "***REMOVED***"),
-    ("***REMOVED***", "***REMOVED***"),
-    ("***REMOVED***", "***REMOVED***")
+    ("byebye", "byebye"),
+    ("byebye", "byebye"),
+    ("byebye", "byebye")
   ]
 
 awsAccountHandler :: AccountIdEvent -> Either String String
