@@ -22,15 +22,45 @@ import           Control.Monad.Catch      (MonadCatch, try)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)
 import           Control.Monad.Reader     (MonadReader, ReaderT, ask, local,
                                            runReaderT)
-import           Data.Aeson               (FromJSON, ToJSON)
+import           Data.Aeson               (FromJSON, ToJSON, decode)
 import           Data.Bifunctor           (first)
 import qualified Data.ByteString.Char8    as BSC
+import qualified Data.ByteString.Lazy     as BSW
+import qualified Data.ByteString.Internal as BSI
+import           Data.Map                 (Map)
 import           GHC.Generics             (Generic)
 import           Network.HTTP.Simple      (Request, getResponseBody,
                                            getResponseHeader)
 import           System.Environment       (setEnv)
 import           System.Envy              (DefConfig (..), FromEnv, Option (..),
-                                           decodeEnv, fromEnv, gFromEnvCustom)
+                                           decodeEnv, fromEnv, gFromEnvCustom, Var(..))
+
+data ClientApplication = ClientApplication
+  { appTitle :: String,
+    appVersionName :: String,
+    appVersionCode :: String,
+    appPackageName :: String
+  } deriving (Show, Generic)
+
+instance ToJSON ClientApplication
+instance FromJSON ClientApplication
+
+data ClientContext = ClientContext
+  { client :: ClientApplication,
+    custom :: Map String String,
+    environment :: Map String String
+  } deriving (Show, Generic)
+
+instance ToJSON ClientContext
+instance FromJSON ClientContext
+
+data CognitoIdentity = CognitoIdentity
+  { identityId :: String
+  , identityPoolId :: String
+  } deriving (Show, Generic)
+
+instance ToJSON CognitoIdentity
+instance FromJSON CognitoIdentity
 
 data LambdaContext = LambdaContext
   { getRemainingTimeInMillis :: Double, -- TODO this is calculated by "us", Nathan and I talked about moving this into a function.
@@ -43,8 +73,20 @@ data LambdaContext = LambdaContext
     -- The following context values come from headers rather than env vars.
     invokedFunctionArn       :: String,
     xRayTraceId              :: String,
-    deadlineMs               :: Double
+    deadlineMs               :: Double,
+    clientContext            :: Maybe ClientContext,
+    identity                 :: Maybe CognitoIdentity
   } deriving (Show, Generic)
+
+-- TODO: Separate out static and dynamic context so this is not needed
+instance Var ClientContext where
+  toVar _ = ""
+  fromVar _ = Just $ ClientContext (ClientApplication "" "" "" "") mempty mempty
+
+-- TODO: Separate out static and dynamic context so this is not needed
+instance Var CognitoIdentity where
+  toVar _ = ""
+  fromVar _ = Just $ CognitoIdentity "" ""
 
 class HasLambdaContext r where
   withContext :: (LambdaContext -> r -> r)
@@ -53,7 +95,7 @@ instance HasLambdaContext LambdaContext where
   withContext = const
 
 instance DefConfig LambdaContext where
-  defConfig = LambdaContext 0 "" "" "" "" "" "" "" "" 0
+  defConfig = LambdaContext 0 "" "" "" "" "" "" "" "" 0 Nothing Nothing
 
 instance FromEnv LambdaContext where
   fromEnv = gFromEnvCustom Option {
@@ -71,16 +113,27 @@ runtimeLoop baseRuntimeRequest baseContext fn = do
   let traceId = head $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
   liftIO $ setEnv "_X_AMZN_TRACE_ID" (BSC.unpack traceId)
 
+  -- TODO: Handle the many possibilities of failure
   let reqId = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
   let functionArn = head $ getResponseHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
   let deadlineInMs = head $ getResponseHeader "Lambda-Runtime-Deadline-Ms" nextRes
+  let cc = case getResponseHeader "Lambda-Runtime-Client-Context" nextRes of
+             (x:_) -> Just x
+             [] -> Nothing
+  let ci = case getResponseHeader "Lambda-Runtime-Cognito-Identity" nextRes of
+             (x:_) -> Just x
+             [] -> Nothing
 
   -- Populate the context with values from headers
   let ctx = baseContext { awsRequestId       = BSC.unpack reqId,
                           xRayTraceId        = BSC.unpack traceId,
                           invokedFunctionArn = BSC.unpack functionArn,
                           -- TODO I think there's a cleaner/safer way to do this, but here it is for now.
-                          deadlineMs         = read . BSC.unpack $ deadlineInMs
+                          deadlineMs         = read . BSC.unpack $ deadlineInMs,
+                          -- This looks clever but is bad
+                          -- It confuses a parse error (bad) with a missing header (ok)
+                          clientContext      = cc >>= decode . BSW.pack . fmap BSI.c2w . BSC.unpack,
+                          identity           = ci >>= decode . BSW.pack . fmap BSI.c2w . BSC.unpack
                         }
 
   local (withContext ctx) $ do
