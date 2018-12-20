@@ -1,6 +1,6 @@
-name:                aws-lambda-runtime
+name:                hal
 version:             0.1.0
-github: Nike-inc/aws-lambda-runtime
+github:              Nike-inc/hal
 license:             BSD3
 author:              Nike, Inc.
 copyright:           2018 Nike, Inc.
@@ -55,13 +55,3 @@ library:
     - exceptions
     - mtl
     - containers
-
-executables:
-  bootstrap:
-    source-dirs:      app
-    main:             Main.hs
-    dependencies:
-      - aws-lambda-runtime
-      - aeson
-      - unordered-containers
-      - mtl
