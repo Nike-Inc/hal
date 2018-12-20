@@ -9,89 +9,100 @@ module AWS.Lambda.Runtime (
   readerTLambdaRuntime,
   mLambdaContextRuntime,
   runReaderTLambdaContext,
-  LambdaContext(..),
-  HasLambdaContext(..),
-  defConfig
 ) where
 
 import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent,
                                            sendEventError, sendEventSuccess, sendInitError)
+import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..))
+import           AWS.Lambda.Internal      (StaticContext, DynamicContext(DynamicContext),
+                                           mkContext)
+import           Control.Applicative      ((<*>), liftA2)
 import           Control.Exception        (SomeException, displayException)
 import           Control.Monad            (forever)
 import           Control.Monad.Catch      (MonadCatch, try)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)
 import           Control.Monad.Reader     (MonadReader, ReaderT, ask, local,
                                            runReaderT)
-import           Data.Aeson               (FromJSON, ToJSON)
+import           Data.Aeson               (FromJSON, ToJSON, decode)
 import           Data.Bifunctor           (first)
 import qualified Data.ByteString.Char8    as BSC
-import           GHC.Generics             (Generic)
+import qualified Data.ByteString.Lazy     as BSW
+import qualified Data.ByteString.Internal as BSI
 import           Network.HTTP.Simple      (Request, getResponseBody,
                                            getResponseHeader)
 import           System.Environment       (setEnv)
-import           System.Envy              (DefConfig (..), FromEnv, Option (..),
-                                           decodeEnv, fromEnv, gFromEnvCustom)
+import           System.Envy              (decodeEnv, defConfig)
 
-data LambdaContext = LambdaContext
-  { getRemainingTimeInMillis :: Double, -- TODO this is calculated by "us", Nathan and I talked about moving this into a function.
-    functionName             :: String,
-    functionVersion          :: String,
-    functionMemorySize       :: String,
-    awsRequestId             :: String,
-    logGroupName             :: String,
-    logStreamName            :: String,
-    -- The following context values come from headers rather than env vars.
-    invokedFunctionArn       :: String,
-    xRayTraceId              :: String,
-    deadlineMs               :: Double
-  } deriving (Show, Generic)
+exactlyOneHeader :: [a] -> Maybe a
+exactlyOneHeader [a] = Just a
+exactlyOneHeader _ = Nothing
 
-class HasLambdaContext r where
-  withContext :: (LambdaContext -> r -> r)
+maybeToEither :: b -> Maybe a -> Either b a
+maybeToEither b ma = case ma of
+  Nothing -> Left b
+  Just a -> Right a
 
-instance HasLambdaContext LambdaContext where
-  withContext = const
+-- Note: Does not allow whitespace
+readMaybe :: (Read a) => String -> Maybe a
+readMaybe s = case reads s of
+  [(x,"")] -> Just x
+  _ -> Nothing
 
-instance DefConfig LambdaContext where
-  defConfig = LambdaContext 0 "" "" "" "" "" "" "" "" 0
+-- TODO: There must be a better way to do this
+decodeHeaderValue :: FromJSON a => BSC.ByteString -> Maybe a
+decodeHeaderValue = decode . BSW.pack . fmap BSI.c2w . BSC.unpack
 
-instance FromEnv LambdaContext where
-  fromEnv = gFromEnvCustom Option {
-                    dropPrefixCount = 0,
-                    customPrefix = "AWS_LAMBDA"
-          }
+-- An empty array means we successfully decoded, but nothing was there
+-- If we have exactly one element, our outer maybe signals successful decode,
+--   and our inner maybe signals that there was content sent
+-- If we had more than one header value, the event was invalid
+decodeOptionalHeader :: FromJSON a => [BSC.ByteString] -> Maybe (Maybe a)
+decodeOptionalHeader header =
+  case header of
+    [] -> Just Nothing
+    [x] -> fmap Just $ decodeHeaderValue x
+    _ -> Nothing
 
-runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => Request -> LambdaContext ->
+
+runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => Request -> StaticContext ->
   (event -> m result) -> m ()
-runtimeLoop baseRuntimeRequest baseContext fn = do
+runtimeLoop baseRuntimeRequest staticContext fn = do
   -- Get an event
   nextRes <- liftIO $ getNextEvent baseRuntimeRequest
 
-  -- Propagate the tracing header
-  let traceId = head $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
-  liftIO $ setEnv "_X_AMZN_TRACE_ID" (BSC.unpack traceId)
+  -- If we got an event but our requestId is invalid/missing, there's no hope of meaningful recovery
+  let reqIdBS = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
 
-  let reqId = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
-  let functionArn = head $ getResponseHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
-  let deadlineInMs = head $ getResponseHeader "Lambda-Runtime-Deadline-Ms" nextRes
+  let mTraceId = fmap BSC.unpack $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
+  let mFunctionArn = fmap BSC.unpack $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
+  let mDeadlineMs = readMaybe . BSC.unpack =<< exactlyOneHeader (getResponseHeader "Lambda-Runtime-Deadline-Ms" nextRes)
+
+  let mClientContext = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Client-Context" nextRes
+  let mIdentity = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Cognito-Identity" nextRes
 
   -- Populate the context with values from headers
-  let ctx = baseContext { awsRequestId       = BSC.unpack reqId,
-                          xRayTraceId        = BSC.unpack traceId,
-                          invokedFunctionArn = BSC.unpack functionArn,
-                          -- TODO I think there's a cleaner/safer way to do this, but here it is for now.
-                          deadlineMs         = read . BSC.unpack $ deadlineInMs
-                        }
+  let eCtx =
+        -- combine our StaticContext and possible DynamicContext into a LambdaContext
+        fmap (mkContext staticContext)
+        -- convert the Maybe DynamicContext into an Either String DynamicContext
+        $ maybeToEither "Runtime Error: Unable to decode Context from event response."
+        -- Build the Dynamic Context, collapsing individual Maybes into a single Maybe
+        $ DynamicContext (BSC.unpack reqIdBS)
+        <$> mTraceId
+        <*> mFunctionArn
+        <*> mDeadlineMs
+        <*> mClientContext
+        <*> mIdentity
 
-  local (withContext ctx) $ do
+  let eEvent = first displayException $ getResponseBody nextRes
 
-    result <- case getResponseBody nextRes of
-      -- If we failed to parse or convert the JSON to the handler's event type, we consider
-      -- it a handler error without ever calling it.
-      Left ex -> return $ Left $ displayException ex
+  result <- case liftA2 (,) eCtx eEvent of
+    Left e -> return $ Left e
+    Right (ctx, event) ->
+      local (withContext ctx) $ do
+        -- Propagate the tracing header (Exception safe for this env var name)
+        liftIO $ setEnv "_X_AMZN_TRACE_ID" (xRayTraceId ctx)
 
-      -- Otherwise, we'll pass the event into the handler
-      Right event -> do
         {- Catching like this is _usually_ considered bad practice, but this is a true
              case where we want to both catch all errors and propogate information about them.
              See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
@@ -101,28 +112,26 @@ runtimeLoop baseRuntimeRequest baseContext fn = do
         -- Map the Either (via first) so it is an `Either String a`
         return $ first (displayException :: SomeException -> String) caughtResult
 
-    liftIO $ case result of
-      Right r -> sendEventSuccess baseRuntimeRequest reqId r
-      Left e  -> sendEventError baseRuntimeRequest reqId e
+  liftIO $ case result of
+    Right r -> sendEventSuccess baseRuntimeRequest reqIdBS r
+    Left e  -> sendEventError baseRuntimeRequest reqIdBS e
 
 --TODO: Revisit all names before we put them under contract
 -- | For any monad that supports IO/catch/Reader LambdaContext
 mLambdaContextRuntime :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>
   (event -> m result) -> m ()
 mLambdaContextRuntime fn = do
-  -- TODO: instead of returning a `baseRequest`, in the vein of hiding
-  -- HTTP Details, we also could hide context retrieval details.
-  -- So this method could simply retrieve the `runtimeClientConfig`,
-  -- complete with error handling and baseContext/Request procurement
-  -- The user of the RuntimeClient would not know what's in the config,
-  -- they just are expected to pass it along.
+  -- TODO: Hide the implementation details of Request and StaticContext.
+  -- If we instead have a method that returns an opaque RuntimeClientConfig
+  -- that encapsulates these details, and then all clientMethods accept
+  -- the RuntimeClientConfig instead of a baseRuntimeRequest.
   baseRuntimeRequest <- liftIO getBaseRuntimeRequest
 
-  possibleCtx <- liftIO $ (decodeEnv :: IO (Either String LambdaContext))
+  possibleStaticCtx <- liftIO $ (decodeEnv :: IO (Either String StaticContext))
 
-  case possibleCtx of
+  case possibleStaticCtx of
     Left err -> liftIO $ sendInitError baseRuntimeRequest err
-    Right baseContext -> forever $ runtimeLoop baseRuntimeRequest baseContext fn
+    Right staticContext -> forever $ runtimeLoop baseRuntimeRequest staticContext fn
 
 -- | Helper for using arbitrary monads with only the LambdaContext in its Reader
 runReaderTLambdaContext :: ReaderT LambdaContext m a -> m a
