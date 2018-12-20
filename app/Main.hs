@@ -2,9 +2,10 @@
 
 module Main where
 
-import           AWS.Lambda.Runtime     (HasLambdaContext, LambdaContext (..),
-                                         defConfig, mLambdaContextRuntime,
-                                         runReaderTLambdaContext, withContext)
+import           AWS.Lambda.Context     (HasLambdaContext, LambdaContext (..),
+                                         defConfig, withContext)
+import           AWS.Lambda.Runtime     (mLambdaContextRuntime,
+                                         runReaderTLambdaContext)
 import           Control.Exception.Base (ioError)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader   (ReaderT, ask, asks, runReaderT)
