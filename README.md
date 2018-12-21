@@ -2,6 +2,19 @@
 
 A runtime environment for [Haskell] applications running on [AWS Lambda].
 
+This library uniquely supports different types AWS Lambda Handlers for your needs/comfort with advanced Haskell.
+Instead of exposing a single function that constructs a Lambda, this library exposes many.
+
+For lambdas that are pure and safe, then `pureRuntime` runtime is ideal.
+It accepts handler with the signature `(FromJSON a, ToJSON b) => a -> b`.
+This runtime guarantees that side-effects cannot occur.
+
+For advanced use cases `mLambdaContextRuntime` unlocks the full power of Monad Transformers.
+It accepts handlers with the signature `(HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>  (event -> m result)`
+This enables users to add caching logic or expose complex environments.
+
+With numerous options in between these two, developers can choose the right balance of flexibility vs simplicity.
+
 ## Table of Contents
 
   - [Quick Start](#quick-start)
