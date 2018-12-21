@@ -4,20 +4,19 @@ module AWS.Lambda.Internal (
   mkContext
 ) where
 
-import           AWS.Lambda.Context       (ClientContext, CognitoIdentity, LambdaContext(LambdaContext))
-import           Data.Aeson               (FromJSON, ToJSON)
-import           Data.Map                 (Map)
-import           GHC.Generics             (Generic)
-import           Data.Time.Clock          (UTCTime)
-import           System.Envy              (DefConfig (..), FromEnv, Option (..),
-                                           fromEnv, gFromEnvCustom, Var(..))
+import           AWS.Lambda.Context (ClientContext, CognitoIdentity,
+                                     LambdaContext (LambdaContext))
+import           Data.Time.Clock    (UTCTime)
+import           GHC.Generics       (Generic)
+import           System.Envy        (DefConfig (..), FromEnv, Option (..),
+                                     fromEnv, gFromEnvCustom)
 
 data StaticContext = StaticContext
-  { functionName             :: String,
-    functionVersion          :: String,
-    functionMemorySize       :: String,
-    logGroupName             :: String,
-    logStreamName            :: String
+  { functionName       :: String,
+    functionVersion    :: String,
+    functionMemorySize :: String,
+    logGroupName       :: String,
+    logStreamName      :: String
   } deriving (Show, Generic)
 
 instance DefConfig StaticContext where
@@ -30,12 +29,12 @@ instance FromEnv StaticContext where
           }
 
 data DynamicContext = DynamicContext
-  { awsRequestId             :: String,
-    invokedFunctionArn       :: String,
-    xRayTraceId              :: String,
-    deadline                 :: UTCTime,
-    clientContext            :: Maybe ClientContext,
-    identity                 :: Maybe CognitoIdentity
+  { awsRequestId       :: String,
+    invokedFunctionArn :: String,
+    xRayTraceId        :: String,
+    deadline           :: UTCTime,
+    clientContext      :: Maybe ClientContext,
+    identity           :: Maybe CognitoIdentity
   } deriving (Show)
 
 mkContext :: StaticContext -> DynamicContext -> LambdaContext
