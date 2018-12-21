@@ -15,13 +15,13 @@ import           System.Envy              (DefConfig (..), FromEnv, Option (..),
 data StaticContext = StaticContext
   { functionName             :: String,
     functionVersion          :: String,
-    functionMemorySize       :: String,
+    functionMemorySize       :: Int,
     logGroupName             :: String,
     logStreamName            :: String
   } deriving (Show, Generic)
 
 instance DefConfig StaticContext where
-  defConfig = StaticContext "" "" "" "" ""
+  defConfig = StaticContext "" "" 0 "" ""
 
 instance FromEnv StaticContext where
   fromEnv = gFromEnvCustom Option {
