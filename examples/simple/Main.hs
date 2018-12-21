@@ -1,11 +1,11 @@
+{-# LANGUAGE DeriveGeneric  #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 module Main where
 
-import AWS.Lambda.Runtime (simpleLambdaRuntime)
-import Data.Aeson (FromJSON, ToJSON)
-import GHC.Generics (Generic)
+import           AWS.Lambda.Runtime (simpleLambdaRuntime)
+import           Data.Aeson         (FromJSON, ToJSON)
+import           GHC.Generics       (Generic)
 
 data IdEvent  = IdEvent { input   :: String } deriving Generic
 instance FromJSON IdEvent where
