@@ -55,3 +55,4 @@ library:
     - exceptions
     - mtl
     - containers
+    - time

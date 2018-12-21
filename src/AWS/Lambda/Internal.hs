@@ -8,6 +8,7 @@ import           AWS.Lambda.Context       (ClientContext, CognitoIdentity, Lambd
 import           Data.Aeson               (FromJSON, ToJSON)
 import           Data.Map                 (Map)
 import           GHC.Generics             (Generic)
+import           Data.Time.Clock          (UTCTime)
 import           System.Envy              (DefConfig (..), FromEnv, Option (..),
                                            fromEnv, gFromEnvCustom, Var(..))
 
@@ -32,7 +33,7 @@ data DynamicContext = DynamicContext
   { awsRequestId             :: String,
     invokedFunctionArn       :: String,
     xRayTraceId              :: String,
-    deadlineMs               :: Double,
+    deadline                 :: UTCTime,
     clientContext            :: Maybe ClientContext,
     identity                 :: Maybe CognitoIdentity
   } deriving (Show)
@@ -40,7 +41,6 @@ data DynamicContext = DynamicContext
 mkContext :: StaticContext -> DynamicContext -> LambdaContext
 mkContext static dynamic =
   LambdaContext
-    0
     (functionName static)
     (functionVersion static)
     (functionMemorySize static)
@@ -49,6 +49,6 @@ mkContext static dynamic =
     (awsRequestId dynamic)
     (invokedFunctionArn dynamic)
     (xRayTraceId dynamic)
-    (deadlineMs dynamic)
+    (deadline dynamic)
     (clientContext dynamic)
     (identity dynamic)
