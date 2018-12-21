@@ -53,7 +53,7 @@ getRemainingTime LambdaContext { deadline } =
 data LambdaContext = LambdaContext
   { functionName             :: String,
     functionVersion          :: String,
-    functionMemorySize       :: String,
+    functionMemorySize       :: Int,
     logGroupName             :: String,
     logStreamName            :: String,
     -- The following context values come from headers rather than env vars.
@@ -72,4 +72,4 @@ instance HasLambdaContext LambdaContext where
   withContext = const
 
 instance DefConfig LambdaContext where
-  defConfig = LambdaContext "" "" "" "" "" "" "" "" (posixSecondsToUTCTime 0) Nothing Nothing
+  defConfig = LambdaContext "" "" 0 "" "" "" "" "" (posixSecondsToUTCTime 0) Nothing Nothing
