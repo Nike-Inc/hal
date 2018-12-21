@@ -28,6 +28,7 @@ import           Data.Bifunctor           (first)
 import qualified Data.ByteString.Char8    as BSC
 import qualified Data.ByteString.Lazy     as BSW
 import qualified Data.ByteString.Internal as BSI
+import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
 import           Network.HTTP.Simple      (Request, getResponseBody,
                                            getResponseHeader)
 import           System.Environment       (setEnv)
@@ -75,7 +76,10 @@ runtimeLoop baseRuntimeRequest staticContext fn = do
 
   let mTraceId = fmap BSC.unpack $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
   let mFunctionArn = fmap BSC.unpack $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
-  let mDeadlineMs = readMaybe . BSC.unpack =<< exactlyOneHeader (getResponseHeader "Lambda-Runtime-Deadline-Ms" nextRes)
+  let mDeadline = do
+        header <- exactlyOneHeader (getResponseHeader "Lambda-Runtime-Deadline-Ms" nextRes)
+        milliseconds :: Double <- readMaybe $ BSC.unpack header
+        return $ posixSecondsToUTCTime $ realToFrac $ milliseconds / 1000
 
   let mClientContext = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Client-Context" nextRes
   let mIdentity = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Cognito-Identity" nextRes
@@ -90,7 +94,7 @@ runtimeLoop baseRuntimeRequest staticContext fn = do
         $ DynamicContext (BSC.unpack reqIdBS)
         <$> mTraceId
         <*> mFunctionArn
-        <*> mDeadlineMs
+        <*> mDeadline
         <*> mClientContext
         <*> mIdentity
 

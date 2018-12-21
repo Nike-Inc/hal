@@ -1,14 +1,20 @@
+{-# LANGUAGE NamedFieldPuns #-}
 module AWS.Lambda.Context (
   ClientApplication(..),
   ClientContext(..),
   CognitoIdentity(..),
   LambdaContext(..),
   HasLambdaContext(..),
-  defConfig
+  defConfig,
+  getRemainingTime
 ) where
 
+import           Control.Monad.IO.Class   (MonadIO, liftIO)
 import           Data.Aeson               (FromJSON, ToJSON)
 import           Data.Map                 (Map)
+import           Data.Time.Clock          (NominalDiffTime, UTCTime, getCurrentTime,
+                                           diffUTCTime, DiffTime)
+import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
 import           GHC.Generics             (Generic)
 import           System.Envy              (DefConfig (..), FromEnv, Option (..),
                                            fromEnv, gFromEnvCustom, Var(..))
@@ -40,9 +46,12 @@ data CognitoIdentity = CognitoIdentity
 instance ToJSON CognitoIdentity
 instance FromJSON CognitoIdentity
 
+getRemainingTime :: MonadIO m => LambdaContext -> m DiffTime
+getRemainingTime LambdaContext { deadline } =
+  liftIO $ fmap (realToFrac . diffUTCTime deadline) getCurrentTime
+
 data LambdaContext = LambdaContext
-  { getRemainingTimeInMillis :: Double, -- TODO this is calculated by "us", Nathan and I talked about moving this into a function.
-    functionName             :: String,
+  { functionName             :: String,
     functionVersion          :: String,
     functionMemorySize       :: String,
     logGroupName             :: String,
@@ -51,7 +60,7 @@ data LambdaContext = LambdaContext
     awsRequestId             :: String,
     invokedFunctionArn       :: String,
     xRayTraceId              :: String,
-    deadlineMs               :: Double,
+    deadline                 :: UTCTime,
     clientContext            :: Maybe ClientContext,
     identity                 :: Maybe CognitoIdentity
   } deriving (Show, Generic)
@@ -63,4 +72,4 @@ instance HasLambdaContext LambdaContext where
   withContext = const
 
 instance DefConfig LambdaContext where
-  defConfig = LambdaContext 0 "" "" "" "" "" "" "" "" 0 Nothing Nothing
+  defConfig = LambdaContext "" "" "" "" "" "" "" "" (posixSecondsToUTCTime 0) Nothing Nothing
