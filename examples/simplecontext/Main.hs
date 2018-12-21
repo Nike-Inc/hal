@@ -4,7 +4,7 @@
 module Main where
 
 import           AWS.Lambda.Context (LambdaContext (..))
-import           AWS.Lambda.Runtime (simpleLambdaRuntimeWithContext)
+import           AWS.Lambda.Runtime (pureRuntimeWithContext)
 import           Data.Aeson         (FromJSON, ToJSON)
 import           GHC.Generics       (Generic)
 
@@ -20,4 +20,4 @@ handler LambdaContext { functionName } _ =
   FunctionNameResult { output = functionName }
 
 main :: IO ()
-main = simpleLambdaRuntimeWithContext handler
+main = pureRuntimeWithContext handler
