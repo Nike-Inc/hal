@@ -1,0 +1,32 @@
+name:                examples
+version:             0.1.0
+license:             BSD3
+author:              Nike, Inc.
+copyright:           2018 Nike, Inc.
+category:            Web,AWS
+extra-source-files:
+- README.md
+
+dependencies:
+  - base >= 4.7 && < 5
+
+ghc-options:
+  - -Wall
+  - -Wcompat
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wredundant-constraints
+  - -fno-warn-partial-type-signatures
+  - -fno-warn-name-shadowing
+  - -fwarn-tabs
+  - -fwarn-unused-imports
+  - -fwarn-missing-signatures
+  - -fwarn-incomplete-patterns
+
+executables:
+  simple:
+    source-dirs: simple
+    main: Main.hs
+    dependencies:
+      - hal
+      - aeson
