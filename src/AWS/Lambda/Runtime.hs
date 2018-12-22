@@ -17,7 +17,7 @@ module AWS.Lambda.Runtime (
   ioRuntime,
   ioRuntimeWithContext,
   readerTRuntime,
-  mRuntime
+  mRuntimeWithContext
 ) where
 
 import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent,
@@ -131,9 +131,9 @@ runtimeLoop baseRuntimeRequest staticContext fn = do
 
 --TODO: Revisit all names before we put them under contract
 -- | For any monad that supports IO/catch/Reader LambdaContext
-mRuntime :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>
+mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>
   (event -> m result) -> m ()
-mRuntime fn = do
+mRuntimeWithContext fn = do
   -- TODO: Hide the implementation details of Request and StaticContext.
   -- If we instead have a method that returns an opaque RuntimeClientConfig
   -- that encapsulates these details, and then all clientMethods accept
@@ -153,7 +153,7 @@ readerTRuntimeWithContext = flip runReaderT defConfig
 -- | For functions that can read the lambda context and use IO within the same monad.
 readerTRuntime :: (FromJSON event, ToJSON result) =>
   (event -> ReaderT LambdaContext IO result) -> IO ()
-readerTRuntime = readerTRuntimeWithContext .  mRuntime
+readerTRuntime = readerTRuntimeWithContext .  mRuntimeWithContext
 
 -- | For functions with IO that can fail in a pure way (or via throwM).
 ioRuntimeWithContext :: (FromJSON event, ToJSON result) =>

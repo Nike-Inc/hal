@@ -9,7 +9,7 @@ For lambdas that are pure and safe, then `pureRuntime` is ideal.
 It accepts a handler with the signature `(FromJSON a, ToJSON b) => a -> b`.
 This runtime guarantees that side-effects cannot occur.
 
-For advanced use cases `mRuntime` unlocks the full power of Monad Transformers.
+For advanced use cases `mRuntimeWithContext` unlocks the full power of Monad Transformers.
 It accepts handlers with the signature `(HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>  (event -> m result)`
 This enables users to add caching logic or expose complex environments.
 
