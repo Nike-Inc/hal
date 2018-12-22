@@ -81,4 +81,4 @@ instance HasLambdaContext LambdaContext where
   withContext = const
 
 instance DefConfig LambdaContext where
-  defConfig = LambdaContext "" "" "" "" "" "" "" "" (posixSecondsToUTCTime 0) Nothing Nothing
+  defConfig = LambdaContext "" "" 0 "" "" "" "" "" (posixSecondsToUTCTime 0) Nothing Nothing

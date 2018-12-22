@@ -29,7 +29,7 @@ data StaticContext = StaticContext
   } deriving (Show, Generic)
 
 instance DefConfig StaticContext where
-  defConfig = StaticContext "" "" "" "" ""
+  defConfig = StaticContext "" "" 0 "" ""
 
 instance FromEnv StaticContext where
   fromEnv = gFromEnvCustom Option {
