@@ -62,7 +62,7 @@ getRemainingTime LambdaContext { deadline } =
 data LambdaContext = LambdaContext
   { functionName       :: String,
     functionVersion    :: String,
-    functionMemorySize :: String,
+    functionMemorySize :: Int,
     logGroupName       :: String,
     logStreamName      :: String,
     -- The following context values come from headers rather than env vars.
