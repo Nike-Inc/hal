@@ -1,5 +1,14 @@
 {-# LANGUAGE FlexibleContexts #-}
 
+{-|
+Module      : AWS.Lambda.Runtime
+Description : Runtime methods useful when constructing Haskell handlers for the AWS Lambda Custom Runtime.
+Copyright   : (c) Nike, Inc., 2018
+License     : BSD3
+Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
+Stability   : stable
+-}
+
 module AWS.Lambda.Runtime (
   pureRuntime,
   pureRuntimeWithContext,

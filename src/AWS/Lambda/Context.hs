@@ -1,4 +1,14 @@
 {-# LANGUAGE NamedFieldPuns #-}
+
+{-|
+Module      : AWS.Lambda.Context
+Description : AWS Lambda Context classes and related methods.
+Copyright   : (c) Nike, Inc., 2018
+License     : BSD3
+Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
+Stability   : stable
+-}
+
 module AWS.Lambda.Context (
   ClientApplication(..),
   ClientContext(..),

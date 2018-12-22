@@ -1,3 +1,12 @@
+{-|
+Module      : AWS.Lambda.Internal
+Description : Internal hal helper methods.
+Copyright   : (c) Nike, Inc., 2018
+License     : BSD3
+Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
+Stability   : unstable
+-}
+
 module AWS.Lambda.Internal (
   StaticContext(..),
   DynamicContext(..),
