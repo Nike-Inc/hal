@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module AWS.Lambda.Internal (
   StaticContext(..),
   DynamicContext(..),
@@ -7,17 +8,18 @@ module AWS.Lambda.Internal (
 import           AWS.Lambda.Context       (ClientContext, CognitoIdentity, LambdaContext(LambdaContext))
 import           Data.Aeson               (FromJSON, ToJSON)
 import           Data.Map                 (Map)
+import           Data.Text                (Text)
 import           GHC.Generics             (Generic)
 import           Data.Time.Clock          (UTCTime)
 import           System.Envy              (DefConfig (..), FromEnv, Option (..),
                                            fromEnv, gFromEnvCustom, Var(..))
 
 data StaticContext = StaticContext
-  { functionName             :: String,
-    functionVersion          :: String,
+  { functionName             :: Text,
+    functionVersion          :: Text,
     functionMemorySize       :: Int,
-    logGroupName             :: String,
-    logStreamName            :: String
+    logGroupName             :: Text,
+    logStreamName            :: Text
   } deriving (Show, Generic)
 
 instance DefConfig StaticContext where
@@ -30,9 +32,9 @@ instance FromEnv StaticContext where
           }
 
 data DynamicContext = DynamicContext
-  { awsRequestId             :: String,
-    invokedFunctionArn       :: String,
-    xRayTraceId              :: String,
+  { awsRequestId             :: Text,
+    invokedFunctionArn       :: Text,
+    xRayTraceId              :: Text,
     deadline                 :: UTCTime,
     clientContext            :: Maybe ClientContext,
     identity                 :: Maybe CognitoIdentity
