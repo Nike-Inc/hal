@@ -1,4 +1,4 @@
-# aws-lambda-runtime
+# hal
 
 A runtime environment for [Haskell] applications running on [AWS Lambda].
 
