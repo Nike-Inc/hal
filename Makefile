@@ -17,11 +17,11 @@ setup: clean
 
 _HLINT=hlint --refactor --refactor-options -i {} \;
 hlint:
-	@find {src,app}/ -name "*.hs" -exec $(_HLINT)
+	@find {src,examples}/ -name "*.hs" -exec $(_HLINT)
 
 _STYLISH=stack --no-docker exec -- stylish-haskell -i {} \;
 stylish-haskell:
-	@find {src,app}/ -name "*.hs" -exec $(_STYLISH)
+	@find {src,examples}/ -name "*.hs" -exec $(_STYLISH)
 
 test:
 	stack test --test-arguments "--color always"

@@ -30,3 +30,9 @@ executables:
     dependencies:
       - hal
       - aeson
+  simple-context:
+    source-dirs: simplecontext
+    main: Main.hs
+    dependencies:
+      - hal
+      - aeson
