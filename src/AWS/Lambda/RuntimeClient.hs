@@ -1,3 +1,12 @@
+{-|
+Module      : AWS.Lambda.RuntimeClient
+Description : HTTP related machinery for talking to the AWS Lambda Custom Runtime interface.
+Copyright   : (c) Nike, Inc., 2018
+License     : BSD3
+Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
+Stability   : stable
+-}
+
 module AWS.Lambda.RuntimeClient (
   getBaseRuntimeRequest,
   getNextEvent,

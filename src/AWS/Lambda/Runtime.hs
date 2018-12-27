@@ -1,14 +1,23 @@
 {-# LANGUAGE FlexibleContexts #-}
+
+{-|
+Module      : AWS.Lambda.Runtime
+Description : Runtime methods useful when constructing Haskell handlers for the AWS Lambda Custom Runtime.
+Copyright   : (c) Nike, Inc., 2018
+License     : BSD3
+Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
+Stability   : stable
+-}
+
 module AWS.Lambda.Runtime (
-  pureLambdaRuntime,
-  pureLambdaRuntimeWithContext,
-  simpleLambdaRuntime,
-  simpleLambdaRuntimeWithContext,
-  ioLambdaRuntime,
-  ioLambdaRuntimeWithContext,
-  readerTLambdaRuntime,
-  mLambdaContextRuntime,
-  runReaderTLambdaContext,
+  pureRuntime,
+  pureRuntimeWithContext,
+  fallibleRuntime,
+  fallibleRuntimeWithContext,
+  ioRuntime,
+  ioRuntimeWithContext,
+  readerTRuntime,
+  mRuntimeWithContext
 ) where
 
 import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent,
@@ -124,9 +133,9 @@ runtimeLoop baseRuntimeRequest staticContext fn = do
 
 --TODO: Revisit all names before we put them under contract
 -- | For any monad that supports IO/catch/Reader LambdaContext
-mLambdaContextRuntime :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>
+mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>
   (event -> m result) -> m ()
-mLambdaContextRuntime fn = do
+mRuntimeWithContext fn = do
   -- TODO: Hide the implementation details of Request and StaticContext.
   -- If we instead have a method that returns an opaque RuntimeClientConfig
   -- that encapsulates these details, and then all clientMethods accept
@@ -140,18 +149,18 @@ mLambdaContextRuntime fn = do
     Right staticContext -> forever $ runtimeLoop baseRuntimeRequest staticContext fn
 
 -- | Helper for using arbitrary monads with only the LambdaContext in its Reader
-runReaderTLambdaContext :: ReaderT LambdaContext m a -> m a
-runReaderTLambdaContext = flip runReaderT defConfig
+readerTRuntimeWithContext :: ReaderT LambdaContext m a -> m a
+readerTRuntimeWithContext = flip runReaderT defConfig
 
 -- | For functions that can read the lambda context and use IO within the same monad.
-readerTLambdaRuntime :: (FromJSON event, ToJSON result) =>
+readerTRuntime :: (FromJSON event, ToJSON result) =>
   (event -> ReaderT LambdaContext IO result) -> IO ()
-readerTLambdaRuntime = runReaderTLambdaContext .  mLambdaContextRuntime
+readerTRuntime = readerTRuntimeWithContext .  mRuntimeWithContext
 
 -- | For functions with IO that can fail in a pure way (or via throwM).
-ioLambdaRuntimeWithContext :: (FromJSON event, ToJSON result) =>
+ioRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> IO (Either String result)) -> IO ()
-ioLambdaRuntimeWithContext fn = readerTLambdaRuntime (\event -> do
+ioRuntimeWithContext fn = readerTRuntime (\event -> do
   config <- ask
   result <- liftIO $ fn config event
   case result of
@@ -160,30 +169,30 @@ ioLambdaRuntimeWithContext fn = readerTLambdaRuntime (\event -> do
  )
 
 -- | For functions with IO that can fail in a pure way (or via throwM).
-ioLambdaRuntime :: (FromJSON event, ToJSON result) =>
+ioRuntime :: (FromJSON event, ToJSON result) =>
   (event -> IO (Either String result)) -> IO ()
-ioLambdaRuntime fn = ioLambdaRuntimeWithContext wrapped
+ioRuntime fn = ioRuntimeWithContext wrapped
     where wrapped _ e = fn e
 
 -- | For pure functions that can still fail.
-pureLambdaRuntimeWithContext :: (FromJSON event, ToJSON result) =>
+fallibleRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> Either String result) -> IO ()
-pureLambdaRuntimeWithContext fn = ioLambdaRuntimeWithContext wrapped
+fallibleRuntimeWithContext fn = ioRuntimeWithContext wrapped
   where wrapped c e = return $ fn c e
 
 -- | For pure functions that can still fail.
-pureLambdaRuntime :: (FromJSON event, ToJSON result) =>
+fallibleRuntime :: (FromJSON event, ToJSON result) =>
   (event -> Either String result) -> IO ()
-pureLambdaRuntime fn = pureLambdaRuntimeWithContext wrapped
+fallibleRuntime fn = fallibleRuntimeWithContext wrapped
   where
     wrapped _ e = fn e
 
 -- | For pure functions that can never fail.
-simpleLambdaRuntimeWithContext :: (FromJSON event, ToJSON result) =>
+pureRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> result) -> IO ()
-simpleLambdaRuntimeWithContext fn = pureLambdaRuntimeWithContext wrapped
+pureRuntimeWithContext fn = fallibleRuntimeWithContext wrapped
   where wrapped c e = Right $ fn c e
 
 -- | For pure functions that can never fail.
-simpleLambdaRuntime :: (FromJSON event, ToJSON result) => (event -> result) -> IO ()
-simpleLambdaRuntime fn = pureLambdaRuntime (Right . fn)
+pureRuntime :: (FromJSON event, ToJSON result) => (event -> result) -> IO ()
+pureRuntime fn = fallibleRuntime (Right . fn)
