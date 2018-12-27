@@ -20,7 +20,7 @@ With numerous options in between these two, developers can choose the right bala
 #### Performant
 
 Measuring lambda performance is tricky, so investigation and optimization is ongoing.
-Current indications show a _warm_ execution overhead of only 20%-50% more than the official [Rust Runtime] (a much lower level language).
+Current indications show a _warm_ execution overhead of only ~20% more than the official [Rust Runtime] (a much lower level language).
 
 #### Robust
 
