@@ -41,16 +41,16 @@ This quick start assumes you have the following tools installed:
   - [Docker]
   - [aws-cli]
 
-Add `aws-lambda-runtime` to your [stack.yaml]'s [`extra-deps`] and enable
+Add `hal` to your [stack.yaml]'s [`extra-deps`] and enable
 [Docker] integration so that your binary is automatically compiled in a
-compatible environment for AWS. Also add `aws-lambda-runtime` to your project's
+compatible environment for AWS. Also add `hal` to your project's
 dependency list (either `project-name.cabal` or `package.yaml`)
 
 ```yaml
 #...
 packages:
   - '.'
-  - aws-lambda-runtime-0.1.0
+  - hal-0.1.0
 # ...
 docker:
   enable: true
