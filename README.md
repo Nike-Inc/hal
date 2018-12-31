@@ -2,6 +2,8 @@
 
 A runtime environment for [Haskell] applications running on [AWS Lambda].
 
+#### Flexible
+
 This library uniquely supports different types of AWS Lambda Handlers for your needs/comfort with advanced Haskell.
 Instead of exposing a single function that constructs a Lambda, this library exposes many.
 
@@ -14,6 +16,16 @@ It accepts handlers with the signature `(HasLambdaContext r, MonadCatch m, Monad
 This enables users to add caching logic or expose complex environments.
 
 With numerous options in between these two, developers can choose the right balance of flexibility vs simplicity.
+
+#### Performant
+
+Measuring lambda performance is tricky, so investigation and optimization is ongoing.
+Current indications show a _warm_ execution overhead of only ~20% more than the official [Rust Runtime] (a much lower level language).
+
+#### Robust
+
+While testing continues, we have executed over 30k test events without error caused by the runtime.
+Naive approaches lead to error rates well over 10%.
 
 ## Table of Contents
 
@@ -155,3 +167,4 @@ echo '{ "accountId": "byebye" }' | sam local invoke --region us-east-1
 [aws-cli]: https://aws.amazon.com/cli/
 [CloudFormation]: https://aws.amazon.com/cloudformation/
 [aws-sam-cli]: https://github.com/awslabs/aws-sam-cli
+[Rust Runtime]: https://github.com/awslabs/aws-lambda-rust-runtime
