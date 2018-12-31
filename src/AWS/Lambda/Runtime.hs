@@ -37,6 +37,8 @@ import           Data.Bifunctor           (first)
 import qualified Data.ByteString.Char8    as BSC
 import qualified Data.ByteString.Lazy     as BSW
 import qualified Data.ByteString.Internal as BSI
+import           Data.Text                (unpack)
+import           Data.Text.Encoding       (decodeUtf8)
 import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
 import           Network.HTTP.Simple      (Request, getResponseBody,
                                            getResponseHeader)
@@ -83,8 +85,8 @@ runtimeLoop baseRuntimeRequest staticContext fn = do
   -- If we got an event but our requestId is invalid/missing, there's no hope of meaningful recovery
   let reqIdBS = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
 
-  let mTraceId = fmap BSC.unpack $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
-  let mFunctionArn = fmap BSC.unpack $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
+  let mTraceId = fmap decodeUtf8 $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
+  let mFunctionArn = fmap decodeUtf8 $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
   let mDeadline = do
         header <- exactlyOneHeader (getResponseHeader "Lambda-Runtime-Deadline-Ms" nextRes)
         milliseconds :: Double <- readMaybe $ BSC.unpack header
@@ -100,7 +102,7 @@ runtimeLoop baseRuntimeRequest staticContext fn = do
         -- convert the Maybe DynamicContext into an Either String DynamicContext
         $ maybeToEither "Runtime Error: Unable to decode Context from event response."
         -- Build the Dynamic Context, collapsing individual Maybes into a single Maybe
-        $ DynamicContext (BSC.unpack reqIdBS)
+        $ DynamicContext (decodeUtf8 reqIdBS)
         <$> mTraceId
         <*> mFunctionArn
         <*> mDeadline
@@ -114,7 +116,7 @@ runtimeLoop baseRuntimeRequest staticContext fn = do
     Right (ctx, event) ->
       local (withContext ctx) $ do
         -- Propagate the tracing header (Exception safe for this env var name)
-        liftIO $ setEnv "_X_AMZN_TRACE_ID" (xRayTraceId ctx)
+        liftIO $ setEnv "_X_AMZN_TRACE_ID" $ unpack $ xRayTraceId ctx
 
         {- Catching like this is _usually_ considered bad practice, but this is a true
              case where we want to both catch all errors and propogate information about them.

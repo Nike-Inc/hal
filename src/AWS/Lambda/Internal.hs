@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 {-|
 Module      : AWS.Lambda.Internal
 Description : Internal hal helper methods.
@@ -15,17 +17,18 @@ module AWS.Lambda.Internal (
 
 import           AWS.Lambda.Context (ClientContext, CognitoIdentity,
                                      LambdaContext (LambdaContext))
+import           Data.Text          (Text)
 import           Data.Time.Clock    (UTCTime)
 import           GHC.Generics       (Generic)
 import           System.Envy        (DefConfig (..), FromEnv, Option (..),
                                      fromEnv, gFromEnvCustom)
 
 data StaticContext = StaticContext
-  { functionName       :: String,
-    functionVersion    :: String,
+  { functionName       :: Text,
+    functionVersion    :: Text,
     functionMemorySize :: Int,
-    logGroupName       :: String,
-    logStreamName      :: String
+    logGroupName       :: Text,
+    logStreamName      :: Text
   } deriving (Show, Generic)
 
 instance DefConfig StaticContext where
@@ -38,9 +41,9 @@ instance FromEnv StaticContext where
           }
 
 data DynamicContext = DynamicContext
-  { awsRequestId       :: String,
-    invokedFunctionArn :: String,
-    xRayTraceId        :: String,
+  { awsRequestId       :: Text,
+    invokedFunctionArn :: Text,
+    xRayTraceId        :: Text,
     deadline           :: UTCTime,
     clientContext      :: Maybe ClientContext,
     identity           :: Maybe CognitoIdentity

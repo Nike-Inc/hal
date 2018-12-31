@@ -1,4 +1,4 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns, OverloadedStrings #-}
 
 {-|
 Module      : AWS.Lambda.Context
@@ -22,6 +22,7 @@ module AWS.Lambda.Context (
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Aeson             (FromJSON, ToJSON)
 import           Data.Map               (Map)
+import           Data.Text              (Text)
 import           Data.Time.Clock        (DiffTime, UTCTime,
                                          diffUTCTime, getCurrentTime)
 import           Data.Time.Clock.POSIX  (posixSecondsToUTCTime)
@@ -29,10 +30,10 @@ import           GHC.Generics           (Generic)
 import           System.Envy            (DefConfig (..))
 
 data ClientApplication = ClientApplication
-  { appTitle       :: String,
-    appVersionName :: String,
-    appVersionCode :: String,
-    appPackageName :: String
+  { appTitle       :: Text,
+    appVersionName :: Text,
+    appVersionCode :: Text,
+    appPackageName :: Text
   } deriving (Show, Generic)
 
 instance ToJSON ClientApplication
@@ -40,16 +41,16 @@ instance FromJSON ClientApplication
 
 data ClientContext = ClientContext
   { client      :: ClientApplication,
-    custom      :: Map String String,
-    environment :: Map String String
+    custom      :: Map Text Text,
+    environment :: Map Text Text
   } deriving (Show, Generic)
 
 instance ToJSON ClientContext
 instance FromJSON ClientContext
 
 data CognitoIdentity = CognitoIdentity
-  { identityId     :: String
-  , identityPoolId :: String
+  { identityId     :: Text
+  , identityPoolId :: Text
   } deriving (Show, Generic)
 
 instance ToJSON CognitoIdentity
@@ -60,15 +61,15 @@ getRemainingTime LambdaContext { deadline } =
   liftIO $ fmap (realToFrac . diffUTCTime deadline) getCurrentTime
 
 data LambdaContext = LambdaContext
-  { functionName       :: String,
-    functionVersion    :: String,
+  { functionName       :: Text,
+    functionVersion    :: Text,
     functionMemorySize :: Int,
-    logGroupName       :: String,
-    logStreamName      :: String,
+    logGroupName       :: Text,
+    logStreamName      :: Text,
     -- The following context values come from headers rather than env vars.
-    awsRequestId       :: String,
-    invokedFunctionArn :: String,
-    xRayTraceId        :: String,
+    awsRequestId       :: Text,
+    invokedFunctionArn :: Text,
+    xRayTraceId        :: Text,
     deadline           :: UTCTime,
     clientContext      :: Maybe ClientContext,
     identity           :: Maybe CognitoIdentity

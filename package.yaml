@@ -56,3 +56,4 @@ library:
     - mtl
     - containers
     - time
+    - text
