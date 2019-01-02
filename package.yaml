@@ -1,8 +1,11 @@
 name:                hal
+description:         A runtime environment for Haskell applications running on AWS Lambda.
+synopsis:            Please see the README.md file for this project.
 version:             0.1.0
 github:              Nike-inc/hal
 license:             BSD3
 author:              Nike, Inc.
+maintainer:          nikeoss
 copyright:           2018 Nike, Inc.
 category:            Web,AWS
 extra-source-files:
@@ -47,13 +50,13 @@ ghc-options:
 library:
   source-dirs: src
   dependencies:
-    - aeson
-    - bytestring
-    - envy
-    - http-conduit
-    - http-types
-    - exceptions
-    - mtl
-    - containers
-    - time
-    - text
+    - aeson < 2.0.0
+    - bytestring < 1.0.0
+    - envy < 2.0.0
+    - http-conduit < 3.0.0
+    - http-types < 1.0.0
+    - exceptions < 1.0.0
+    - mtl < 3.0.0
+    - containers < 1.0.0
+    - time < 2.0.0
+    - text < 2.0.0
