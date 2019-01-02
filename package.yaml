@@ -1,6 +1,9 @@
 name:                hal
-description:         A runtime environment for Haskell applications running on AWS Lambda.
-synopsis:            Please see the README.md file for this project.
+synopsis:            A runtime environment for Haskell applications running on AWS Lambda.
+description: |
+  This library uniquely supports different types of AWS Lambda Handlers for your
+  needs/comfort with advanced Haskell. Instead of exposing a single function
+  that constructs a Lambda, this library exposes many.
 version:             0.1.0
 github:              Nike-inc/hal
 license:             BSD3
@@ -50,13 +53,13 @@ ghc-options:
 library:
   source-dirs: src
   dependencies:
-    - aeson < 2.0.0
-    - bytestring < 1.0.0
-    - envy < 2.0.0
-    - http-conduit < 3.0.0
-    - http-types < 1.0.0
-    - exceptions < 1.0.0
-    - mtl < 3.0.0
-    - containers < 1.0.0
-    - time < 2.0.0
-    - text < 2.0.0
+    - aeson
+    - bytestring
+    - envy
+    - http-conduit
+    - http-types
+    - exceptions
+    - mtl
+    - containers
+    - time
+    - text
