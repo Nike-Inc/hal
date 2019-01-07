@@ -65,7 +65,7 @@ Then, define your types and handler:
 
 module Main where
 
-import AWS.Lambda.Runtime (simpleLambdaRuntime)
+import AWS.Lambda.Runtime (pureRuntime)
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 
@@ -85,7 +85,7 @@ idHandler :: Request -> Response
 idHandler Request { input } = Response { output = input }
 
 main :: IO ()
-main = simpleLambdaRuntime idHandler
+main = pureRuntime idHandler
 ```
 
 Don't forget to define your [CloudFormation] stack:
