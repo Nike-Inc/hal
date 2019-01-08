@@ -59,7 +59,7 @@ getNextEvent :: FromJSON a => Request -> IO (Response (Either JSONException a))
 getNextEvent baseRuntimeRequest = do
   resOrEx <- runtimeClientRetryTry $ httpJSONEither $ toNextEventRequest baseRuntimeRequest
   let checkStatus res = if not $ statusIsSuccessful $ getResponseStatus res then
-        Left "Unexpected Runtime Error:  Could retrieve next event."
+        Left "Unexpected Runtime Error:  Could not retrieve next event."
       else
         Right res
   let resOrMsg = first (displayException :: HttpException -> String) resOrEx >>= checkStatus
