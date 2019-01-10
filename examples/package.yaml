@@ -36,3 +36,8 @@ executables:
   simple-context:
     source-dirs: simplecontext
     main: Main.hs
+  fallible:
+    source-dirs: fallible
+    main: Main.hs
+    dependencies:
+      - unordered-containers
