@@ -7,8 +7,8 @@ category:            Web,AWS
 extra-source-files:
 - README.md
 
-dependencies:
-  - base >= 4.7 && < 5
+default-extensions:
+  - OverloadedStrings
 
 ghc-options:
   - -Wall
@@ -23,16 +23,16 @@ ghc-options:
   - -fwarn-missing-signatures
   - -fwarn-incomplete-patterns
 
+dependencies:
+  - base >= 4.7 && < 5
+  - text
+  - aeson
+  - hal
+
 executables:
   simple:
     source-dirs: simple
     main: Main.hs
-    dependencies:
-      - hal
-      - aeson
   simple-context:
     source-dirs: simplecontext
     main: Main.hs
-    dependencies:
-      - hal
-      - aeson
