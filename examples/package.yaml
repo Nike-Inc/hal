@@ -41,3 +41,11 @@ executables:
     main: Main.hs
     dependencies:
       - unordered-containers
+  mock:
+    source-dirs: mock_runtime_event_server
+    main: Main.hs
+    dependencies:
+      - containers
+      - scotty
+      - bytestring
+      - time
