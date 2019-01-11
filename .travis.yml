@@ -135,7 +135,8 @@ install:
       #  stack --no-terminal $ARGS solver --update-config)
 
       # Build the dependencies
-      stack --no-terminal --install-ghc $ARGS test --bench --only-dependencies
+      stack docker pull && \
+        stack --no-terminal --install-ghc $ARGS test --bench --only-dependencies
       ;;
     cabal)
       cabal --version
@@ -144,7 +145,7 @@ install:
       # Get the list of packages from the stack.yaml file. Note that
       # this will also implicitly run hpack as necessary to generate
       # the .cabal files needed by cabal-install.
-      PACKAGES=$(stack --install-ghc query locals | grep '^ *path' | sed 's@^ *path:@@')
+      PACKAGES=$(stack --no-docker --install-ghc query locals | grep '^ *path' | sed 's@^ *path:@@')
 
       cabal install --only-dependencies --enable-tests --enable-benchmarks --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1 $CABALARGS $PACKAGES
       ;;
@@ -156,7 +157,8 @@ script:
   set -ex
   case "$BUILD" in
     stack)
-      stack --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
+      stack docker pull && \
+        stack --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
       ;;
     cabal)
       cabal install --enable-tests --enable-benchmarks --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1 $CABALARGS $PACKAGES
