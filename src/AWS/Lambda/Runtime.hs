@@ -27,7 +27,7 @@ import           AWS.Lambda.Internal      (StaticContext, DynamicContext(Dynamic
                                            mkContext)
 import           Control.Applicative      ((<*>), liftA2)
 import           Control.Exception        (SomeException, displayException)
-import           Control.Monad            (forever)
+import           Control.Monad            (forever, replicateM_)
 import           Control.Monad.Catch      (MonadCatch, try)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)
 import           Control.Monad.Reader     (MonadReader, ReaderT, ask, local,
@@ -182,7 +182,7 @@ mRuntimeWithContext fn = do
 
   case possibleStaticCtx of
     Left err -> liftIO $ sendInitError baseRuntimeRequest err
-    Right staticContext -> forever $ runtimeLoop baseRuntimeRequest staticContext fn
+    Right staticContext -> replicateM_ 1000 $ runtimeLoop baseRuntimeRequest staticContext fn
 
 -- | Helper for using arbitrary monads with only the LambdaContext in its Reader
 readerTRuntimeWithContext :: ReaderT LambdaContext m a -> m a
