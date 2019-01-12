@@ -1,20 +1,22 @@
-{-# LANGUAGE DeriveGeneric  #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Main where
 
-import           AWS.Lambda.Runtime (pureRuntime)
-import           Data.Aeson         (FromJSON, ToJSON)
-import           GHC.Generics       (Generic)
+import AWS.Lambda.Events
+       (ApiGatewayProxyRequest(..),
+        ApiGatewayProxyResponse(ApiGatewayProxyResponse))
+import AWS.Lambda.Runtime (pureRuntime)
+import Data.Aeson (FromJSON, ToJSON)
+import Debug.Trace (traceShow)
+import GHC.Generics (Generic)
+import Network.HTTP.Types.Status (ok200)
 
-data IdEvent  = IdEvent { input   :: String } deriving Generic
-instance FromJSON IdEvent where
-
-data IdResult = IdResult { output :: String } deriving Generic
-instance ToJSON IdResult where
-
-handler :: IdEvent -> IdResult
-handler IdEvent { input } = IdResult { output = input }
+handler :: ApiGatewayProxyRequest String -> ApiGatewayProxyResponse String
+handler x =
+    traceShow
+        x
+        (ApiGatewayProxyResponse ok200 mempty "Hello from Haskell Lambda")
 
 main :: IO ()
 main = pureRuntime handler
