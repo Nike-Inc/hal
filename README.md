@@ -29,9 +29,23 @@ Naive approaches lead to error rates well over 10%.
 
 ## Table of Contents
 
+  - [Supported Platforms / GHC Versions](#supported-platforms-ghc-versions)
   - [Quick Start](#quick-start)
   - [Usage](#usage)
   - [Local Testing](#local-testing)
+
+## Supported Platforms / GHC Versions
+
+We currently support this library under the same environment that [AWS Lambda
+supports][lambda-env].
+
+Our [CI] currently targets the latest three [LTS Stackage Versions][stackage],
+the latest three minor versions of [GHC] under [Cabal]
+(e.g. `8.6.x`, `8.4.x`, and `8.2.x`), and GHC-head / Stackage nightly builds.
+
+If you haven't already, adding `docker: { enable: true }` to your `stack.yaml`
+file will ensure that you're building a binary that can run in
+[AWS Lambda][lambda-env].
 
 ## Quick Start
 
@@ -168,3 +182,8 @@ echo '{ "accountId": "byebye" }' | sam local invoke --region us-east-1
 [CloudFormation]: https://aws.amazon.com/cloudformation/
 [aws-sam-cli]: https://github.com/awslabs/aws-sam-cli
 [Rust Runtime]: https://github.com/awslabs/aws-lambda-rust-runtime
+[lambda-env]: https://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
+[ci]: https://travis-ci.org/Nike-Inc/hal
+[stackage]: https://www.stackage.org/
+[GHC]: https://www.haskell.org/ghc/download.html
+[Cabal]: https://www.haskell.org/cabal/download.html
