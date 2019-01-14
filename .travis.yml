@@ -164,3 +164,11 @@ script:
       ;;
   esac
   set +ex
+
+deploy:
+  - provider: script
+    skip_cleanup: true
+    script: bash .travis/deploy.sh
+    on:
+      repo: Nike-inc/hal
+      tags: true
