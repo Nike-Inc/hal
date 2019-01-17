@@ -11,11 +11,14 @@ Stability   : stable
 -}
 module AWS.Lambda.Events.ApiGatewayProxyRequest
     ( ApiGatewayProxyRequest(..)
+    , RequestContext
+    , Identity
     ) where
 
-import           Data.Aeson   (FromJSON)
-import           Data.Text    (Text)
-import           GHC.Generics (Generic (..))
+import           Data.Aeson     (FromJSON)
+import           Data.Map       (Map)
+import           Data.Text.Lazy (Text)
+import           GHC.Generics   (Generic (..))
 
 data Identity = Identity
     { cognitoIdentityPoolId         :: Maybe Text
