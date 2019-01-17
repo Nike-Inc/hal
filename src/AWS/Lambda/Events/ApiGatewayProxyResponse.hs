@@ -16,10 +16,10 @@ import           Data.Aeson   (ToJSON)
 import           Data.Text    (Text)
 import           GHC.Generics (Generic (..))
 
-data ApiGatewayProxyResponse a = ApiGatewayProxyResponse
+data ApiGatewayProxyResponse = ApiGatewayProxyResponse
     { statusCode :: Int
     , headers    :: [(Text, Text)]
-    , body       :: a
+    , body       :: Text
     } deriving (Show, Generic)
 
-instance ToJSON a => ToJSON (ApiGatewayProxyResponse a)
+instance ToJSON ApiGatewayProxyResponse

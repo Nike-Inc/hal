@@ -50,7 +50,7 @@ data RequestContext = RequestContext
 
 instance FromJSON RequestContext
 
-data ApiGatewayProxyRequest a = ApiGatewayProxyRequest
+data ApiGatewayProxyRequest = ApiGatewayProxyRequest
     { path                            :: Text
     , headers                         :: Maybe [(Text, Text)]
     , multiValueHeaders               :: Maybe [(Text, [Text])]
@@ -61,7 +61,7 @@ data ApiGatewayProxyRequest a = ApiGatewayProxyRequest
     , queryStringParameters           :: Maybe [(Text, Text)]
     , multiValueQueryStringParameters :: Maybe [(Text, [Text])]
     , isBase64Encoded                 :: Bool
-    , body                            :: a
+    , body                            :: Text
     } deriving (Generic)
 
-instance FromJSON a => FromJSON (ApiGatewayProxyRequest a)
+instance FromJSON ApiGatewayProxyRequest
