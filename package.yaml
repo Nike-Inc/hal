@@ -62,4 +62,5 @@ library:
     - containers
     - time
     - text
+    - base64-bytestring
     - case-insensitive
