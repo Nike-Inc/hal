@@ -163,7 +163,7 @@ TODO
 ### Build
 
 ```bash
-docker pull fpco/stack-build:lts-12.21 #first build only
+docker pull fpco/stack-build:lts-12.26 #first build only
 stack build --copy-bins
 ```
 
