@@ -11,11 +11,12 @@ Stability   : stable
 module AWS.Lambda.Events.NeedsARealName
     ( NeedsARealName(..)
     , needsARealName
+    , needsARealNameJSON
+    , needsARealNameBase64
     ) where
 
 import           AWS.Lambda.Events.ApiGatewayProxyRequest (RequestContext)
 import qualified AWS.Lambda.Events.ApiGatewayProxyRequest as Raw
-import           Control.Monad                            ((>=>))
 import           Data.Aeson                               (FromJSON, decode)
 import           Data.Bifunctor                           (first)
 import           Data.ByteString.Base64.Lazy              (encode)
