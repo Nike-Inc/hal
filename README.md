@@ -31,7 +31,6 @@ Naive approaches lead to error rates well over 10%.
 
   - [Supported Platforms / GHC Versions](#supported-platforms-ghc-versions)
   - [Quick Start](#quick-start)
-  - [Usage](#usage)
   - [Local Testing](#local-testing)
 
 ## Supported Platforms / GHC Versions
@@ -64,7 +63,7 @@ dependency list (either `project-name.cabal` or `package.yaml`)
 #...
 packages:
   - '.'
-  - hal-0.1.0
+  - hal-0.1.2
 # ...
 docker:
   enable: true
@@ -74,32 +73,39 @@ docker:
 Then, define your types and handler:
 
 ```haskell
+{-# LANGUAGE DeriveGeneric  #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 module Main where
 
 import AWS.Lambda.Runtime (pureRuntime)
-import Data.Aeson (FromJSON, ToJSON)
-import GHC.Generics (Generic)
+import Data.Aeson         (FromJSON, ToJSON)
+import GHC.Generics       (Generic)
 
-data Request = Request {
-  input :: String
-} deriving (Generic)
+data IdEvent  = IdEvent { input   :: String } deriving Generic
+instance FromJSON IdEvent where
 
-instance FromJSON Request
+data IdResult = IdResult { output :: String } deriving Generic
+instance ToJSON IdResult where
 
-data Response = Response {
-  output :: String
-} deriving (Generic)
-
-instance ToJSON Response
-
-idHandler :: Request -> Response
-idHandler Request { input } = Response { output = input }
+handler :: IdEvent -> IdResult
+handler IdEvent { input } = IdResult { output = input }
 
 main :: IO ()
-main = pureRuntime idHandler
+main = pureRuntime handler
+```
+
+Your binary should be called `bootstrap` in order for the custom runtime
+to execute properly:
+
+```yaml
+# Example snippet of package.yaml
+# ...
+executables:
+  bootstrap:
+    source-dirs: src
+    main: Main.hs  # e.g. {project root}/src/Main.hs
+# ...
 ```
 
 Don't forget to define your [CloudFormation] stack:
@@ -115,6 +121,8 @@ Resources:
     Properties:
       Handler: NOT_USED
       Runtime: provided
+      # CodeUri is a relative path from the directory that this CloudFormation
+      # file is defined.
       CodeUri: .stack-work/docker/_home/.local/bin/
       Description: My Haskell runtime.
       MemorySize: 128
@@ -148,10 +156,6 @@ aws lambda invoke \
   output.txt
 ```
 
-## Usage
-
-TODO
-
 ## Local Testing
 
 ### Dependencies
@@ -163,7 +167,7 @@ TODO
 ### Build
 
 ```bash
-docker pull fpco/stack-build:lts-12.21 #first build only
+docker pull fpco/stack-build:lts-{version} # First build only, find the latest version in stack.yaml
 stack build --copy-bins
 ```
 
