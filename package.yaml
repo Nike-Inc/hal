@@ -64,3 +64,4 @@ library:
     - text
     - base64-bytestring
     - case-insensitive
+    - profunctors

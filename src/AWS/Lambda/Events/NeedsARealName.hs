@@ -13,6 +13,7 @@ module AWS.Lambda.Events.NeedsARealName
     , needsARealName
     , needsARealNameJSON
     , needsARealNameBase64
+    , expectJSON
     ) where
 
 import           AWS.Lambda.Events.ApiGatewayProxyRequest (RequestContext)
