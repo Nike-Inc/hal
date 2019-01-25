@@ -45,6 +45,9 @@ with400 res400 fn e =
     Just json -> fn json
     Nothing   -> return res400
 
+withDefault400 :: Monad m => (a -> m ApiGatewayProxyResponse) -> (Maybe a -> m ApiGatewayProxyResponse)
+withDefault400 = with400 (ApiGatewayProxyResponse 400 [] "Bad Request")
+
 withApiGateway :: (NeedsARealName (Bool, ByteString) -> a) -> (ApiGatewayProxyRequest -> a)
 withApiGateway = lmap needsARealName
 
@@ -52,18 +55,18 @@ withJSONBody :: FromJSON json => (Maybe (NeedsARealName json) -> a) -> (NeedsARe
 withJSONBody = lmap expectJSON
 
 mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON json) =>
-  ApiGatewayProxyResponse -> (NeedsARealName json -> m ApiGatewayProxyResponse) -> m ()
-mRuntimeWithContext res400 =
-  Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . with400 res400
+  (NeedsARealName json -> m ApiGatewayProxyResponse) -> m ()
+mRuntimeWithContext =
+  Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . withDefault400
 
 -- | Helper for using arbitrary monads with only the LambdaContext in its Reader
 runReaderTLambdaContext :: ReaderT LambdaContext m a -> m a
 runReaderTLambdaContext = flip runReaderT defConfig
 
 readerTRuntime :: FromJSON json =>
-  ApiGatewayProxyResponse -> (NeedsARealName json -> ReaderT LambdaContext IO ApiGatewayProxyResponse) -> IO ()
-readerTRuntime res400 =
-  runReaderTLambdaContext . mRuntimeWithContext res400
+  (NeedsARealName json -> ReaderT LambdaContext IO ApiGatewayProxyResponse) -> IO ()
+readerTRuntime =
+  runReaderTLambdaContext . mRuntimeWithContext
 
 withIOAndContextInterface :: (MonadReader c m, MonadIO m) => (c -> b -> IO (Either String a)) -> (b -> m a)
 withIOAndContextInterface fn = \event -> do
@@ -75,9 +78,9 @@ withIOAndContextInterface fn = \event -> do
 
 
 ioRuntimeWithContext :: FromJSON json =>
-  ApiGatewayProxyResponse -> (LambdaContext -> NeedsARealName json -> IO (Either String ApiGatewayProxyResponse)) -> IO ()
-ioRuntimeWithContext res400 =
-  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . with400 res400 . withIOAndContextInterface
+  (LambdaContext -> NeedsARealName json -> IO (Either String ApiGatewayProxyResponse)) -> IO ()
+ioRuntimeWithContext =
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . withDefault400 . withIOAndContextInterface
 
 withIOInterface :: MonadIO m => (b -> IO (Either String a)) -> b -> m a
 withIOInterface fn event = do
@@ -87,9 +90,9 @@ withIOInterface fn event = do
      Right x -> return x
 
 ioRuntime :: FromJSON json =>
-  ApiGatewayProxyResponse -> (NeedsARealName json -> IO (Either String ApiGatewayProxyResponse)) -> IO ()
-ioRuntime res400 =
-  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . with400 res400 . withIOInterface
+  (NeedsARealName json -> IO (Either String ApiGatewayProxyResponse)) -> IO ()
+ioRuntime =
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . withDefault400 . withIOInterface
 
 withFallableAndContextInterface :: MonadReader c m => (c -> b -> Either String a) -> b -> m a
 withFallableAndContextInterface fn event = do
@@ -99,9 +102,9 @@ withFallableAndContextInterface fn event = do
     Right x -> return x
 
 fallibleRuntimeWithContext :: FromJSON json =>
-  ApiGatewayProxyResponse -> (LambdaContext -> NeedsARealName json -> Either String ApiGatewayProxyResponse) -> IO ()
-fallibleRuntimeWithContext res400 =
-  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . with400 res400 . withFallableAndContextInterface
+  (LambdaContext -> NeedsARealName json -> Either String ApiGatewayProxyResponse) -> IO ()
+fallibleRuntimeWithContext =
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . withDefault400 . withFallableAndContextInterface
 
 
 withFallableInterface :: Monad m => (b -> Either String a) -> b -> m a
@@ -111,9 +114,9 @@ withFallableInterface fn event =
     Right x -> return x
 
 fallibleRuntime :: FromJSON json =>
-  ApiGatewayProxyResponse -> (NeedsARealName json -> Either String ApiGatewayProxyResponse) -> IO ()
-fallibleRuntime res400 =
-  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . with400 res400 . withFallableInterface
+  (NeedsARealName json -> Either String ApiGatewayProxyResponse) -> IO ()
+fallibleRuntime =
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . withDefault400 . withFallableInterface
 
 
 withPureAndContextInterface :: MonadReader c m => (c -> b -> a) -> b -> m a
@@ -122,15 +125,15 @@ withPureAndContextInterface fn event = do
   return $ fn config event
 
 pureRuntimeWithContext :: FromJSON json =>
-  ApiGatewayProxyResponse -> (LambdaContext -> NeedsARealName json -> ApiGatewayProxyResponse) -> IO ()
-pureRuntimeWithContext res400 =
-  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . with400 res400 . withPureAndContextInterface
+  (LambdaContext -> NeedsARealName json -> ApiGatewayProxyResponse) -> IO ()
+pureRuntimeWithContext =
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . withDefault400 . withPureAndContextInterface
 
 
 withPureInterface :: Monad m => (b -> a) -> b -> m a
 withPureInterface =
   fmap return
 
-pureRuntime :: FromJSON json => ApiGatewayProxyResponse -> (NeedsARealName json -> ApiGatewayProxyResponse) -> IO ()
-pureRuntime res400 =
-  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . with400 res400 . withPureInterface
+pureRuntime :: FromJSON json => (NeedsARealName json -> ApiGatewayProxyResponse) -> IO ()
+pureRuntime =
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . withDefault400 . withPureInterface
