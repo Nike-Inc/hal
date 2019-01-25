@@ -42,7 +42,7 @@ data NeedsARealName a = NeedsARealName
     , body                            :: a
     } deriving (Generic)
 
-needsARealName :: Raw.ApiGatewayProxyRequest -> NeedsARealName (Bool, ByteString)
+needsARealName :: Raw.ApiGatewayProxyRequest -> NeedsARealName (Bool, Text)
 needsARealName x =
     NeedsARealName
     { path =
@@ -64,20 +64,20 @@ needsARealName x =
     , multiValueQueryStringParameters =
         fromList $ fromMaybe mempty $ Raw.multiValueQueryStringParameters x
     , body =
-        (Raw.isBase64Encoded x, encodeUtf8 $ Raw.body x)
+        (Raw.isBase64Encoded x, Raw.body x)
     }
 
-expectJSON :: FromJSON a => NeedsARealName (Bool, ByteString) -> Maybe (NeedsARealName a)
+expectJSON :: FromJSON a => NeedsARealName (Bool, Text) -> Maybe (NeedsARealName a)
 expectJSON x@NeedsARealName { body } =
   case body of
     (True, _)  -> Nothing
-    (False, a) -> (\b -> x { body = b }) <$> decode a
+    (False, a) -> fmap (\b -> x { body = b }) $ decode $ encodeUtf8 a
 
-expectBase64 :: NeedsARealName (Bool, ByteString) -> Maybe (NeedsARealName ByteString)
+expectBase64 :: NeedsARealName (Bool, Text) -> Maybe (NeedsARealName ByteString)
 expectBase64 x@NeedsARealName { body } =
   case body of
     (False, _) -> Nothing
-    (True, b)  -> Just $ x { body = encode b }
+    (True, b)  -> Just $ x { body = encode $ encodeUtf8 b }
 
 -- TODO: Handler for functions that accept either?
 -- Probably not a _great_ idea to do that, but probably should be supported

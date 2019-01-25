@@ -35,8 +35,8 @@ import           Control.Monad.Reader                      (MonadReader,
                                                             ReaderT, ask,
                                                             runReaderT)
 import           Data.Aeson                                (FromJSON)
-import           Data.ByteString.Lazy                      (ByteString)
 import           Data.Profunctor                           (lmap)
+import           Data.Text.Lazy                            (Text)
 import           System.Envy                               (defConfig)
 
 with400 :: Monad m => ApiGatewayProxyResponse -> (a -> m ApiGatewayProxyResponse) -> (Maybe a -> m ApiGatewayProxyResponse)
@@ -48,10 +48,10 @@ with400 res400 fn e =
 withDefault400 :: Monad m => (a -> m ApiGatewayProxyResponse) -> (Maybe a -> m ApiGatewayProxyResponse)
 withDefault400 = with400 (ApiGatewayProxyResponse 400 [] "Bad Request")
 
-withApiGateway :: (NeedsARealName (Bool, ByteString) -> a) -> (ApiGatewayProxyRequest -> a)
+withApiGateway :: (NeedsARealName (Bool, Text) -> a) -> (ApiGatewayProxyRequest -> a)
 withApiGateway = lmap needsARealName
 
-withJSONBody :: FromJSON json => (Maybe (NeedsARealName json) -> a) -> (NeedsARealName (Bool, ByteString) -> a)
+withJSONBody :: FromJSON json => (Maybe (NeedsARealName json) -> a) -> (NeedsARealName (Bool, Text) -> a)
 withJSONBody = lmap expectJSON
 
 mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON json) =>
