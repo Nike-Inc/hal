@@ -65,8 +65,8 @@ readerTRuntime :: FromJSON json =>
 readerTRuntime res400 =
   runReaderTLambdaContext . mRuntimeWithContext res400
 
-withIOInterface :: (MonadReader c m, MonadIO m) => (c -> b -> IO (Either String a)) -> (b -> m a)
-withIOInterface fn = \event -> do
+withIOAndContextInterface :: (MonadReader c m, MonadIO m) => (c -> b -> IO (Either String a)) -> (b -> m a)
+withIOAndContextInterface fn = \event -> do
    config <- ask
    result <- liftIO $ fn config event
    case result of
@@ -77,32 +77,60 @@ withIOInterface fn = \event -> do
 ioRuntimeWithContext :: FromJSON json =>
   ApiGatewayProxyResponse -> (LambdaContext -> NeedsARealName json -> IO (Either String ApiGatewayProxyResponse)) -> IO ()
 ioRuntimeWithContext res400 =
-  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . with400 res400 . withIOInterface
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . with400 res400 . withIOAndContextInterface
+
+withIOInterface :: MonadIO m => (b -> IO (Either String a)) -> b -> m a
+withIOInterface fn event = do
+   result <- liftIO $ fn event
+   case result of
+     Left e  -> error e
+     Right x -> return x
 
 ioRuntime :: FromJSON json =>
   ApiGatewayProxyResponse -> (NeedsARealName json -> IO (Either String ApiGatewayProxyResponse)) -> IO ()
-ioRuntime res404 fn = ioRuntimeWithContext res404 wrapped
-    where wrapped _ = fn
+ioRuntime res400 =
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . with400 res400 . withIOInterface
 
+withFallableAndContextInterface :: MonadReader c m => (c -> b -> Either String a) -> b -> m a
+withFallableAndContextInterface fn event = do
+  config <- ask
+  case fn config event of
+    Left e  -> error e
+    Right x -> return x
 
 fallibleRuntimeWithContext :: FromJSON json =>
   ApiGatewayProxyResponse -> (LambdaContext -> NeedsARealName json -> Either String ApiGatewayProxyResponse) -> IO ()
-fallibleRuntimeWithContext res404 fn = ioRuntimeWithContext res404 wrapped
-  where wrapped c e = return $ fn c e
+fallibleRuntimeWithContext res400 =
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . with400 res400 . withFallableAndContextInterface
 
+
+withFallableInterface :: Monad m => (b -> Either String a) -> b -> m a
+withFallableInterface fn event =
+  case fn event of
+    Left e  -> error e
+    Right x -> return x
 
 fallibleRuntime :: FromJSON json =>
   ApiGatewayProxyResponse -> (NeedsARealName json -> Either String ApiGatewayProxyResponse) -> IO ()
-fallibleRuntime res404 fn = fallibleRuntimeWithContext res404 wrapped
-  where
-    wrapped _ = fn
+fallibleRuntime res400 =
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . with400 res400 . withFallableInterface
 
+
+withPureAndContextInterface :: MonadReader c m => (c -> b -> a) -> b -> m a
+withPureAndContextInterface fn event = do
+  config <- ask
+  return $ fn config event
 
 pureRuntimeWithContext :: FromJSON json =>
   ApiGatewayProxyResponse -> (LambdaContext -> NeedsARealName json -> ApiGatewayProxyResponse) -> IO ()
-pureRuntimeWithContext res404 fn = fallibleRuntimeWithContext res404 wrapped
-  where wrapped c e = Right $ fn c e
+pureRuntimeWithContext res400 =
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . with400 res400 . withPureAndContextInterface
 
+
+withPureInterface :: Monad m => (b -> a) -> b -> m a
+withPureInterface =
+  fmap return
 
 pureRuntime :: FromJSON json => ApiGatewayProxyResponse -> (NeedsARealName json -> ApiGatewayProxyResponse) -> IO ()
-pureRuntime res404 fn = fallibleRuntime res404 (Right . fn)
+pureRuntime res400 =
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . with400 res400 . withPureInterface
