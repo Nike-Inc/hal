@@ -7,6 +7,14 @@ Copyright   : (c) Nike, Inc., 2018
 License     : BSD3
 Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
 Stability   : stable
+
+These are runtimes designed for AWS Lambda, which accept a handler and return
+an application that will retreive and execute events as long as a container
+continues to exist.
+
+Many of these runtimes use "AWS.Lambda.Combinators" under the hood.
+For those interested in peeking below the abstractions provided here,
+please refer to that module.
 -}
 
 module AWS.Lambda.Runtime (
