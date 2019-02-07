@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/Nike-Inc/hal.svg?branch=master)](https://travis-ci.org/Nike-Inc/hal)
+
 # hal
 
 A runtime environment for [Haskell] applications running on [AWS Lambda].
