@@ -13,7 +13,7 @@ They map functions (instead of values) to turn basic handlers into handlers comp
 
 module AWS.Lambda.Combinators (
     withIOInterface,
-    withFallableInterface,
+    withFallibleInterface,
     withPureInterface,
     withoutContext
 ) where
@@ -71,10 +71,10 @@ withIOInterface fn event = do
 -- | Upgrades a handler that accepts 'AWS.Lambda.Context.LambdaContext' and
 -- an event to return a value inside an `Either` inside into a base runtime handler.
 --
--- In the example below, we reconstruct 'AWS.Lambda.Runtime.fallableRuntimeWithContext'
+-- In the example below, we reconstruct 'AWS.Lambda.Runtime.fallibleRuntimeWithContext'
 -- without actually using it.  The 'AWS.Lambda.Runtime.readerTRuntime' expects a handler
 -- in the form of @event -> ReaderT LambdaContext IO result@ (ignoring constraints).
--- By composing it with `withFallableInterface` we get a new runtime which
+-- By composing it with `withFallibleInterface` we get a new runtime which
 -- expects a function in the form of @LambdaContext -> event -> Either String result@
 -- which matches that of `myHandler`.
 --
@@ -84,7 +84,7 @@ withIOInterface fn event = do
 --     module Main where
 --
 --     import AWS.Lambda.Runtime (readerTRuntime)
---     import AWS.Lambda.Combinators (withFallableInterface)
+--     import AWS.Lambda.Combinators (withFallibleInterface)
 --     import Data.Aeson (FromJSON)
 --     import System.Environment (getEnv)
 --
@@ -101,10 +101,10 @@ withIOInterface fn event = do
 --         Left "Can only greet the world."
 --
 --     main :: IO ()
---     main = (readerTRuntime . withFallableInterface) myHandler
+--     main = (readerTRuntime . withFallibleInterface) myHandler
 -- @
-withFallableInterface :: MonadReader c m => (c -> b -> Either String a) -> b -> m a
-withFallableInterface fn event = do
+withFallibleInterface :: MonadReader c m => (c -> b -> Either String a) -> b -> m a
+withFallibleInterface fn event = do
   config <- ask
   dropEither $ fn config event
 

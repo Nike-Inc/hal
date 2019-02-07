@@ -31,7 +31,7 @@ module AWS.Lambda.Runtime (
 import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent,
                                            sendEventError, sendEventSuccess, sendInitError)
 import           AWS.Lambda.Combinators   (withIOInterface,
-                                           withFallableInterface,
+                                           withFallibleInterface,
                                            withPureInterface,
                                            withoutContext)
 import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..), runReaderTLambdaContext)
@@ -331,7 +331,7 @@ ioRuntime = readerTRuntime . withIOInterface . withoutContext
 -- @
 fallibleRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> Either String result) -> IO ()
-fallibleRuntimeWithContext = readerTRuntime . withFallableInterface
+fallibleRuntimeWithContext = readerTRuntime . withFallibleInterface
 
 -- | For pure functions that can still fail.
 --
@@ -363,7 +363,7 @@ fallibleRuntimeWithContext = readerTRuntime . withFallableInterface
 -- @
 fallibleRuntime :: (FromJSON event, ToJSON result) =>
   (event -> Either String result) -> IO ()
-fallibleRuntime = readerTRuntime . withFallableInterface . withoutContext
+fallibleRuntime = readerTRuntime . withFallibleInterface . withoutContext
 
 -- | For pure functions that can never fail that also need access to the context.
 --
