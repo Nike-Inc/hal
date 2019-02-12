@@ -60,6 +60,7 @@ library:
     - exceptions
     - mtl
     - containers
+    - unordered-containers
     - time
     - text
     - base64-bytestring

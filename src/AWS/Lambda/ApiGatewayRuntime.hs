@@ -48,7 +48,7 @@ with400 res400 fn e =
     Nothing   -> return res400
 
 withDefault400 :: Monad m => (a -> m ApiGatewayProxyResponse) -> (Maybe a -> m ApiGatewayProxyResponse)
-withDefault400 = with400 (ApiGatewayProxyResponse 400 [] "Bad Request")
+withDefault400 = with400 (ApiGatewayProxyResponse 400 mempty "Bad Request")
 
 withApiGateway :: (NeedsARealName (Bool, Text) -> a) -> (ApiGatewayProxyRequest -> a)
 withApiGateway = lmap needsARealName

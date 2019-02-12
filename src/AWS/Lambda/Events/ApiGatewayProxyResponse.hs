@@ -12,13 +12,14 @@ module AWS.Lambda.Events.ApiGatewayProxyResponse
     ( ApiGatewayProxyResponse(..)
     ) where
 
-import           Data.Aeson   (ToJSON)
-import           Data.Text    (Text)
-import           GHC.Generics (Generic (..))
+import           Data.Aeson          (ToJSON)
+import           Data.HashMap.Strict (HashMap)
+import           Data.Text           (Text)
+import           GHC.Generics        (Generic (..))
 
 data ApiGatewayProxyResponse = ApiGatewayProxyResponse
     { statusCode :: Int
-    , headers    :: [(Text, Text)]
+    , headers    :: HashMap Text Text
     , body       :: Text
     } deriving (Show, Generic)
 
