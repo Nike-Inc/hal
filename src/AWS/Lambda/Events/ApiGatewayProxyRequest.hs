@@ -38,7 +38,7 @@ instance FromJSON Identity
 
 data RequestContext = RequestContext
     { accountId    :: Text
-    , authorizer   :: Map Text Text
+    , authorizer   :: Maybe (Map Text Text)
     , resourceId   :: Text
     , stage        :: Text
     , requestId    :: Text
