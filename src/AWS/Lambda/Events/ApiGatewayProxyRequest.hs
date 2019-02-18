@@ -15,10 +15,13 @@ module AWS.Lambda.Events.ApiGatewayProxyRequest
     , Identity
     ) where
 
-import           Data.Aeson     (FromJSON)
-import           Data.Map       (Map)
-import           Data.Text.Lazy (Text)
-import           GHC.Generics   (Generic (..))
+import           Data.Aeson           (FromJSON, Value (Object), parseJSON,
+                                       (.!=), (.:), (.:?))
+import           Data.Aeson.Types     (Parser)
+import           Data.CaseInsensitive (CI, mk)
+import           Data.HashMap.Strict  (HashMap, foldrWithKey, insert, lookup)
+import           Data.Text.Lazy       (Text)
+import           GHC.Generics         (Generic (..))
 
 data Identity = Identity
     { cognitoIdentityPoolId         :: Maybe Text
@@ -38,7 +41,7 @@ instance FromJSON Identity
 
 data RequestContext = RequestContext
     { accountId    :: Text
-    , authorizer   :: Maybe (Map Text Text)
+    , authorizer   :: HashMap Text Text
     , resourceId   :: Text
     , stage        :: Text
     , requestId    :: Text
@@ -46,22 +49,53 @@ data RequestContext = RequestContext
     , resourcePath :: Text
     , httpMethod   :: Text
     , apiId        :: Text
-    } deriving (Generic)
+    }
 
-instance FromJSON RequestContext
+instance FromJSON RequestContext where
+  parseJSON (Object v) =
+    RequestContext <$>
+    v .: "accountId" <*>
+    v .:? "authorizer" .!= mempty <*>
+    v .: "resourceId" <*>
+    v .: "stage" <*>
+    v .: "requestId" <*>
+    v .: "identity" <*>
+    v .: "resourcePath" <*>
+    v .: "httpMethod" <*>
+    v .: "apiId"
 
-data ApiGatewayProxyRequest = ApiGatewayProxyRequest
+-- TODO: Should also include websocket fields
+data ApiGatewayProxyRequest a = ApiGatewayProxyRequest
     { path                            :: Text
-    , headers                         :: Maybe [(Text, Text)]
-    , multiValueHeaders               :: Maybe [(Text, [Text])]
-    , pathParameters                  :: Maybe [(Text, Text)]
+    , headers                         :: HashMap (CI Text) Text
+    , multiValueHeaders               :: HashMap (CI Text) [Text]
+    , pathParameters                  :: HashMap Text Text
     , requestContext                  :: RequestContext
     , resource                        :: Text
     , httpMethod                      :: Text
-    , queryStringParameters           :: Maybe [(Text, Text)]
-    , multiValueQueryStringParameters :: Maybe [(Text, [Text])]
+    , queryStringParameters           :: HashMap Text Text
+    , multiValueQueryStringParameters :: HashMap Text [Text]
     , isBase64Encoded                 :: Bool
-    , body                            :: Text
+    , body                            :: a
     } deriving (Generic)
 
-instance FromJSON ApiGatewayProxyRequest
+toCIHashMap :: HashMap Text a -> HashMap (CI Text) a
+toCIHashMap = foldrWithKey (insert . mk) mempty
+
+instance FromJSON (ApiGatewayProxyRequest Text) where
+  parseJSON (Object v) =
+    ApiGatewayProxyRequest <$>
+    v .: "path" <*>
+    (toCIHashMap <$> (v .:? "headers" .!= mempty)) <*>
+    (toCIHashMap <$> (v .:? "multiValueHeaders" .!= mempty)) <*>
+    v .:? "pathParameters" .!= mempty <*>
+    v .: "requestContext" <*>
+    v .: "resource" <*>
+    v .: "httpMethod" <*>
+    v .:? "queryStringParameters" .!= mempty <*>
+    v .:? "multiValueQueryStringParameters" .!= mempty <*>
+    v .: "isBase64Encoded" <*>
+    v .: "body"
+
+instance Functor ApiGatewayProxyRequest where
+  fmap f x = x { body = f $ body x }

@@ -1,4 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 
 {-|
 Module      : AWS.Lambda.ApiGatewayRuntime
@@ -29,17 +31,15 @@ import           AWS.Lambda.Context                        (HasLambdaContext (..
                                                             runReaderTLambdaContext)
 import           AWS.Lambda.Events.ApiGatewayProxyRequest  (ApiGatewayProxyRequest (..))
 import           AWS.Lambda.Events.ApiGatewayProxyResponse (ApiGatewayProxyResponse (..))
-import           AWS.Lambda.Events.NeedsARealName          (NeedsARealName,
-                                                            expectJSON,
-                                                            needsARealName)
 import qualified AWS.Lambda.Runtime                        as Runtime
 import           Control.Monad.Catch                       (MonadCatch)
 import           Control.Monad.IO.Class                    (MonadIO)
 import           Control.Monad.Reader                      (MonadReader,
                                                             ReaderT)
-import           Data.Aeson                                (FromJSON)
+import           Data.Aeson                                (FromJSON, decode)
 import           Data.Profunctor                           (lmap)
 import           Data.Text.Lazy                            (Text)
+import           Data.Text.Lazy.Encoding                   (encodeUtf8)
 
 with400 :: Monad m => ApiGatewayProxyResponse -> (a -> m ApiGatewayProxyResponse) -> (Maybe a -> m ApiGatewayProxyResponse)
 with400 res400 fn e =
@@ -50,47 +50,53 @@ with400 res400 fn e =
 withDefault400 :: Monad m => (a -> m ApiGatewayProxyResponse) -> (Maybe a -> m ApiGatewayProxyResponse)
 withDefault400 = with400 (ApiGatewayProxyResponse 400 mempty "Bad Request")
 
-withApiGateway :: (NeedsARealName (Bool, Text) -> a) -> (ApiGatewayProxyRequest -> a)
-withApiGateway = lmap needsARealName
-
-withJSONBody :: FromJSON json => (Maybe (NeedsARealName json) -> a) -> (NeedsARealName (Bool, Text) -> a)
-withJSONBody = lmap expectJSON
+withJSONBody :: FromJSON json => (Maybe (ApiGatewayProxyRequest json) -> a) -> (ApiGatewayProxyRequest Text -> a)
+withJSONBody = lmap (\agpr@ApiGatewayProxyRequest { isBase64Encoded, body } ->
+    if isBase64Encoded then
+      Nothing
+    else
+      let
+        maybeDecoded = decode $ encodeUtf8 body
+        setBody b = const b <$> agpr
+      in
+        fmap setBody maybeDecoded
+  )
 
 mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON json) =>
-  (NeedsARealName json -> m ApiGatewayProxyResponse) -> m ()
+  (ApiGatewayProxyRequest json -> m ApiGatewayProxyResponse) -> m ()
 mRuntimeWithContext =
-  Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . withDefault400
+  Runtime.mRuntimeWithContext . withJSONBody . withDefault400
 
 readerTRuntime :: FromJSON json =>
-  (NeedsARealName json -> ReaderT LambdaContext IO ApiGatewayProxyResponse) -> IO ()
+  (ApiGatewayProxyRequest json -> ReaderT LambdaContext IO ApiGatewayProxyResponse) -> IO ()
 readerTRuntime =
   runReaderTLambdaContext . mRuntimeWithContext
 
 ioRuntimeWithContext :: FromJSON json =>
-  (LambdaContext -> NeedsARealName json -> IO (Either String ApiGatewayProxyResponse)) -> IO ()
+  (LambdaContext -> ApiGatewayProxyRequest json -> IO (Either String ApiGatewayProxyResponse)) -> IO ()
 ioRuntimeWithContext =
-  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . withDefault400 . withIOInterface
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withJSONBody . withDefault400 . withIOInterface
 
 ioRuntime :: FromJSON json =>
-  (NeedsARealName json -> IO (Either String ApiGatewayProxyResponse)) -> IO ()
+  (ApiGatewayProxyRequest json -> IO (Either String ApiGatewayProxyResponse)) -> IO ()
 ioRuntime =
-  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . withDefault400 . withIOInterface . withoutContext
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withJSONBody . withDefault400 . withIOInterface . withoutContext
 
 fallibleRuntimeWithContext :: FromJSON json =>
-  (LambdaContext -> NeedsARealName json -> Either String ApiGatewayProxyResponse) -> IO ()
+  (LambdaContext -> ApiGatewayProxyRequest json -> Either String ApiGatewayProxyResponse) -> IO ()
 fallibleRuntimeWithContext =
-  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . withDefault400 . withFallibleInterface
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withJSONBody . withDefault400 . withFallibleInterface
 
 fallibleRuntime :: FromJSON json =>
-  (NeedsARealName json -> Either String ApiGatewayProxyResponse) -> IO ()
+  (ApiGatewayProxyRequest json -> Either String ApiGatewayProxyResponse) -> IO ()
 fallibleRuntime =
-  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . withDefault400 . withFallibleInterface . withoutContext
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withJSONBody . withDefault400 . withFallibleInterface . withoutContext
 
 pureRuntimeWithContext :: FromJSON json =>
-  (LambdaContext -> NeedsARealName json -> ApiGatewayProxyResponse) -> IO ()
+  (LambdaContext -> ApiGatewayProxyRequest json -> ApiGatewayProxyResponse) -> IO ()
 pureRuntimeWithContext =
-  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . withDefault400 . withPureInterface
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withJSONBody . withDefault400 . withPureInterface
 
-pureRuntime :: FromJSON json => (NeedsARealName json -> ApiGatewayProxyResponse) -> IO ()
+pureRuntime :: FromJSON json => (ApiGatewayProxyRequest json -> ApiGatewayProxyResponse) -> IO ()
 pureRuntime =
-  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withApiGateway . withJSONBody . withDefault400 . withPureInterface . withoutContext
+  runReaderTLambdaContext . Runtime.mRuntimeWithContext . withJSONBody . withDefault400 . withPureInterface . withoutContext
