@@ -11,15 +11,15 @@ Stability   : stable
 -}
 module AWS.Lambda.Events.ApiGatewayProxyRequest
     ( ApiGatewayProxyRequest(..)
-    , RequestContext
-    , Identity
+    , RequestContext(..)
+    , Identity(..)
     ) where
 
+import           Control.Monad        (mzero)
 import           Data.Aeson           (FromJSON, Value (Object), parseJSON,
                                        (.!=), (.:), (.:?))
-import           Data.Aeson.Types     (Parser)
 import           Data.CaseInsensitive (CI, mk)
-import           Data.HashMap.Strict  (HashMap, foldrWithKey, insert, lookup)
+import           Data.HashMap.Strict  (HashMap, foldrWithKey, insert)
 import           Data.Text.Lazy       (Text)
 import           GHC.Generics         (Generic (..))
 
@@ -63,6 +63,7 @@ instance FromJSON RequestContext where
     v .: "resourcePath" <*>
     v .: "httpMethod" <*>
     v .: "apiId"
+  parseJSON _ = mzero
 
 -- TODO: Should also include websocket fields
 data ApiGatewayProxyRequest a = ApiGatewayProxyRequest
@@ -96,6 +97,7 @@ instance FromJSON (ApiGatewayProxyRequest Text) where
     v .:? "multiValueQueryStringParameters" .!= mempty <*>
     v .: "isBase64Encoded" <*>
     v .: "body"
+  parseJSON _ = mzero
 
 instance Functor ApiGatewayProxyRequest where
   fmap f x = x { body = f $ body x }
