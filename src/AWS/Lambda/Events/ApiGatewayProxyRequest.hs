@@ -15,13 +15,16 @@ module AWS.Lambda.Events.ApiGatewayProxyRequest
     , Identity(..)
     ) where
 
-import           Control.Monad        (mzero)
-import           Data.Aeson           (FromJSON, Value (Object), parseJSON,
-                                       (.!=), (.:), (.:?))
-import           Data.CaseInsensitive (CI, mk)
-import           Data.HashMap.Strict  (HashMap, foldrWithKey, insert)
-import           Data.Text.Lazy       (Text)
-import           GHC.Generics         (Generic (..))
+import           Control.Monad               (mzero)
+import           Data.Aeson                  (FromJSON, Value (Object),
+                                              parseJSON, (.!=), (.:), (.:?))
+import           Data.ByteString.Base64.Lazy (decodeLenient)
+import           Data.ByteString.Lazy        (ByteString)
+import           Data.CaseInsensitive        (CI, mk)
+import           Data.HashMap.Strict         (HashMap, foldrWithKey, insert)
+import           Data.Text.Lazy              (Text)
+import           Data.Text.Lazy.Encoding     (encodeUtf8)
+import           GHC.Generics                (Generic (..))
 
 data Identity = Identity
     { cognitoIdentityPoolId         :: Maybe Text
@@ -66,7 +69,7 @@ instance FromJSON RequestContext where
   parseJSON _ = mzero
 
 -- TODO: Should also include websocket fields
-data ApiGatewayProxyRequest a = ApiGatewayProxyRequest
+data ApiGatewayProxyRequest = ApiGatewayProxyRequest
     { path                            :: Text
     , headers                         :: HashMap (CI Text) Text
     , multiValueHeaders               :: HashMap (CI Text) [Text]
@@ -76,14 +79,20 @@ data ApiGatewayProxyRequest a = ApiGatewayProxyRequest
     , httpMethod                      :: Text
     , queryStringParameters           :: HashMap Text Text
     , multiValueQueryStringParameters :: HashMap Text [Text]
-    , isBase64Encoded                 :: Bool
-    , body                            :: a
+    , body                            :: ByteString
     } deriving (Generic)
 
 toCIHashMap :: HashMap Text a -> HashMap (CI Text) a
 toCIHashMap = foldrWithKey (insert . mk) mempty
 
-instance FromJSON (ApiGatewayProxyRequest Text) where
+toByteString :: Bool -> Text -> ByteString
+toByteString isBase64Encoded =
+  if isBase64Encoded then
+    decodeLenient . encodeUtf8
+  else
+    encodeUtf8
+
+instance FromJSON ApiGatewayProxyRequest where
   parseJSON (Object v) =
     ApiGatewayProxyRequest <$>
     v .: "path" <*>
@@ -95,9 +104,5 @@ instance FromJSON (ApiGatewayProxyRequest Text) where
     v .: "httpMethod" <*>
     v .:? "queryStringParameters" .!= mempty <*>
     v .:? "multiValueQueryStringParameters" .!= mempty <*>
-    v .: "isBase64Encoded" <*>
-    v .: "body"
+    (toByteString <$> v .: "isBase64Encoded" <*> v .: "body" .!= "")
   parseJSON _ = mzero
-
-instance Functor ApiGatewayProxyRequest where
-  fmap f x = x { body = f $ body x }
