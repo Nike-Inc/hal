@@ -1,24 +1,35 @@
+{-|
+Module      : AWS.Lambda.Events.S3.PutEvent
+Description : Data types for working with S3 put events.
+Copyright   : (c) Nike, Inc., 2019
+License     : BSD3
+Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
+Stability   : stable
+-}
+
 module AWS.Lambda.Events.S3.PutEvent (
-  Records(..)
+  PrincipalIdentity(..),
+  PutEvent(..),
+  Records(..),
+  RequestParameters(..),
+  ResponseElements(..),
+  S3Bucket(..),
+  S3Config(..),
+  S3Object(..)
 ) where
 
-import Data.Text (Text)
+import Data.Aeson   (FromJSON (..), withObject, (.:))
+import Data.Text    (Text)
+import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
-import Data.Aeson (FromJSON(..), (.:), withObject)
 
 newtype Records = Records {
   records :: [PutEvent]
 } deriving (Show, Eq)
 
+-- | Define our own parse so that `Records` is normalized to `records`.
 instance FromJSON Records where
   parseJSON = withObject "Records" $ \v -> Records <$> v .: "Records"
-
-data PutEvent = PutEvent {
-  userIdentity :: AmazonIdentity,
-  requestParameters :: Record
-} deriving (Show, Eq, Generic)
-
-instance FromJSON PutEvent
 
 data S3Object = S3Object {
   eTag      :: Text,
@@ -29,31 +40,31 @@ data S3Object = S3Object {
 
 instance FromJSON S3Object
 
-data AmazonIdentity = AmazonIdentity {
+data PrincipalIdentity = PrincipalIdentity {
   principalId :: Text
 } deriving (Show, Eq, Generic)
 
-instance FromJSON AmazonIdentity
+instance FromJSON PrincipalIdentity
 
 data S3Bucket = S3Bucket {
   arn           :: Text,
   name          :: Text,
-  ownerIdentity :: AmazonIdentity,
-  object        :: S3Object
+  ownerIdentity :: PrincipalIdentity
 } deriving (Show, Eq, Generic)
 
 instance FromJSON S3Bucket
 
 data S3Config = S3Config {
-  configurationId :: Text,
   bucket          :: S3Bucket,
+  configurationId :: Text,
+  object          :: S3Object,
   s3SchemaVersion :: Text
 } deriving (Show, Eq, Generic)
 
 instance FromJSON S3Config
 
 data ResponseElements = ResponseElements {
-  amazonId :: Text,
+  amazonId        :: Text,
   amazonRequestId :: Text
 } deriving (Show, Eq)
 
@@ -61,49 +72,22 @@ instance FromJSON ResponseElements where
   parseJSON = withObject  "ResponseElements" $ \v ->
     ResponseElements <$> v .: "x-amz-id-2" <*> v .: "x-amz-request-id"
 
-
-data Record = Record {
-  sourceIpAddress  :: Text,
-  eventVersion     :: Text,
-  eventTime        :: Text, -- Should be date
-  s3               :: S3Config,
-  responseElements :: ResponseElements,
-  awsRegion        :: Text,
-  eventSource      :: Text,
-  eventName        :: Text
+data RequestParameters = RequestParameters {
+  sourceIPAddress :: Text
 } deriving (Show, Eq, Generic)
 
-instance FromJSON Record
+instance FromJSON RequestParameters
 
-{-
-Object (fromList [
-  ("Records", Array [
-    Object (fromList [
-      ("userIdentity",Object (fromList [
-        ("principalId",String "EXAMPLE")])),
-      ("requestParameters",Object (fromList [
-        ("sourceIPAddress",String "127.0.0.1")])),
-        ("eventVersion",String "2.0"),
-        ("responseElements",Object (fromList [
-          ("x-amz-id-2",String "EXAMPLE123/5678abcdefghijklambdaisawesome/mnopqrstuvwxyzABCDEFGH"),
-          ("x-amz-request-id",String "EXAMPLE123456789")])),
-          ("eventTime",String "1970-01-01T00:00:00.000Z"),
-          ("awsRegion",String "us-east-1"),
-          ("s3",Object (fromList [
-            ("configurationId",String "testConfigRule"),
-            ("bucket",Object (fromList [
-              ("ownerIdentity",Object (fromList [
-                ("principalId",String "EXAMPLE")])),
-              ("arn",String "arn:aws:s3:::foo"),
-              ("name",String "foo")])),
-              ("object",Object (fromList [
-                ("eTag",String "0123456789abcdef0123456789abcdef"),
-                ("size",Number 1024.0),
-                ("key",String "woaw"),
-                ("sequencer",String "0A1B2C3D4E5F678901")])),
-              ("s3SchemaVersion",String "1.0")])),
-          ("eventName",String "ObjectCreated:Put"),
-          ("eventSource",String "aws:s3")])])])
+data PutEvent = PutEvent {
+  awsRegion         :: Text,
+  eventName         :: Text,
+  eventSource       :: Text,
+  eventTime         :: UTCTime,
+  eventVersion      :: Text,
+  requestParameters :: RequestParameters,
+  responseElements  :: ResponseElements,
+  s3                :: S3Config,
+  userIdentity      :: PrincipalIdentity
+} deriving (Show, Eq, Generic)
 
-sam local generate-event s3 put --bucket foo --key woaw | sam local invoke --region us-east-1
--}
+instance FromJSON PutEvent
