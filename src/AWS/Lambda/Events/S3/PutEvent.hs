@@ -1,5 +1,5 @@
 module AWS.Lambda.Events.S3.PutEvent (
-  PutEvent(..)
+  Records(..)
 ) where
 
 import Data.Text (Text)
@@ -104,4 +104,6 @@ Object (fromList [
               ("s3SchemaVersion",String "1.0")])),
           ("eventName",String "ObjectCreated:Put"),
           ("eventSource",String "aws:s3")])])])
+
+sam local generate-event s3 put --bucket foo --key woaw | sam local invoke --region us-east-1
 -}
