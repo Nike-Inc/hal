@@ -68,4 +68,4 @@ docker:
   enable: true
 
 # https://docs.haskellstack.org/en/stable/yaml_configuration/#pvp-bounds
-pvp-bounds: both-revision
+pvp-bounds: lower-revision
