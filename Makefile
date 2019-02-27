@@ -15,13 +15,13 @@ clean:
 setup: clean
 	stack build --no-docker --copy-compiler-tool stylish-haskell hlint apply-refact
 
-_HLINT=hlint --refactor --refactor-options -i {} \;
+_HLINT=stack --no-docker exec -- hlint --refactor --refactor-options -i {} \;
 hlint:
-	@find {src,examples}/ -name "*.hs" -exec $(_HLINT)
+	@find {hal}/{src,examples}/ -name "*.hs" -exec $(_HLINT)
 
 _STYLISH=stack --no-docker exec -- stylish-haskell -i {} \;
 stylish-haskell:
-	@find {src,examples}/ -name "*.hs" -exec $(_STYLISH)
+	@find {hal}/{src,examples}/ -name "*.hs" -exec $(_STYLISH)
 
 test:
 	stack test --test-arguments "--color always"
