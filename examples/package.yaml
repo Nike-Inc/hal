@@ -30,13 +30,13 @@ dependencies:
   - hal
 
 executables:
-  simple:
+  example-simple:
     source-dirs: simple
     main: Main.hs
-  simple-context:
+  example-simple-context:
     source-dirs: simplecontext
     main: Main.hs
-  fallible:
+  example-fallible:
     source-dirs: fallible
     main: Main.hs
     dependencies:

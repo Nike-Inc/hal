@@ -35,6 +35,7 @@ resolver: lts-13.4
 #  - wai
 packages:
 - ./hal
+- ./examples
 # Dependency packages to be pulled from upstream that are not in the resolver
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
