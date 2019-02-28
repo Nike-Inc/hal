@@ -1,0 +1,56 @@
+name:                hal-transformers
+synopsis:            Opinionated transformer stacks for quick AWS Lambda development
+description: |
+  This library supports composing effects into a standard transformer stack
+  that is compatbile with the `hal` AWS Lambda runtime
+version:             0.1.0
+github:              Nike-inc/hal
+license:             BSD3
+author:              Nike, Inc.
+maintainer:          nikeoss
+copyright:           2018 Nike, Inc.
+category:            Web,AWS
+extra-source-files:
+- README.md
+- LICENSE
+
+dependencies:
+  - base >= 4.7 && < 5
+
+default-extensions:
+  - OverloadedStrings
+  - BangPatterns
+  - DefaultSignatures
+  - DeriveFoldable
+  - DeriveFunctor
+  - DeriveGeneric
+  - DeriveLift
+  - DeriveTraversable
+  - EmptyCase
+  - GeneralizedNewtypeDeriving
+  - InstanceSigs
+  - LambdaCase
+  - MultiParamTypeClasses
+  - MultiWayIf
+  - OverloadedStrings
+  - PatternSynonyms
+  - ScopedTypeVariables
+
+ghc-options:
+  - -Wall
+  - -Wcompat
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wredundant-constraints
+  - -fno-warn-partial-type-signatures
+  - -fno-warn-name-shadowing
+  - -fwarn-tabs
+  - -fwarn-unused-imports
+  - -fwarn-missing-signatures
+  - -fwarn-incomplete-patterns
+
+library:
+  source-dirs: src
+  dependencies:
+    - amazonka
+    - katip
