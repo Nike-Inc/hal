@@ -22,8 +22,9 @@ import           Data.ByteString.Base64.Lazy (decodeLenient)
 import           Data.ByteString.Lazy        (ByteString)
 import           Data.CaseInsensitive        (CI, mk)
 import           Data.HashMap.Strict         (HashMap, foldrWithKey, insert)
-import           Data.Text.Lazy              (Text)
-import           Data.Text.Lazy.Encoding     (encodeUtf8)
+import           Data.Text                   (Text)
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Encoding as TLE
 import           GHC.Generics                (Generic (..))
 
 data Identity = Identity
@@ -85,12 +86,12 @@ data ApiGatewayProxyRequest = ApiGatewayProxyRequest
 toCIHashMap :: HashMap Text a -> HashMap (CI Text) a
 toCIHashMap = foldrWithKey (insert . mk) mempty
 
-toByteString :: Bool -> Text -> ByteString
+toByteString :: Bool -> TL.Text -> ByteString
 toByteString isBase64Encoded =
   if isBase64Encoded then
-    decodeLenient . encodeUtf8
+    decodeLenient . TLE.encodeUtf8
   else
-    encodeUtf8
+    TLE.encodeUtf8
 
 instance FromJSON ApiGatewayProxyRequest where
   parseJSON (Object v) =
