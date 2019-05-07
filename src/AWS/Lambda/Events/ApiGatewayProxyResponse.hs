@@ -36,24 +36,29 @@ data ApiGatewayProxyResponse a = ApiGatewayProxyResponse
 class LambdaSerializable a where
   serialize :: a -> T.Text
   contentType :: a -> T.Text
+  isBase64Encoded :: a -> Bool
 
 instance LambdaSerializable T.Text where
   serialize = id
   contentType _ = "text/plain; charset=utf8"
+  isBase64Encoded _ = False
 
 instance LambdaSerializable TL.Text where
   serialize = TL.toStrict
   contentType _ = "text/plain; charset=utf8"
+  isBase64Encoded _ = False
 
 instance LambdaSerializable String where
   serialize = T.pack
   contentType _ = "text/plain; charset=utf8"
+  isBase64Encoded _ = False
 
 newtype ApplicationJson a = ApplicationJson a
 
 instance ToJSON a => LambdaSerializable (ApplicationJson a) where
   serialize (ApplicationJson j) = TL.toStrict $ TLE.decodeUtf8 $ encode j
   contentType _ = "application/json; charset=utf8"
+  isBase64Encoded _ = False
 
 data Binary
   = ImageGif_ ByteString
@@ -64,6 +69,8 @@ instance LambdaSerializable Binary where
   serialize (ImageJpeg_ b) = TE.decodeUtf8 $ B64.encode b
   contentType (ImageGif_ _)  = "image/gif"
   contentType (ImageJpeg_ _) = "image/jpeg"
+  isBase64Encoded (ImageGif_ _)  = True
+  isBase64Encoded (ImageJpeg_ _) = True
 
 -- Smart constructors for export
 
@@ -82,4 +89,5 @@ instance LambdaSerializable a => ToJSON (ApiGatewayProxyResponse a) where
       [ "statusCode" .= sc
       , "headers" .= insertWith (\_ old -> old) "Content-Type" (contentType b) h
       , "body" .= serialize b
+      , "isBase64Encoded" .= isBase64Encoded b
       ]
