@@ -11,7 +11,9 @@ Stability   : stable
 module AWS.Lambda.Events.ApiGatewayProxyResponse
     ( ApiGatewayProxyResponse(..)
     , LambdaSerializable(..)
+    , ApplicationJson
     , applicationJson
+    , Binary
     , imageGif
     , imageJpeg
     ) where
