@@ -10,10 +10,9 @@ Stability   : stable
 -}
 module AWS.Lambda.Events.ApiGatewayProxyResponse
     ( ApiGatewayProxyResponse(..)
-    , LambdaSerializable(..)
-    , ApplicationJson
+    , ApiGatewayProxyBody(..)
+    , textPlain
     , applicationJson
-    , Binary
     , imageGif
     , imageJpeg
     ) where
@@ -27,67 +26,43 @@ import qualified Data.Text.Encoding      as TE
 import qualified Data.Text.Lazy          as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 
-data ApiGatewayProxyResponse a = ApiGatewayProxyResponse
+data ApiGatewayProxyBody = ApiGatewayProxyBody
+  { contentType :: T.Text
+  , serialized :: T.Text
+  , isBase64Encoded :: Bool
+  } deriving Show
+
+data ApiGatewayProxyResponse = ApiGatewayProxyResponse
     { statusCode :: Int
     , headers    :: HashMap T.Text T.Text
-    , body       :: a
+    , body       :: ApiGatewayProxyBody
     } deriving Show
 
-class LambdaSerializable a where
-  serialize :: a -> T.Text
-  contentType :: a -> T.Text
-  isBase64Encoded :: a -> Bool
-
-instance LambdaSerializable T.Text where
-  serialize = id
-  contentType _ = "text/plain; charset=utf8"
-  isBase64Encoded _ = False
-
-instance LambdaSerializable TL.Text where
-  serialize = TL.toStrict
-  contentType _ = "text/plain; charset=utf8"
-  isBase64Encoded _ = False
-
-instance LambdaSerializable String where
-  serialize = T.pack
-  contentType _ = "text/plain; charset=utf8"
-  isBase64Encoded _ = False
-
-newtype ApplicationJson a = ApplicationJson a
-
-instance ToJSON a => LambdaSerializable (ApplicationJson a) where
-  serialize (ApplicationJson j) = TL.toStrict $ TLE.decodeUtf8 $ encode j
-  contentType _ = "application/json; charset=utf8"
-  isBase64Encoded _ = False
-
-data Binary
-  = ImageGif_ ByteString
-  | ImageJpeg_ ByteString
-
-instance LambdaSerializable Binary where
-  serialize (ImageGif_ b)  = TE.decodeUtf8 $ B64.encode b
-  serialize (ImageJpeg_ b) = TE.decodeUtf8 $ B64.encode b
-  contentType (ImageGif_ _)  = "image/gif"
-  contentType (ImageJpeg_ _) = "image/jpeg"
-  isBase64Encoded (ImageGif_ _)  = True
-  isBase64Encoded (ImageJpeg_ _) = True
+genericBinary :: T.Text -> ByteString -> ApiGatewayProxyBody
+genericBinary contentType x = ApiGatewayProxyBody contentType (TE.decodeUtf8 $ B64.encode x) True
 
 -- Smart constructors for export
 
-applicationJson :: a -> ApplicationJson a
-applicationJson = ApplicationJson
+textPlain :: T.Text -> ApiGatewayProxyBody
+textPlain x = ApiGatewayProxyBody "text/plain; charset=utf-8" x False
 
-imageGif :: ByteString -> Binary
-imageGif = ImageGif_
+applicationJson :: ToJSON a => a -> ApiGatewayProxyBody
+applicationJson x = ApiGatewayProxyBody
+  "application/json; charset=utf-8"
+  (TL.toStrict $ TLE.decodeUtf8 $ encode x)
+  False
 
-imageJpeg :: ByteString -> Binary
-imageJpeg = ImageJpeg_
+imageGif :: ByteString -> ApiGatewayProxyBody
+imageGif = genericBinary "image/gif"
 
-instance LambdaSerializable a => ToJSON (ApiGatewayProxyResponse a) where
-  toJSON (ApiGatewayProxyResponse sc h b) =
+imageJpeg :: ByteString -> ApiGatewayProxyBody
+imageJpeg = genericBinary "image/jpeg"
+
+instance ToJSON ApiGatewayProxyResponse where
+  toJSON (ApiGatewayProxyResponse sc h (ApiGatewayProxyBody contentType body isBase64Encoded)) =
     object
       [ "statusCode" .= sc
-      , "headers" .= insertWith (\_ old -> old) "Content-Type" (contentType b) h
-      , "body" .= serialize b
-      , "isBase64Encoded" .= isBase64Encoded b
+      , "headers" .= insertWith (\_ old -> old) "Content-Type" contentType h
+      , "body" .= body
+      , "isBase64Encoded" .= isBase64Encoded
       ]
