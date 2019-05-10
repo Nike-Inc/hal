@@ -17,14 +17,15 @@ module AWS.Lambda.Events.ApiGatewayProxyResponse
     , imageJpeg
     ) where
 
-import           Data.Aeson              (ToJSON, encode, object, toJSON, (.=))
-import           Data.ByteString         (ByteString)
-import qualified Data.ByteString.Base64  as B64
-import           Data.HashMap.Strict     (HashMap, insertWith)
-import qualified Data.Text               as T
-import qualified Data.Text.Encoding      as TE
-import qualified Data.Text.Lazy          as TL
-import qualified Data.Text.Lazy.Encoding as TLE
+import           Data.Aeson                (ToJSON, encode, object, toJSON, (.=))
+import           Data.ByteString           (ByteString)
+import qualified Data.ByteString.Base64    as B64
+import           Data.HashMap.Strict       (HashMap, insertWith)
+import qualified Data.Text                 as T
+import qualified Data.Text.Encoding        as TE
+import qualified Data.Text.Lazy            as TL
+import qualified Data.Text.Lazy.Encoding   as TLE
+import           Network.HTTP.Types.Status (Status(..))
 
 data ApiGatewayProxyBody = ApiGatewayProxyBody
   { contentType :: T.Text
@@ -33,9 +34,9 @@ data ApiGatewayProxyBody = ApiGatewayProxyBody
   } deriving Show
 
 data ApiGatewayProxyResponse = ApiGatewayProxyResponse
-    { statusCode :: Int
-    , headers    :: HashMap T.Text T.Text
-    , body       :: ApiGatewayProxyBody
+    { status  :: Status
+    , headers :: HashMap T.Text T.Text
+    , body    :: ApiGatewayProxyBody
     } deriving Show
 
 genericBinary :: T.Text -> ByteString -> ApiGatewayProxyBody
@@ -59,9 +60,9 @@ imageJpeg :: ByteString -> ApiGatewayProxyBody
 imageJpeg = genericBinary "image/jpeg"
 
 instance ToJSON ApiGatewayProxyResponse where
-  toJSON (ApiGatewayProxyResponse sc h (ApiGatewayProxyBody contentType body isBase64Encoded)) =
+  toJSON (ApiGatewayProxyResponse status h (ApiGatewayProxyBody contentType body isBase64Encoded)) =
     object
-      [ "statusCode" .= sc
+      [ "statusCode" .= statusCode status
       , "headers" .= insertWith (\_ old -> old) "Content-Type" contentType h
       , "body" .= body
       , "isBase64Encoded" .= isBase64Encoded

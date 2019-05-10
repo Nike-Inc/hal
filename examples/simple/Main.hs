@@ -13,7 +13,7 @@ import           Network.HTTP.Types.Status                 (ok200)
 
 handler :: ApiGatewayProxyRequest -> ApiGatewayProxyResponse
 handler x =
-    ApiGatewayProxyResponse 200 mempty (textPlain "Hello from Haskell Lambda")
+    ApiGatewayProxyResponse ok200 mempty (textPlain "Hello from Haskell Lambda")
 
 main :: IO ()
 main = pureRuntime handler
