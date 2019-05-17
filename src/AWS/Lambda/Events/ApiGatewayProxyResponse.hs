@@ -9,7 +9,8 @@ Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
 Stability   : stable
 -}
 module AWS.Lambda.Events.ApiGatewayProxyResponse
-    ( ApiGatewayProxyResponse(..)
+    ( module Network.HTTP.Types.Status
+    , ApiGatewayProxyResponse(..)
     , ApiGatewayProxyBody(..)
     , textPlain
     , applicationJson
@@ -25,7 +26,9 @@ import qualified Data.Text                 as T
 import qualified Data.Text.Encoding        as TE
 import qualified Data.Text.Lazy            as TL
 import qualified Data.Text.Lazy.Encoding   as TLE
-import           Network.HTTP.Types.Status (Status(..))
+import           Network.HTTP.Types.Status hiding (mkStatus, statusIsInformational,
+                                            statusIsSuccessful, statusIsRedirection,
+                                            statusIsClientError, statusIsServerError)
 
 data ApiGatewayProxyBody = ApiGatewayProxyBody
   { contentType :: T.Text
