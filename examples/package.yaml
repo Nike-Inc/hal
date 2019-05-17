@@ -33,8 +33,6 @@ executables:
   simple:
     source-dirs: simple
     main: Main.hs
-    dependencies:
-      - http-types
   simple-context:
     source-dirs: simplecontext
     main: Main.hs

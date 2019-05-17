@@ -7,7 +7,13 @@ Resources:
     Properties:
       Handler: NOT_USED
       Runtime: provided
-      CodeUri: .stack-work/docker/_home/.local/bin/
+      CodeUri: examples/.stack-work/docker/_home/.local/bin/
+      Events:
+        GetResource:
+          Type: Api
+          Properties:
+            Method: GET
+            Path: "/"
       Description: Test for the Haskell Runtime.
       MemorySize: 128
       Timeout: 3
