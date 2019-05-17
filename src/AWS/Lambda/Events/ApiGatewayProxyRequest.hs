@@ -51,10 +51,10 @@ data RequestContext = RequestContext
     , authorizer        :: HashMap Text Text
     , resourceId        :: Text
     , stage             :: Text
-    , domainPrefix      :: Text
+    , domainPrefix      :: Maybe Text
     , requestId         :: Text
     , identity          :: Identity
-    , domainName        :: Text
+    , domainName        :: Maybe Text
     , resourcePath      :: Text
     , httpMethod        :: Text
     , extendedRequestId :: Text
