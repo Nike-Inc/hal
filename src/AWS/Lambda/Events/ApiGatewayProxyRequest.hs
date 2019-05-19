@@ -48,7 +48,10 @@ instance FromJSON Identity
 data RequestContext = RequestContext
     { path              :: Text
     , accountId         :: Text
-    , authorizer        :: HashMap Text Text
+    -- TODO: Authorizers can contain arbitary JSON
+    -- (ex. "claims" is a HashMap, and users can really do anything here).
+    -- How does this get handled??
+    --, authorizer        :: HashMap Text Text
     , resourceId        :: Text
     , stage             :: Text
     , domainPrefix      :: Maybe Text
