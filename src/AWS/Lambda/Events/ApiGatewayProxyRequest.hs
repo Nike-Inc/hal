@@ -45,13 +45,10 @@ data Identity = Identity
 
 instance FromJSON Identity
 
-data RequestContext = RequestContext
+data RequestContext a = RequestContext
     { path              :: Text
     , accountId         :: Text
-    -- TODO: Authorizers can contain arbitary JSON
-    -- (ex. "claims" is a HashMap, and users can really do anything here).
-    -- How does this get handled??
-    --, authorizer        :: HashMap Text Text
+    , authorizer        :: Maybe a
     , resourceId        :: Text
     , stage             :: Text
     , domainPrefix      :: Maybe Text
@@ -64,12 +61,12 @@ data RequestContext = RequestContext
     , apiId             :: Text
     }
 
-instance FromJSON RequestContext where
+instance FromJSON a => FromJSON (RequestContext a) where
   parseJSON (Object v) =
     RequestContext <$>
     v .: "path" <*>
     v .: "accountId" <*>
-    v .:? "authorizer" .!= mempty <*>
+    v .:? "authorizer" <*>
     v .: "resourceId" <*>
     v .: "stage" <*>
     v .: "domainPrefix" <*>
@@ -83,13 +80,13 @@ instance FromJSON RequestContext where
   parseJSON _ = mzero
 
 -- TODO: Should also include websocket fields
-data ApiGatewayProxyRequest = ApiGatewayProxyRequest
+data ApiGatewayProxyRequest a = ApiGatewayProxyRequest
     { path                            :: Text
     , headers                         :: HashMap (CI Text) Text
     , multiValueHeaders               :: HashMap (CI Text) [Text]
     , pathParameters                  :: HashMap Text Text
     , stageVariables                  :: HashMap Text Text
-    , requestContext                  :: RequestContext
+    , requestContext                  :: RequestContext a
     , resource                        :: Text
     , httpMethod                      :: Text
     , queryStringParameters           :: HashMap Text Text
@@ -107,7 +104,7 @@ toByteString isBase64Encoded =
   else
     TLE.encodeUtf8
 
-instance FromJSON ApiGatewayProxyRequest where
+instance FromJSON a => FromJSON (ApiGatewayProxyRequest a) where
   parseJSON (Object v) =
     ApiGatewayProxyRequest <$>
     v .: "path" <*>
