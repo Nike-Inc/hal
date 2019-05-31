@@ -57,7 +57,7 @@ data RequestContext a = RequestContext
     , domainName        :: Maybe Text
     , resourcePath      :: Text
     , httpMethod        :: Text
-    , extendedRequestId :: Text
+    , extendedRequestId :: Maybe Text
     , apiId             :: Text
     }
 
@@ -69,13 +69,13 @@ instance FromJSON a => FromJSON (RequestContext a) where
     v .:? "authorizer" <*>
     v .: "resourceId" <*>
     v .: "stage" <*>
-    v .: "domainPrefix" <*>
+    v .:? "domainPrefix" <*>
     v .: "requestId" <*>
     v .: "identity" <*>
-    v .: "domainName" <*>
+    v .:? "domainName" <*>
     v .: "resourcePath" <*>
     v .: "httpMethod" <*>
-    v .: "extendedRequestId" <*>
+    v .:? "extendedRequestId" <*>
     v .: "apiId"
   parseJSON _ = mzero
 
