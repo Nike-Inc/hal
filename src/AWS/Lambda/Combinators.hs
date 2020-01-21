@@ -15,11 +15,14 @@ module AWS.Lambda.Combinators (
     withIOInterface,
     withFallibleInterface,
     withPureInterface,
-    withoutContext
+    withoutContext,
+    withInfallibleParse
 ) where
 
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Reader   (MonadReader, ask)
+import           Data.Aeson             (FromJSON, parseJSON, Value)
+import           Data.Aeson.Types       (parseEither)
 
 
 -- Helper for converting an either result into a monad/exception
@@ -183,3 +186,22 @@ withPureInterface fn event = do
 -- @
 withoutContext :: a -> b -> a
 withoutContext = const
+
+-- | This modifies a function to accept a JSON AST (Value), instead of its JSON parsable
+-- input.  It also assumes that the JSON AST passed in will ALWAYS be convertable into the
+-- original input type.
+--
+-- This allows us to write handlers of the types we're interested in, but then map back
+-- to the "native" handler that is only guaranteed JSON (but not necessarily in a useful
+-- or restricted structure).
+--
+-- This is essentially the glue that converts the "AWS.Lambda.Runtime.Value" to
+-- (the more standard) "AWS.Lambda.Runtime".  While both export a
+-- 'AWS.Lambda.Runtime.mRuntimeWithContext', the difference is that the Value
+-- Runtime makes no attempt to convert the JSON AST, the standard Runtime does.
+--
+-- Rarely would this function be used directly, and you wouldn't want to use it
+-- at all, (directly or indirectly via Runtime runtimes), if you wanted to act
+-- on a failure to convert the JSON AST sent to the Lambda.
+withInfallibleParse :: FromJSON a => (a -> b) -> Value -> b
+withInfallibleParse fn = either error fn . parseEither parseJSON
