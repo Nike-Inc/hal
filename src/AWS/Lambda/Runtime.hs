@@ -154,23 +154,25 @@ runtimeLoop baseRuntimeRequest staticContext fn = do
 --
 --     module Main where
 --
---     import AWS.Lambda.Context (LambdaContext(..))
+--     import AWS.Lambda.Context (LambdaContext(..), runReaderTLambdaContext)
 --     import AWS.Lambda.Runtime (mRuntimeWithContext)
 --     import Control.Monad.Reader (ReaderT, ask)
---     import Control.Monad.State.Lazy (StateT, runStateT, get, put)
+--     import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
+--     import Control.Monad.Trans (liftIO)
 --     import Data.Aeson (FromJSON)
 --     import Data.Text (unpack)
 --     import System.Environment (getEnv)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
 --
---     myHandler :: Named -> StateT Int (ReaderT LambdaContext IO String)
+--     myHandler :: Named -> StateT Int (ReaderT LambdaContext IO) String
 --     myHandler Named { name } = do
 --       LambdaContext { functionName } <- ask
---       greeting <- getEnv \"GREETING\"
+--       greeting <- liftIO $ getEnv \"GREETING\"
 --
 --       greetingCount <- get
 --       put $ greetingCount + 1
@@ -178,7 +180,7 @@ runtimeLoop baseRuntimeRequest staticContext fn = do
 --       return $ greeting ++ name ++ " (" ++ show greetingCount ++ ") from " ++ unpack functionName ++ "!"
 --
 --     main :: IO ()
---     main = runStateT (mRuntimeWithContext myHandler) 0
+--     main = runReaderTLambdaContext (evalStateT (mRuntimeWithContext myHandler) 0)
 -- @
 mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>
   (event -> m result) -> m ()
@@ -210,11 +212,13 @@ mRuntimeWithContext fn = do
 --     import AWS.Lambda.Context (LambdaContext(..))
 --     import AWS.Lambda.Runtime (readerTRuntime)
 --     import Control.Monad.Reader (ReaderT, ask)
+--     import Control.Monad.Trans (liftIO)
 --     import Data.Aeson (FromJSON)
 --     import Data.Text (unpack)
 --     import System.Environment (getEnv)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
@@ -222,7 +226,7 @@ mRuntimeWithContext fn = do
 --     myHandler :: Named -> ReaderT LambdaContext IO String
 --     myHandler Named { name } = do
 --       LambdaContext { functionName } <- ask
---       greeting <- getEnv \"GREETING\"
+--       greeting <- liftIO $ getEnv \"GREETING\"
 --       return $ greeting ++ name ++ " from " ++ unpack functionName ++ "!"
 --
 --     main :: IO ()
@@ -249,16 +253,17 @@ readerTRuntime = runReaderTLambdaContext .  mRuntimeWithContext
 --     import Data.Aeson (FromJSON)
 --     import Data.Text (unpack)
 --     import System.Environment (getEnv)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
 --
---     myHandler :: LambdaContext -> Named -> IO String
+--     myHandler :: LambdaContext -> Named -> IO (Either String String)
 --     myHandler (LambdaContext { functionName }) (Named { name }) = do
 --       greeting <- getEnv \"GREETING\"
---       return $ greeting ++ name ++ " from " ++ unpack functionName ++ "!"
+--       return $ pure $ greeting ++ name ++ " from " ++ unpack functionName ++ "!"
 --
 --     main :: IO ()
 --     main = ioRuntimeWithContext myHandler
@@ -281,16 +286,17 @@ ioRuntimeWithContext = readerTRuntime . withIOInterface
 --     import AWS.Lambda.Runtime (ioRuntime)
 --     import Data.Aeson (FromJSON)
 --     import System.Environment (getEnv)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
 --
---     myHandler :: Named -> IO String
+--     myHandler :: Named -> IO (Either String String)
 --     myHandler (Named { name }) = do
 --       greeting <- getEnv \"GREETING\"
---       return $ greeting ++ name
+--       return $ pure $ greeting ++ name
 --
 --     main :: IO ()
 --     main = ioRuntime myHandler
@@ -313,8 +319,9 @@ ioRuntime = readerTRuntime . withIOInterface . withoutContext
 --     import AWS.Lambda.Runtime (fallibleRuntimeWithContext)
 --     import Data.Aeson (FromJSON)
 --     import Data.Text (unpack)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
@@ -322,7 +329,7 @@ ioRuntime = readerTRuntime . withIOInterface . withoutContext
 --     myHandler :: LambdaContext -> Named -> Either String String
 --     myHandler (LambdaContext { functionName }) (Named { name }) =
 --       if name == \"World\" then
---         Right "Hello, World from " ++ unpack functionName ++ "!"
+--         Right $ "Hello, World from " ++ unpack functionName ++ "!"
 --       else
 --         Left "Can only greet the world."
 --
@@ -345,8 +352,9 @@ fallibleRuntimeWithContext = readerTRuntime . withFallibleInterface
 --
 --     import AWS.Lambda.Runtime (fallibleRuntime)
 --     import Data.Aeson (FromJSON)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
@@ -379,8 +387,9 @@ fallibleRuntime = readerTRuntime . withFallibleInterface . withoutContext
 --     import AWS.Lambda.Runtime (pureRuntimeWithContext)
 --     import Data.Aeson (FromJSON)
 --     import Data.Text (unpack)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
@@ -407,8 +416,9 @@ pureRuntimeWithContext = readerTRuntime . withPureInterface
 --
 --     import AWS.Lambda.Runtime (pureRuntime)
 --     import Data.Aeson (FromJSON)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
