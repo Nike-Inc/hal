@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
+## `0.4.1` - 2020-01-22
+
+  - Constrain the envy version for correctly building with Cabal
+  - Fix documentation examples for Runtime and Combinators
+
 ## `0.4.0` - 2020-01-22
 
   - Add support for Value-based runtimes for handling JSON conversion errors explicitly
