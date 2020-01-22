@@ -54,7 +54,7 @@ library:
   dependencies:
     - aeson
     - bytestring
-    - envy
+    - envy < 2
     - http-conduit
     - http-types
     - exceptions
