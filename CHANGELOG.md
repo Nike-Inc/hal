@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
+## `0.4.0` - 2019-02-26
+
+  - Add support for Value-based runtimes for handling JSON conversion errors explicitly
+
 ## `0.3.0` - 2019-02-26
 
   - Add support for triggered S3 events
