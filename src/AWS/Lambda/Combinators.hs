@@ -47,20 +47,26 @@ dropEither = \case
 --
 --     module Main where
 --
+--     import AWS.Lambda.Context (LambdaContext(..))
 --     import AWS.Lambda.Runtime (readerTRuntime)
 --     import AWS.Lambda.Combinators (withIOInterface)
 --     import Data.Aeson (FromJSON)
+--     import Data.Text (unpack)
 --     import System.Environment (getEnv)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
 --
---     myHandler :: Named -> IO String
---     myHandler (Named { name }) = do
+--     myHandler :: LambdaContext -> Named -> IO (Either String String)
+--     myHandler (LambdaContext { functionName }) (Named { name }) = do
 --       greeting <- getEnv \"GREETING\"
---       return $ greeting ++ name
+--       return $ if name == \"World\" then
+--         Right $ "Hello, World from " ++ unpack functionName ++ "!"
+--       else
+--         Left "Can only greet the world."
 --
 --     main :: IO ()
 --     main = (readerTRuntime . withIOInterface) myHandler
@@ -86,12 +92,14 @@ withIOInterface fn event = do
 --
 --     module Main where
 --
+--     import AWS.Lambda.Context (LambdaContext(..))
 --     import AWS.Lambda.Runtime (readerTRuntime)
 --     import AWS.Lambda.Combinators (withFallibleInterface)
 --     import Data.Aeson (FromJSON)
---     import System.Environment (getEnv)
+--     import Data.Text (unpack)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
@@ -99,7 +107,7 @@ withIOInterface fn event = do
 --     myHandler :: LambdaContext -> Named -> Either String String
 --     myHandler (LambdaContext { functionName }) (Named { name }) =
 --       if name == \"World\" then
---         Right "Hello, World from " ++ unpack functionName ++ "!"
+--         Right $ "Hello, World from " ++ unpack functionName ++ "!"
 --       else
 --         Left "Can only greet the world."
 --
@@ -128,11 +136,14 @@ withFallibleInterface fn event = do
 --
 --     module Main where
 --
+--     import AWS.Lambda.Context (LambdaContext(..))
 --     import AWS.Lambda.Runtime (readerTRuntime)
 --     import AWS.Lambda.Combinators (withPureInterface)
 --     import Data.Aeson (FromJSON)
+--     import Data.Text (unpack)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
@@ -171,8 +182,9 @@ withPureInterface fn event = do
 --     import AWS.Lambda.Runtime (readerTRuntime)
 --     import AWS.Lambda.Combinators (withPureInterface, withoutContext)
 --     import Data.Aeson (FromJSON)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
