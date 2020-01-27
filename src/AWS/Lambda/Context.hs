@@ -1,5 +1,4 @@
-{-# LANGUAGE NamedFieldPuns    #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NamedFieldPuns, OverloadedStrings #-}
 
 {-|
 Module      : AWS.Lambda.Context
@@ -26,8 +25,8 @@ import           Control.Monad.Reader   (ReaderT, runReaderT)
 import           Data.Aeson             (FromJSON, ToJSON)
 import           Data.Map               (Map)
 import           Data.Text              (Text)
-import           Data.Time.Clock        (DiffTime, UTCTime, diffUTCTime,
-                                         getCurrentTime)
+import           Data.Time.Clock        (DiffTime, UTCTime,
+                                         diffUTCTime, getCurrentTime)
 import           Data.Time.Clock.POSIX  (posixSecondsToUTCTime)
 import           GHC.Generics           (Generic)
 import           System.Envy            (DefConfig (..))
