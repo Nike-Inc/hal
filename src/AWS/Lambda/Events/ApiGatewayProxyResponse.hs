@@ -18,7 +18,8 @@ module AWS.Lambda.Events.ApiGatewayProxyResponse
     , imageJpeg
     ) where
 
-import           Data.Aeson                (ToJSON, encode, object, toJSON, (.=))
+import           Data.Aeson                (ToJSON, encode, object, toJSON,
+                                            (.=))
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Base64    as B64
 import           Data.HashMap.Strict       (HashMap, insertWith)
@@ -26,13 +27,16 @@ import qualified Data.Text                 as T
 import qualified Data.Text.Encoding        as TE
 import qualified Data.Text.Lazy            as TL
 import qualified Data.Text.Lazy.Encoding   as TLE
-import           Network.HTTP.Types.Status hiding (mkStatus, statusIsInformational,
-                                            statusIsSuccessful, statusIsRedirection,
-                                            statusIsClientError, statusIsServerError)
+import           Network.HTTP.Types.Status hiding (mkStatus,
+                                            statusIsClientError,
+                                            statusIsInformational,
+                                            statusIsRedirection,
+                                            statusIsServerError,
+                                            statusIsSuccessful)
 
 data ApiGatewayProxyBody = ApiGatewayProxyBody
-  { contentType :: T.Text
-  , serialized :: T.Text
+  { contentType     :: T.Text
+  , serialized      :: T.Text
   , isBase64Encoded :: Bool
   } deriving Show
 

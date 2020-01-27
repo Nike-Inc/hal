@@ -23,8 +23,8 @@ import           Data.ByteString.Lazy        (ByteString)
 import           Data.CaseInsensitive        (CI, mk)
 import           Data.HashMap.Strict         (HashMap, foldrWithKey, insert)
 import           Data.Text                   (Text)
-import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.Encoding as TLE
+import qualified Data.Text.Lazy              as TL
+import qualified Data.Text.Lazy.Encoding     as TLE
 import           GHC.Generics                (Generic (..))
 
 data Identity = Identity
@@ -62,22 +62,20 @@ data RequestContext a = RequestContext
     }
 
 instance FromJSON a => FromJSON (RequestContext a) where
-  parseJSON (Object v) =
-    RequestContext <$>
-    v .: "path" <*>
-    v .: "accountId" <*>
-    v .:? "authorizer" <*>
-    v .: "resourceId" <*>
-    v .: "stage" <*>
-    v .:? "domainPrefix" <*>
-    v .: "requestId" <*>
-    v .: "identity" <*>
-    v .:? "domainName" <*>
-    v .: "resourcePath" <*>
-    v .: "httpMethod" <*>
-    v .:? "extendedRequestId" <*>
-    v .: "apiId"
-  parseJSON _ = mzero
+    parseJSON (Object v) =
+        RequestContext <$> v .: "path" <*> v .: "accountId" <*>
+        v .:? "authorizer" <*>
+        v .: "resourceId" <*>
+        v .: "stage" <*>
+        v .:? "domainPrefix" <*>
+        v .: "requestId" <*>
+        v .: "identity" <*>
+        v .:? "domainName" <*>
+        v .: "resourcePath" <*>
+        v .: "httpMethod" <*>
+        v .:? "extendedRequestId" <*>
+        v .: "apiId"
+    parseJSON _ = mzero
 
 -- TODO: Should also include websocket fields
 data ApiGatewayProxyRequest a = ApiGatewayProxyRequest
@@ -99,23 +97,21 @@ toCIHashMap = foldrWithKey (insert . mk) mempty
 
 toByteString :: Bool -> TL.Text -> ByteString
 toByteString isBase64Encoded =
-  if isBase64Encoded then
-    decodeLenient . TLE.encodeUtf8
-  else
-    TLE.encodeUtf8
+    if isBase64Encoded
+        then decodeLenient . TLE.encodeUtf8
+        else TLE.encodeUtf8
 
 instance FromJSON a => FromJSON (ApiGatewayProxyRequest a) where
-  parseJSON (Object v) =
-    ApiGatewayProxyRequest <$>
-    v .: "path" <*>
-    (toCIHashMap <$> (v .:? "headers" .!= mempty)) <*>
-    (toCIHashMap <$> (v .:? "multiValueHeaders" .!= mempty)) <*>
-    v .:? "pathParameters" .!= mempty <*>
-    v .:? "stageVariables" .!= mempty <*>
-    v .: "requestContext" <*>
-    v .: "resource" <*>
-    v .: "httpMethod" <*>
-    v .:? "queryStringParameters" .!= mempty <*>
-    v .:? "multiValueQueryStringParameters" .!= mempty <*>
-    (toByteString <$> v .: "isBase64Encoded" <*> v .: "body" .!= "")
-  parseJSON _ = mzero
+    parseJSON (Object v) =
+        ApiGatewayProxyRequest <$> v .: "path" <*>
+        (toCIHashMap <$> (v .:? "headers" .!= mempty)) <*>
+        (toCIHashMap <$> (v .:? "multiValueHeaders" .!= mempty)) <*>
+        v .:? "pathParameters" .!= mempty <*>
+        v .:? "stageVariables" .!= mempty <*>
+        v .: "requestContext" <*>
+        v .: "resource" <*>
+        v .: "httpMethod" <*>
+        v .:? "queryStringParameters" .!= mempty <*>
+        v .:? "multiValueQueryStringParameters" .!= mempty <*>
+        (toByteString <$> v .: "isBase64Encoded" <*> v .: "body" .!= "")
+    parseJSON _ = mzero
