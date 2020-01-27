@@ -67,22 +67,24 @@ data ProxyBody = ProxyBody
 --         {   status = ok200
 --         ,   body = textPlain \"Hello\"
 --         ,   headers = mempty
+--         ,   multiValueHeaders = mempty
 --         }
 --     myHandler _ =
 --         ProxyResponse
 --         {   status = forbidden403
 --         ,   body = textPlain \"Forbidden\"
 --         ,   headers = mempty
+--         ,   multiValueHeaders = mempty
 --         }
 --
 --     main :: IO ()
 --     main = pureRuntime myHandler
 -- @
 data ProxyResponse = ProxyResponse
-    { status  :: Status
-    -- TODO: Case insensitive
-    , headers :: HashMap (CI T.Text) T.Text
-    , body    :: ProxyBody
+    { status            :: Status
+    , headers           :: HashMap (CI T.Text) T.Text
+    , multiValueHeaders :: HashMap (CI T.Text) [T.Text]
+    , body              :: ProxyBody
     } deriving (Show)
 
 -- | Smart constructor for creating a ProxyBody with an arbitrary ByteString of
@@ -114,7 +116,7 @@ imageJpeg :: ByteString -> ProxyBody
 imageJpeg = genericBinary "image/jpeg"
 
 instance ToJSON ProxyResponse where
-    toJSON (ProxyResponse status h (ProxyBody contentType body isBase64Encoded)) =
+    toJSON (ProxyResponse status h mvh (ProxyBody contentType body isBase64Encoded)) =
         let unCI = foldrWithKey (insert . original) mempty
         in object
                [ "statusCode" .= statusCode status
@@ -124,6 +126,7 @@ instance ToJSON ProxyResponse where
                      ("Content-Type" :: T.Text)
                      contentType
                      (unCI h)
+               , "multiValueHeaders" .= unCI mvh
                , "body" .= body
                , "isBase64Encoded" .= isBase64Encoded
                ]

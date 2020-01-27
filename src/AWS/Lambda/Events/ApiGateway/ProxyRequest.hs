@@ -108,12 +108,14 @@ instance FromJSON a => FromJSON (RequestContext a) where
 --         {   status = ok200
 --         ,   body = textPlain \"Hello\"
 --         ,   headers = mempty
+--         ,   multiValueHeaders = mempty
 --         }
 --     myHandler _ =
 --         ProxyResponse
 --         {   status = forbidden403
 --         ,   body = textPlain \"Forbidden\"
 --         ,   headers = mempty
+--         ,   multiValueHeaders = mempty
 --         }
 --
 --     main :: IO ()
