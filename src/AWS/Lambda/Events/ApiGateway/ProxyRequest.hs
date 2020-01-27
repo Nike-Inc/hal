@@ -80,6 +80,45 @@ instance FromJSON a => FromJSON (RequestContext a) where
     parseJSON _ = mzero
 
 -- TODO: Should also include websocket fields
+-- | This type is for representing events that come from API Gateway via the
+-- Lambda Proxy integration (forwarding HTTP data directly, rather than a
+-- custom integration).  It will automatically decode the event that comes in.
+--
+-- The 'ProxyRequest' notably has one parameter for the type of information
+-- returned by the API Gateway's custom authorizer (if applicable).  This type
+-- must also implement FromJSON so that it can be decoded.  If you do not
+-- expect this data to be populated we recommended using the 'NoAuthorizer'
+-- type exported from this module (which is just an alias for 'Value').  If
+-- there _must not_ be authorizer populated (this is unlikely) then use the
+-- 'StrictlyNoAuthorizer' type.
+--
+-- @
+--     {-\# LANGUAGE NamedFieldPuns \#-}
+--     {-\# LANGUAGE DuplicateRecordFields \#-}
+--
+--     module Main where
+--
+--     import AWS.Lambda.Runtime (pureRuntime)
+--     import AWS.Lambda.Events.ApiGateway.ProxyRequest (ProxyRequest(..), NoAuthorizer)
+--     import AWS.Lambda.Events.ApiGateway.ProxyResponse (ProxyResponse(..), textPlain, forbidden403, ok200)
+--
+--     myHandler :: ProxyRequest NoAuthorizer -> ProxyResponse
+--     myHandler ProxyRequest { httpMethod = \"GET\", path = "/say_hello" } =
+--         ProxyResponse
+--         {   status = ok200
+--         ,   body = textPlain \"Hello\"
+--         ,   headers = mempty
+--         }
+--     myHandler _ =
+--         ProxyResponse
+--         {   status = forbidden403
+--         ,   body = textPlain \"Forbidden\"
+--         ,   headers = mempty
+--         }
+--
+--     main :: IO ()
+--     main = pureRuntime myHandler
+-- @
 data ProxyRequest a = ProxyRequest
     { path                            :: Text
     , headers                         :: HashMap (CI Text) Text
