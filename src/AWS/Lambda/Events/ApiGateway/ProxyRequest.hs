@@ -2,15 +2,15 @@
 {-# LANGUAGE FlexibleInstances     #-}
 
 {-|
-Module      : AWS.Lambda.Events.ApiGatewayProxyRequest
+Module      : AWS.Lambda.Events.ApiGateway.ProxyRequest
 Description : Data types that represent typical lambda responses
 Copyright   : (c) Nike, Inc., 2018
 License     : BSD3
 Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
 Stability   : stable
 -}
-module AWS.Lambda.Events.ApiGatewayProxyRequest
-    ( ApiGatewayProxyRequest(..)
+module AWS.Lambda.Events.ApiGateway.ProxyRequest
+    ( ProxyRequest(..)
     , RequestContext(..)
     , Identity(..)
     ) where
@@ -78,7 +78,7 @@ instance FromJSON a => FromJSON (RequestContext a) where
     parseJSON _ = mzero
 
 -- TODO: Should also include websocket fields
-data ApiGatewayProxyRequest a = ApiGatewayProxyRequest
+data ProxyRequest a = ProxyRequest
     { path                            :: Text
     , headers                         :: HashMap (CI Text) Text
     , multiValueHeaders               :: HashMap (CI Text) [Text]
@@ -101,9 +101,9 @@ toByteString isBase64Encoded =
         then decodeLenient . TLE.encodeUtf8
         else TLE.encodeUtf8
 
-instance FromJSON a => FromJSON (ApiGatewayProxyRequest a) where
+instance FromJSON a => FromJSON (ProxyRequest a) where
     parseJSON (Object v) =
-        ApiGatewayProxyRequest <$> v .: "path" <*>
+        ProxyRequest <$> v .: "path" <*>
         (toCIHashMap <$> (v .:? "headers" .!= mempty)) <*>
         (toCIHashMap <$> (v .:? "multiValueHeaders" .!= mempty)) <*>
         v .:? "pathParameters" .!= mempty <*>

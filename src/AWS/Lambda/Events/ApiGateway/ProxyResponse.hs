@@ -1,17 +1,17 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 {-|
-Module      : AWS.Lambda.Events.ApiGatewayProxyResponse
+Module      : AWS.Lambda.Events.ApiGateway.ProxyResponse
 Description : Data types that represent typical lambda responses
 Copyright   : (c) Nike, Inc., 2018
 License     : BSD3
 Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
 Stability   : stable
 -}
-module AWS.Lambda.Events.ApiGatewayProxyResponse
+module AWS.Lambda.Events.ApiGateway.ProxyResponse
     ( module Network.HTTP.Types.Status
-    , ApiGatewayProxyResponse(..)
-    , ApiGatewayProxyBody(..)
+    , ProxyResponse(..)
+    , ProxyBody(..)
     , textPlain
     , applicationJson
     , imageGif
@@ -34,44 +34,46 @@ import           Network.HTTP.Types.Status hiding (mkStatus,
                                             statusIsServerError,
                                             statusIsSuccessful)
 
-data ApiGatewayProxyBody = ApiGatewayProxyBody
-  { contentType     :: T.Text
-  , serialized      :: T.Text
-  , isBase64Encoded :: Bool
-  } deriving Show
+data ProxyBody = ProxyBody
+    { contentType     :: T.Text
+    , serialized      :: T.Text
+    , isBase64Encoded :: Bool
+    } deriving (Show)
 
-data ApiGatewayProxyResponse = ApiGatewayProxyResponse
+data ProxyResponse = ProxyResponse
     { status  :: Status
     -- TODO: Case insensitive
     , headers :: HashMap T.Text T.Text
-    , body    :: ApiGatewayProxyBody
-    } deriving Show
+    , body    :: ProxyBody
+    } deriving (Show)
 
-genericBinary :: T.Text -> ByteString -> ApiGatewayProxyBody
-genericBinary contentType x = ApiGatewayProxyBody contentType (TE.decodeUtf8 $ B64.encode x) True
+genericBinary :: T.Text -> ByteString -> ProxyBody
+genericBinary contentType x =
+    ProxyBody contentType (TE.decodeUtf8 $ B64.encode x) True
 
 -- Smart constructors for export
+textPlain :: T.Text -> ProxyBody
+textPlain x = ProxyBody "text/plain; charset=utf-8" x False
 
-textPlain :: T.Text -> ApiGatewayProxyBody
-textPlain x = ApiGatewayProxyBody "text/plain; charset=utf-8" x False
+applicationJson :: ToJSON a => a -> ProxyBody
+applicationJson x =
+    ProxyBody
+        "application/json; charset=utf-8"
+        (TL.toStrict $ TLE.decodeUtf8 $ encode x)
+        False
 
-applicationJson :: ToJSON a => a -> ApiGatewayProxyBody
-applicationJson x = ApiGatewayProxyBody
-  "application/json; charset=utf-8"
-  (TL.toStrict $ TLE.decodeUtf8 $ encode x)
-  False
-
-imageGif :: ByteString -> ApiGatewayProxyBody
+imageGif :: ByteString -> ProxyBody
 imageGif = genericBinary "image/gif"
 
-imageJpeg :: ByteString -> ApiGatewayProxyBody
+imageJpeg :: ByteString -> ProxyBody
 imageJpeg = genericBinary "image/jpeg"
 
-instance ToJSON ApiGatewayProxyResponse where
-  toJSON (ApiGatewayProxyResponse status h (ApiGatewayProxyBody contentType body isBase64Encoded)) =
-    object
-      [ "statusCode" .= statusCode status
-      , "headers" .= insertWith (\_ old -> old) "Content-Type" contentType h
-      , "body" .= body
-      , "isBase64Encoded" .= isBase64Encoded
-      ]
+instance ToJSON ProxyResponse where
+    toJSON (ProxyResponse status h (ProxyBody contentType body isBase64Encoded)) =
+        object
+            [ "statusCode" .= statusCode status
+            , "headers" .=
+              insertWith (\_ old -> old) "Content-Type" contentType h
+            , "body" .= body
+            , "isBase64Encoded" .= isBase64Encoded
+            ]
