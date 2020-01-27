@@ -22,7 +22,9 @@ import           Data.Aeson                (ToJSON, encode, object, toJSON,
                                             (.=))
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Base64    as B64
-import           Data.HashMap.Strict       (HashMap, insertWith)
+import           Data.CaseInsensitive      (CI, original)
+import           Data.HashMap.Strict       (HashMap, foldrWithKey, insert,
+                                            insertWith)
 import qualified Data.Text                 as T
 import qualified Data.Text.Encoding        as TE
 import qualified Data.Text.Lazy            as TL
@@ -79,7 +81,7 @@ data ProxyBody = ProxyBody
 data ProxyResponse = ProxyResponse
     { status  :: Status
     -- TODO: Case insensitive
-    , headers :: HashMap T.Text T.Text
+    , headers :: HashMap (CI T.Text) T.Text
     , body    :: ProxyBody
     } deriving (Show)
 
@@ -113,10 +115,15 @@ imageJpeg = genericBinary "image/jpeg"
 
 instance ToJSON ProxyResponse where
     toJSON (ProxyResponse status h (ProxyBody contentType body isBase64Encoded)) =
-        object
-            [ "statusCode" .= statusCode status
-            , "headers" .=
-              insertWith (\_ old -> old) "Content-Type" contentType h
-            , "body" .= body
-            , "isBase64Encoded" .= isBase64Encoded
-            ]
+        let unCI = foldrWithKey (insert . original) mempty
+        in object
+               [ "statusCode" .= statusCode status
+               , "headers" .=
+                 insertWith
+                     (\_ old -> old)
+                     ("Content-Type" :: T.Text)
+                     contentType
+                     (unCI h)
+               , "body" .= body
+               , "isBase64Encoded" .= isBase64Encoded
+               ]
