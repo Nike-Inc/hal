@@ -38,6 +38,7 @@ data ApiGatewayProxyBody = ApiGatewayProxyBody
 
 data ApiGatewayProxyResponse = ApiGatewayProxyResponse
     { status  :: Status
+    -- TODO: Case insensitive
     , headers :: HashMap T.Text T.Text
     , body    :: ApiGatewayProxyBody
     } deriving Show
