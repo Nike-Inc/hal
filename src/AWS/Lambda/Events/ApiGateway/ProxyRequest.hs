@@ -1,5 +1,4 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 {-|
 Module      : AWS.Lambda.Events.ApiGateway.ProxyRequest
