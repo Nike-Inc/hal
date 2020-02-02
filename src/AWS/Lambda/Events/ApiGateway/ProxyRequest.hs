@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-
 {-|
 Module      : AWS.Lambda.Events.ApiGateway.ProxyRequest
 Description : Data types that represent typical lambda responses
