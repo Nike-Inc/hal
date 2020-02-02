@@ -1,7 +1,7 @@
 {-|
 Module      : AWS.Lambda.Events.ApiGateway.ProxyResponse
 Description : Data types that represent typical lambda responses
-Copyright   : (c) Nike, Inc., 2018
+Copyright   : (c) Nike, Inc., 2019
 License     : BSD3
 Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
 Stability   : stable
