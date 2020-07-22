@@ -60,16 +60,18 @@ getBaseRuntimeRequest = do
 getNextEvent :: Request -> IO (Response Value)
 getNextEvent baseRuntimeRequest = do
   resOrEx <- runtimeClientRetryTry $ httpJSON $ toNextEventRequest baseRuntimeRequest
-  let checkStatus res = if not $ statusIsSuccessful $ getResponseStatus res then
-        Left "Unexpected Runtime Error:  Could not retrieve next event."
-      else
-        Right res
   let resOrMsg = first (displayException :: HttpException -> String) resOrEx >>= checkStatus
   case resOrMsg of
     Left msg -> do
       _ <- sendInitError baseRuntimeRequest msg
       error msg
     Right y -> return y
+  where
+    checkStatus result =
+      let status = getResponseStatus result in
+        if not $ statusIsSuccessful status
+          then Left $ "Unexpected Runtime Error: Could not retrieve next event, status: " <> show status
+          else Right result
 
 sendEventSuccess :: ToJSON a => Request -> BS.ByteString -> a -> IO ()
 sendEventSuccess baseRuntimeRequest reqId json = do
