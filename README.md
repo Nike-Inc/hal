@@ -29,9 +29,22 @@ Naive approaches lead to error rates well over 10%.
 
 ## Table of Contents
 
+  - [Supported Platforms / GHC Versions](#supported-platforms-ghc-versions)
   - [Quick Start](#quick-start)
-  - [Usage](#usage)
   - [Local Testing](#local-testing)
+
+## Supported Platforms / GHC Versions
+
+We currently support this library under the same environment that [AWS Lambda
+supports][lambda-env].
+
+Our [CI] currently targets the latest three [LTS Stackage Versions][stackage],
+the latest three minor versions of [GHC] under [Cabal]
+(e.g. `8.6.x`, `8.4.x`, and `8.2.x`), and GHC-head / Stackage nightly builds.
+
+If you haven't already, adding `docker: { enable: true }` to your `stack.yaml`
+file will ensure that you're building a binary that can run in
+[AWS Lambda][lambda-env].
 
 ## Quick Start
 
@@ -50,7 +63,7 @@ dependency list (either `project-name.cabal` or `package.yaml`)
 #...
 packages:
   - '.'
-  - hal-0.1.0
+  - hal-0.1.2
 # ...
 docker:
   enable: true
@@ -60,32 +73,39 @@ docker:
 Then, define your types and handler:
 
 ```haskell
+{-# LANGUAGE DeriveGeneric  #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 module Main where
 
 import AWS.Lambda.Runtime (pureRuntime)
-import Data.Aeson (FromJSON, ToJSON)
-import GHC.Generics (Generic)
+import Data.Aeson         (FromJSON, ToJSON)
+import GHC.Generics       (Generic)
 
-data Request = Request {
-  input :: String
-} deriving (Generic)
+data IdEvent  = IdEvent { input   :: String } deriving Generic
+instance FromJSON IdEvent where
 
-instance FromJSON Request
+data IdResult = IdResult { output :: String } deriving Generic
+instance ToJSON IdResult where
 
-data Response = Response {
-  output :: String
-} deriving (Generic)
-
-instance ToJSON Response
-
-idHandler :: Request -> Response
-idHandler Request { input } = Response { output = input }
+handler :: IdEvent -> IdResult
+handler IdEvent { input } = IdResult { output = input }
 
 main :: IO ()
-main = pureRuntime idHandler
+main = pureRuntime handler
+```
+
+Your binary should be called `bootstrap` in order for the custom runtime
+to execute properly:
+
+```yaml
+# Example snippet of package.yaml
+# ...
+executables:
+  bootstrap:
+    source-dirs: src
+    main: Main.hs  # e.g. {project root}/src/Main.hs
+# ...
 ```
 
 Don't forget to define your [CloudFormation] stack:
@@ -101,6 +121,8 @@ Resources:
     Properties:
       Handler: NOT_USED
       Runtime: provided
+      # CodeUri is a relative path from the directory that this CloudFormation
+      # file is defined.
       CodeUri: .stack-work/docker/_home/.local/bin/
       Description: My Haskell runtime.
       MemorySize: 128
@@ -134,10 +156,6 @@ aws lambda invoke \
   output.txt
 ```
 
-## Usage
-
-TODO
-
 ## Local Testing
 
 ### Dependencies
@@ -149,7 +167,7 @@ TODO
 ### Build
 
 ```bash
-docker pull fpco/stack-build:lts-12.21 #first build only
+docker pull fpco/stack-build:lts-{version} # First build only, find the latest version in stack.yaml
 stack build --copy-bins
 ```
 
@@ -168,3 +186,8 @@ echo '{ "accountId": "byebye" }' | sam local invoke --region us-east-1
 [CloudFormation]: https://aws.amazon.com/cloudformation/
 [aws-sam-cli]: https://github.com/awslabs/aws-sam-cli
 [Rust Runtime]: https://github.com/awslabs/aws-lambda-rust-runtime
+[lambda-env]: https://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
+[ci]: https://travis-ci.org/Nike-Inc/hal
+[stackage]: https://www.stackage.org/
+[GHC]: https://www.haskell.org/ghc/download.html
+[Cabal]: https://www.haskell.org/cabal/download.html

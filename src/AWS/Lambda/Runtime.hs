@@ -7,6 +7,14 @@ Copyright   : (c) Nike, Inc., 2018
 License     : BSD3
 Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
 Stability   : stable
+
+These are runtimes designed for AWS Lambda, which accept a handler and return
+an application that will retreive and execute events as long as a container
+continues to exist.
+
+Many of these runtimes use "AWS.Lambda.Combinators" under the hood.
+For those interested in peeking below the abstractions provided here,
+please refer to that module.
 -}
 
 module AWS.Lambda.Runtime (
@@ -22,7 +30,11 @@ module AWS.Lambda.Runtime (
 
 import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent,
                                            sendEventError, sendEventSuccess, sendInitError)
-import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..))
+import           AWS.Lambda.Combinators   (withIOInterface,
+                                           withFallibleInterface,
+                                           withPureInterface,
+                                           withoutContext)
+import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..), runReaderTLambdaContext)
 import           AWS.Lambda.Internal      (StaticContext, DynamicContext(DynamicContext),
                                            mkContext)
 import           Control.Applicative      ((<*>), liftA2)
@@ -30,8 +42,7 @@ import           Control.Exception        (SomeException, displayException)
 import           Control.Monad            (forever)
 import           Control.Monad.Catch      (MonadCatch, try)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)
-import           Control.Monad.Reader     (MonadReader, ReaderT, ask, local,
-                                           runReaderT)
+import           Control.Monad.Reader     (MonadReader, ReaderT, local)
 import           Data.Aeson               (FromJSON, ToJSON, decode)
 import           Data.Bifunctor           (first)
 import qualified Data.ByteString.Char8    as BSC
@@ -43,7 +54,7 @@ import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
 import           Network.HTTP.Simple      (Request, getResponseBody,
                                            getResponseHeader)
 import           System.Environment       (setEnv)
-import           System.Envy              (decodeEnv, defConfig)
+import           System.Envy              (decodeEnv)
 
 exactlyOneHeader :: [a] -> Maybe a
 exactlyOneHeader [a] = Just a
@@ -184,10 +195,6 @@ mRuntimeWithContext fn = do
     Left err -> liftIO $ sendInitError baseRuntimeRequest err
     Right staticContext -> forever $ runtimeLoop baseRuntimeRequest staticContext fn
 
--- | Helper for using arbitrary monads with only the LambdaContext in its Reader
-readerTRuntimeWithContext :: ReaderT LambdaContext m a -> m a
-readerTRuntimeWithContext = flip runReaderT defConfig
-
 -- | For functions that can read the lambda context and use IO within the same monad.
 --
 -- Use this for handlers that need any form of side-effect such as reading
@@ -223,7 +230,7 @@ readerTRuntimeWithContext = flip runReaderT defConfig
 -- @
 readerTRuntime :: (FromJSON event, ToJSON result) =>
   (event -> ReaderT LambdaContext IO result) -> IO ()
-readerTRuntime = readerTRuntimeWithContext .  mRuntimeWithContext
+readerTRuntime = runReaderTLambdaContext .  mRuntimeWithContext
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --
@@ -258,13 +265,7 @@ readerTRuntime = readerTRuntimeWithContext .  mRuntimeWithContext
 -- @
 ioRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> IO (Either String result)) -> IO ()
-ioRuntimeWithContext fn = readerTRuntime (\event -> do
-  config <- ask
-  result <- liftIO $ fn config event
-  case result of
-    Left e  -> error e
-    Right x -> return x
- )
+ioRuntimeWithContext = readerTRuntime . withIOInterface
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --
@@ -296,8 +297,7 @@ ioRuntimeWithContext fn = readerTRuntime (\event -> do
 -- @
 ioRuntime :: (FromJSON event, ToJSON result) =>
   (event -> IO (Either String result)) -> IO ()
-ioRuntime fn = ioRuntimeWithContext wrapped
-    where wrapped _ e = fn e
+ioRuntime = readerTRuntime . withIOInterface . withoutContext
 
 -- | For pure functions that can still fail.
 --
@@ -331,8 +331,7 @@ ioRuntime fn = ioRuntimeWithContext wrapped
 -- @
 fallibleRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> Either String result) -> IO ()
-fallibleRuntimeWithContext fn = ioRuntimeWithContext wrapped
-  where wrapped c e = return $ fn c e
+fallibleRuntimeWithContext = readerTRuntime . withFallibleInterface
 
 -- | For pure functions that can still fail.
 --
@@ -364,9 +363,7 @@ fallibleRuntimeWithContext fn = ioRuntimeWithContext wrapped
 -- @
 fallibleRuntime :: (FromJSON event, ToJSON result) =>
   (event -> Either String result) -> IO ()
-fallibleRuntime fn = fallibleRuntimeWithContext wrapped
-  where
-    wrapped _ e = fn e
+fallibleRuntime = readerTRuntime . withFallibleInterface . withoutContext
 
 -- | For pure functions that can never fail that also need access to the context.
 --
@@ -397,8 +394,7 @@ fallibleRuntime fn = fallibleRuntimeWithContext wrapped
 -- @
 pureRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> result) -> IO ()
-pureRuntimeWithContext fn = fallibleRuntimeWithContext wrapped
-  where wrapped c e = Right $ fn c e
+pureRuntimeWithContext = readerTRuntime . withPureInterface
 
 -- | For pure functions that can never fail.
 --
@@ -424,4 +420,4 @@ pureRuntimeWithContext fn = fallibleRuntimeWithContext wrapped
 --     main = pureRuntime myHandler
 -- @
 pureRuntime :: (FromJSON event, ToJSON result) => (event -> result) -> IO ()
-pureRuntime fn = fallibleRuntime (Right . fn)
+pureRuntime = readerTRuntime . withPureInterface . withoutContext

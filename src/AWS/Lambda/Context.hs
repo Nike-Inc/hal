@@ -16,10 +16,12 @@ module AWS.Lambda.Context (
   LambdaContext(..),
   HasLambdaContext(..),
   defConfig,
-  getRemainingTime
+  getRemainingTime,
+  runReaderTLambdaContext
 ) where
 
 import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Control.Monad.Reader   (ReaderT, runReaderT)
 import           Data.Aeson             (FromJSON, ToJSON)
 import           Data.Map               (Map)
 import           Data.Text              (Text)
@@ -83,3 +85,7 @@ instance HasLambdaContext LambdaContext where
 
 instance DefConfig LambdaContext where
   defConfig = LambdaContext "" "" 0 "" "" "" "" "" (posixSecondsToUTCTime 0) Nothing Nothing
+
+-- | Helper for using arbitrary monads with only the LambdaContext in its Reader
+runReaderTLambdaContext :: ReaderT LambdaContext m a -> m a
+runReaderTLambdaContext = flip runReaderT defConfig
