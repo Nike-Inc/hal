@@ -170,7 +170,7 @@ deploy:
     skip_cleanup: true
     script: bash .travis/deploy.sh
     on:
-      repo: Nike-inc/hal
+      repo: Nike-Inc/hal
       tags: true
 
 # https://docs.travis-ci.com/user/environment-variables/#defining-encrypted-variables-in-travisyml
