@@ -17,16 +17,29 @@ module AWS.Lambda.RuntimeClient (
 ) where
 
 import           Control.Concurrent        (threadDelay)
-import           Control.Exception         (displayException, try, throw)
-import           Data.Aeson                (encode)
+import           Control.Exception         (Exception, displayException, throw,
+                                            try)
+import           Control.Monad             (unless)
+import           Control.Monad.IO.Class    (MonadIO, liftIO)
+import           Data.Aeson                (Result (..), Value, encode,
+                                            fromJSON)
+import           Data.Aeson.Parser         (value')
 import           Data.Aeson.Types          (FromJSON, ToJSON)
 import           Data.Bifunctor            (first)
 import qualified Data.ByteString           as BS
+import           Data.Conduit              (ConduitM, runConduit, yield, (.|))
+import           Data.Conduit.Attoparsec   (sinkParser)
 import           GHC.Generics              (Generic (..))
-import           Network.HTTP.Simple       (HttpException, JSONException,
-                                            Request, Response,
-                                            getResponseStatus, httpJSONEither,
-                                            httpNoBody, parseRequest,
+import           Network.HTTP.Client       (BodyReader, HttpException, Manager,
+                                            Request, Response, brRead,
+                                            defaultManagerSettings, httpNoBody,
+                                            managerConnCount,
+                                            managerIdleConnectionCount,
+                                            managerResponseTimeout,
+                                            managerSetProxy, newManager,
+                                            noProxy, parseRequest, responseBody,
+                                            responseTimeoutNone, withResponse)
+import           Network.HTTP.Simple       (getResponseStatus,
                                             setRequestBodyJSON,
                                             setRequestBodyLBS,
                                             setRequestCheckStatus,
@@ -44,7 +57,7 @@ data LambdaError = LambdaError
 
 instance ToJSON LambdaError
 
-data RuntimeClientConfig = RuntimeClientConfig Request
+data RuntimeClientConfig = RuntimeClientConfig Request Manager
 
 -- Exposed Handlers
 
@@ -57,11 +70,24 @@ getRuntimeClientConfig :: IO RuntimeClientConfig
 getRuntimeClientConfig = do
   awsLambdaRuntimeApi <- getEnv "AWS_LAMBDA_RUNTIME_API"
   req <- parseRequest $ "http://" ++ awsLambdaRuntimeApi
-  return $ RuntimeClientConfig req
+  man <- newManager
+           -- In the off chance that they set a proxy value, we don't want to
+           -- use it.  There's also no reason to spend time reading env vars.
+           $ managerSetProxy noProxy
+           $ defaultManagerSettings
+             -- This is the most important setting, we must not timeout requests
+             { managerResponseTimeout = responseTimeoutNone
+             -- We only ever need a single connection, because we'll never make
+             -- concurrent requests and never talk to more than one host.
+             , managerConnCount = 1
+             , managerIdleConnectionCount = 1
+             }
+  return $ RuntimeClientConfig req man
 
-getNextEvent :: FromJSON a => RuntimeClientConfig -> IO (Response (Either JSONException a))
-getNextEvent rcc@(RuntimeClientConfig baseRuntimeRequest) = do
-  resOrEx <- runtimeClientRetryTry $ httpJSONEither $ toNextEventRequest baseRuntimeRequest
+
+getNextEvent :: FromJSON a => RuntimeClientConfig -> IO (Response (Either JSONParseException a))
+getNextEvent rcc@(RuntimeClientConfig baseRuntimeRequest manager) = do
+  resOrEx <- runtimeClientRetryTry $ flip httpJSONEither manager $ toNextEventRequest baseRuntimeRequest
   let checkStatus res = if not $ statusIsSuccessful $ getResponseStatus res then
         Left "Unexpected Runtime Error:  Could not retrieve next event."
       else
@@ -74,8 +100,8 @@ getNextEvent rcc@(RuntimeClientConfig baseRuntimeRequest) = do
     Right y -> return y
 
 sendEventSuccess :: ToJSON a => RuntimeClientConfig -> BS.ByteString -> a -> IO ()
-sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest) reqId json = do
-  resOrEx <- runtimeClientRetryTry $ httpNoBody $ toEventSuccessRequest reqId json baseRuntimeRequest
+sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest manager) reqId json = do
+  resOrEx <- runtimeClientRetryTry $ flip httpNoBody manager $ toEventSuccessRequest reqId json baseRuntimeRequest
 
   let resOrTypedMsg = case resOrEx of
         Left ex ->
@@ -101,12 +127,44 @@ sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest) reqId json = do
     Right () -> return ()
 
 sendEventError :: RuntimeClientConfig -> BS.ByteString -> String -> IO ()
-sendEventError (RuntimeClientConfig baseRuntimeRequest) reqId e =
-  fmap (const ()) $ runtimeClientRetry $ httpNoBody $ toEventErrorRequest reqId e baseRuntimeRequest
+sendEventError (RuntimeClientConfig baseRuntimeRequest manager) reqId e =
+  fmap (const ()) $ runtimeClientRetry $ flip httpNoBody manager $ toEventErrorRequest reqId e baseRuntimeRequest
 
 sendInitError :: RuntimeClientConfig -> String -> IO ()
-sendInitError (RuntimeClientConfig baseRuntimeRequest) e =
-  fmap (const ()) $ runtimeClientRetry $ httpNoBody $ toInitErrorRequest e baseRuntimeRequest
+sendInitError (RuntimeClientConfig baseRuntimeRequest manager) e =
+  fmap (const ()) $ runtimeClientRetry $ flip httpNoBody manager $ toInitErrorRequest e baseRuntimeRequest
+
+-- Helpers for Requests with JSON Bodies
+
+newtype JSONParseException = JSONParseException { getException :: String } deriving (Show)
+instance Exception JSONParseException
+
+httpJSONEither :: FromJSON a => Request -> Manager -> IO (Response (Either JSONParseException a))
+httpJSONEither request manager =
+  let toEither v =
+        case fromJSON v of
+          Error e         -> Left (JSONParseException e)
+          Success decoded -> Right decoded
+  in fmap toEither <$> httpValue request manager
+
+httpValue :: Request -> Manager -> IO (Response Value)
+httpValue request manager =
+  withResponse request manager (\bodyReaderRes -> do
+    value <- runConduit $ bodyReaderSource (responseBody bodyReaderRes) .| sinkParser value'
+    return $ fmap (const value) bodyReaderRes
+  )
+
+bodyReaderSource :: MonadIO m
+                 => BodyReader
+                 -> ConduitM i BS.ByteString m ()
+bodyReaderSource br =
+    loop
+  where
+    loop = do
+        bs <- liftIO $ brRead br
+        unless (BS.null bs) $ do
+            yield bs
+            loop
 
 -- Retry Helpers
 

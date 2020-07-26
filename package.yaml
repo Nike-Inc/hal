@@ -54,7 +54,10 @@ library:
   dependencies:
     - aeson
     - bytestring
+    - conduit
+    - conduit-extra
     - envy
+    - http-client
     - http-conduit
     - http-types
     - exceptions
