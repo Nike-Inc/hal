@@ -41,3 +41,8 @@ executables:
     main: Main.hs
     dependencies:
       - unordered-containers
+  value:
+    source-dirs: value
+    main: Main.hs
+    dependencies:
+      - mtl

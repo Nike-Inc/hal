@@ -18,14 +18,14 @@ module AWS.Lambda.RuntimeClient (
 
 import           Control.Concurrent        (threadDelay)
 import           Control.Exception         (displayException, try, throw)
-import           Data.Aeson                (encode)
-import           Data.Aeson.Types          (FromJSON, ToJSON)
+import           Data.Aeson                (encode, Value)
+import           Data.Aeson.Types          (ToJSON)
 import           Data.Bifunctor            (first)
 import qualified Data.ByteString           as BS
 import           GHC.Generics              (Generic (..))
-import           Network.HTTP.Simple       (HttpException, JSONException,
+import           Network.HTTP.Simple       (HttpException,
                                             Request, Response,
-                                            getResponseStatus, httpJSONEither,
+                                            getResponseStatus, httpJSON,
                                             httpNoBody, parseRequest,
                                             setRequestBodyJSON,
                                             setRequestBodyLBS,
@@ -59,9 +59,11 @@ getRuntimeClientConfig = do
   req <- parseRequest $ "http://" ++ awsLambdaRuntimeApi
   return $ RuntimeClientConfig req
 
-getNextEvent :: FromJSON a => RuntimeClientConfig -> IO (Response (Either JSONException a))
+-- AWS lambda guarantees that we will get valid JSON,
+-- so parsing is guaranteed to succeed.
+getNextEvent :: RuntimeClientConfig -> IO (Response Value)
 getNextEvent rcc@(RuntimeClientConfig baseRuntimeRequest) = do
-  resOrEx <- runtimeClientRetryTry $ httpJSONEither $ toNextEventRequest baseRuntimeRequest
+  resOrEx <- runtimeClientRetryTry $ httpJSON $ toNextEventRequest baseRuntimeRequest
   let checkStatus res = if not $ statusIsSuccessful $ getResponseStatus res then
         Left "Unexpected Runtime Error:  Could not retrieve next event."
       else

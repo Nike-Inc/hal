@@ -7,6 +7,14 @@ Copyright   : (c) Nike, Inc., 2018
 License     : BSD3
 Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
 Stability   : stable
+
+These are runtimes designed for AWS Lambda, which accept a handler and return
+an application that will retreive and execute events as long as a container
+continues to exist.
+
+Many of these runtimes use "AWS.Lambda.Combinators" under the hood.
+For those interested in peeking below the abstractions provided here,
+please refer to that module.
 -}
 
 module AWS.Lambda.Runtime (
@@ -20,117 +28,17 @@ module AWS.Lambda.Runtime (
   mRuntimeWithContext
 ) where
 
-import           AWS.Lambda.RuntimeClient (RuntimeClientConfig, getNextEvent,
-                                           getRuntimeClientConfig,
-                                           sendEventError, sendEventSuccess,
-                                           sendInitError)
-import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..))
-import           AWS.Lambda.Internal      (StaticContext, DynamicContext(DynamicContext),
-                                           mkContext)
-import           Control.Applicative      ((<*>), liftA2)
-import           Control.Exception        (SomeException, displayException)
-import           Control.Monad            (forever)
-import           Control.Monad.Catch      (MonadCatch, try)
-import           Control.Monad.IO.Class   (MonadIO, liftIO)
-import           Control.Monad.Reader     (MonadReader, ReaderT, ask, local,
-                                           runReaderT)
-import           Data.Aeson               (FromJSON, ToJSON, decode)
-import           Data.Bifunctor           (first)
-import qualified Data.ByteString.Char8    as BSC
-import qualified Data.ByteString.Lazy     as BSW
-import qualified Data.ByteString.Internal as BSI
-import           Data.Text                (unpack)
-import           Data.Text.Encoding       (decodeUtf8)
-import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
-import           Network.HTTP.Simple      (getResponseBody, getResponseHeader)
-import           System.Environment       (setEnv)
-import           System.Envy              (decodeEnv, defConfig)
-
-exactlyOneHeader :: [a] -> Maybe a
-exactlyOneHeader [a] = Just a
-exactlyOneHeader _ = Nothing
-
-maybeToEither :: b -> Maybe a -> Either b a
-maybeToEither b ma = case ma of
-  Nothing -> Left b
-  Just a -> Right a
-
--- Note: Does not allow whitespace
-readMaybe :: (Read a) => String -> Maybe a
-readMaybe s = case reads s of
-  [(x,"")] -> Just x
-  _ -> Nothing
-
--- TODO: There must be a better way to do this
-decodeHeaderValue :: FromJSON a => BSC.ByteString -> Maybe a
-decodeHeaderValue = decode . BSW.pack . fmap BSI.c2w . BSC.unpack
-
--- An empty array means we successfully decoded, but nothing was there
--- If we have exactly one element, our outer maybe signals successful decode,
---   and our inner maybe signals that there was content sent
--- If we had more than one header value, the event was invalid
-decodeOptionalHeader :: FromJSON a => [BSC.ByteString] -> Maybe (Maybe a)
-decodeOptionalHeader header =
-  case header of
-    [] -> Just Nothing
-    [x] -> fmap Just $ decodeHeaderValue x
-    _ -> Nothing
-
-
-runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => RuntimeClientConfig -> StaticContext ->
-  (event -> m result) -> m ()
-runtimeLoop runtimeClientConfig staticContext fn = do
-  -- Get an event
-  nextRes <- liftIO $ getNextEvent runtimeClientConfig
-
-  -- If we got an event but our requestId is invalid/missing, there's no hope of meaningful recovery
-  let reqIdBS = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
-
-  let mTraceId = fmap decodeUtf8 $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
-  let mFunctionArn = fmap decodeUtf8 $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
-  let mDeadline = do
-        header <- exactlyOneHeader (getResponseHeader "Lambda-Runtime-Deadline-Ms" nextRes)
-        milliseconds :: Double <- readMaybe $ BSC.unpack header
-        return $ posixSecondsToUTCTime $ realToFrac $ milliseconds / 1000
-
-  let mClientContext = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Client-Context" nextRes
-  let mIdentity = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Cognito-Identity" nextRes
-
-  -- Populate the context with values from headers
-  let eCtx =
-        -- combine our StaticContext and possible DynamicContext into a LambdaContext
-        fmap (mkContext staticContext)
-        -- convert the Maybe DynamicContext into an Either String DynamicContext
-        $ maybeToEither "Runtime Error: Unable to decode Context from event response."
-        -- Build the Dynamic Context, collapsing individual Maybes into a single Maybe
-        $ DynamicContext (decodeUtf8 reqIdBS)
-        <$> mTraceId
-        <*> mFunctionArn
-        <*> mDeadline
-        <*> mClientContext
-        <*> mIdentity
-
-  let eEvent = first displayException $ getResponseBody nextRes
-
-  result <- case liftA2 (,) eCtx eEvent of
-    Left e -> return $ Left e
-    Right (ctx, event) ->
-      local (withContext ctx) $ do
-        -- Propagate the tracing header (Exception safe for this env var name)
-        liftIO $ setEnv "_X_AMZN_TRACE_ID" $ unpack $ xRayTraceId ctx
-
-        {- Catching like this is _usually_ considered bad practice, but this is a true
-             case where we want to both catch all errors and propogate information about them.
-             See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
-        -}
-        -- Put any exceptions in an Either
-        caughtResult <- try (fn event)
-        -- Map the Either (via first) so it is an `Either String a`
-        return $ first (displayException :: SomeException -> String) caughtResult
-
-  liftIO $ case result of
-    Right r -> sendEventSuccess runtimeClientConfig reqIdBS r
-    Left e  -> sendEventError runtimeClientConfig reqIdBS e
+import           AWS.Lambda.Combinators   (withIOInterface,
+                                           withFallibleInterface,
+                                           withPureInterface,
+                                           withoutContext,
+                                           withInfallibleParse)
+import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..), runReaderTLambdaContext)
+import qualified AWS.Lambda.Runtime.Value as ValueRuntime
+import           Control.Monad.Catch      (MonadCatch)
+import           Control.Monad.IO.Class   (MonadIO)
+import           Control.Monad.Reader     (MonadReader, ReaderT)
+import           Data.Aeson               (FromJSON, ToJSON)
 
 --TODO: Revisit all names before we put them under contract
 -- | For any monad that supports IO/catch/Reader LambdaContext.
@@ -144,23 +52,25 @@ runtimeLoop runtimeClientConfig staticContext fn = do
 --
 --     module Main where
 --
---     import AWS.Lambda.Context (LambdaContext(..))
+--     import AWS.Lambda.Context (LambdaContext(..), runReaderTLambdaContext)
 --     import AWS.Lambda.Runtime (mRuntimeWithContext)
 --     import Control.Monad.Reader (ReaderT, ask)
---     import Control.Monad.State.Lazy (StateT, runStateT, get, put)
+--     import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
+--     import Control.Monad.Trans (liftIO)
 --     import Data.Aeson (FromJSON)
 --     import Data.Text (unpack)
 --     import System.Environment (getEnv)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
 --
---     myHandler :: Named -> StateT Int (ReaderT LambdaContext IO String)
+--     myHandler :: Named -> StateT Int (ReaderT LambdaContext IO) String
 --     myHandler Named { name } = do
 --       LambdaContext { functionName } <- ask
---       greeting <- getEnv \"GREETING\"
+--       greeting <- liftIO $ getEnv \"GREETING\"
 --
 --       greetingCount <- get
 --       put $ greetingCount + 1
@@ -168,24 +78,11 @@ runtimeLoop runtimeClientConfig staticContext fn = do
 --       return $ greeting ++ name ++ " (" ++ show greetingCount ++ ") from " ++ unpack functionName ++ "!"
 --
 --     main :: IO ()
---     main = runStateT (mRuntimeWithContext myHandler) 0
+--     main = runReaderTLambdaContext (evalStateT (mRuntimeWithContext myHandler) 0)
 -- @
 mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>
   (event -> m result) -> m ()
-mRuntimeWithContext fn = do
-  -- TODO: Hide the implementation details of StaticContext within
-  -- RuntimeClientConfig that encapsulates more details
-  runtimeClientConfig <- liftIO getRuntimeClientConfig
-
-  possibleStaticCtx <- liftIO $ (decodeEnv :: IO (Either String StaticContext))
-
-  case possibleStaticCtx of
-    Left err -> liftIO $ sendInitError runtimeClientConfig err
-    Right staticContext -> forever $ runtimeLoop runtimeClientConfig staticContext fn
-
--- | Helper for using arbitrary monads with only the LambdaContext in its Reader
-readerTRuntimeWithContext :: ReaderT LambdaContext m a -> m a
-readerTRuntimeWithContext = flip runReaderT defConfig
+mRuntimeWithContext = ValueRuntime.mRuntimeWithContext . withInfallibleParse
 
 -- | For functions that can read the lambda context and use IO within the same monad.
 --
@@ -202,11 +99,13 @@ readerTRuntimeWithContext = flip runReaderT defConfig
 --     import AWS.Lambda.Context (LambdaContext(..))
 --     import AWS.Lambda.Runtime (readerTRuntime)
 --     import Control.Monad.Reader (ReaderT, ask)
+--     import Control.Monad.Trans (liftIO)
 --     import Data.Aeson (FromJSON)
 --     import Data.Text (unpack)
 --     import System.Environment (getEnv)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
@@ -214,7 +113,7 @@ readerTRuntimeWithContext = flip runReaderT defConfig
 --     myHandler :: Named -> ReaderT LambdaContext IO String
 --     myHandler Named { name } = do
 --       LambdaContext { functionName } <- ask
---       greeting <- getEnv \"GREETING\"
+--       greeting <- liftIO $ getEnv \"GREETING\"
 --       return $ greeting ++ name ++ " from " ++ unpack functionName ++ "!"
 --
 --     main :: IO ()
@@ -222,7 +121,7 @@ readerTRuntimeWithContext = flip runReaderT defConfig
 -- @
 readerTRuntime :: (FromJSON event, ToJSON result) =>
   (event -> ReaderT LambdaContext IO result) -> IO ()
-readerTRuntime = readerTRuntimeWithContext .  mRuntimeWithContext
+readerTRuntime = runReaderTLambdaContext .  mRuntimeWithContext
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --
@@ -241,29 +140,24 @@ readerTRuntime = readerTRuntimeWithContext .  mRuntimeWithContext
 --     import Data.Aeson (FromJSON)
 --     import Data.Text (unpack)
 --     import System.Environment (getEnv)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
 --
---     myHandler :: LambdaContext -> Named -> IO String
+--     myHandler :: LambdaContext -> Named -> IO (Either String String)
 --     myHandler (LambdaContext { functionName }) (Named { name }) = do
 --       greeting <- getEnv \"GREETING\"
---       return $ greeting ++ name ++ " from " ++ unpack functionName ++ "!"
+--       return $ pure $ greeting ++ name ++ " from " ++ unpack functionName ++ "!"
 --
 --     main :: IO ()
 --     main = ioRuntimeWithContext myHandler
 -- @
 ioRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> IO (Either String result)) -> IO ()
-ioRuntimeWithContext fn = readerTRuntime (\event -> do
-  config <- ask
-  result <- liftIO $ fn config event
-  case result of
-    Left e  -> error e
-    Right x -> return x
- )
+ioRuntimeWithContext = readerTRuntime . withIOInterface
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --
@@ -279,24 +173,24 @@ ioRuntimeWithContext fn = readerTRuntime (\event -> do
 --     import AWS.Lambda.Runtime (ioRuntime)
 --     import Data.Aeson (FromJSON)
 --     import System.Environment (getEnv)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
 --
---     myHandler :: Named -> IO String
+--     myHandler :: Named -> IO (Either String String)
 --     myHandler (Named { name }) = do
 --       greeting <- getEnv \"GREETING\"
---       return $ greeting ++ name
+--       return $ pure $ greeting ++ name
 --
 --     main :: IO ()
 --     main = ioRuntime myHandler
 -- @
 ioRuntime :: (FromJSON event, ToJSON result) =>
   (event -> IO (Either String result)) -> IO ()
-ioRuntime fn = ioRuntimeWithContext wrapped
-    where wrapped _ e = fn e
+ioRuntime = readerTRuntime . withIOInterface . withoutContext
 
 -- | For pure functions that can still fail.
 --
@@ -312,8 +206,9 @@ ioRuntime fn = ioRuntimeWithContext wrapped
 --     import AWS.Lambda.Runtime (fallibleRuntimeWithContext)
 --     import Data.Aeson (FromJSON)
 --     import Data.Text (unpack)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
@@ -321,7 +216,7 @@ ioRuntime fn = ioRuntimeWithContext wrapped
 --     myHandler :: LambdaContext -> Named -> Either String String
 --     myHandler (LambdaContext { functionName }) (Named { name }) =
 --       if name == \"World\" then
---         Right "Hello, World from " ++ unpack functionName ++ "!"
+--         Right $ "Hello, World from " ++ unpack functionName ++ "!"
 --       else
 --         Left "Can only greet the world."
 --
@@ -330,8 +225,7 @@ ioRuntime fn = ioRuntimeWithContext wrapped
 -- @
 fallibleRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> Either String result) -> IO ()
-fallibleRuntimeWithContext fn = ioRuntimeWithContext wrapped
-  where wrapped c e = return $ fn c e
+fallibleRuntimeWithContext = readerTRuntime . withFallibleInterface
 
 -- | For pure functions that can still fail.
 --
@@ -345,8 +239,9 @@ fallibleRuntimeWithContext fn = ioRuntimeWithContext wrapped
 --
 --     import AWS.Lambda.Runtime (fallibleRuntime)
 --     import Data.Aeson (FromJSON)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
@@ -363,9 +258,7 @@ fallibleRuntimeWithContext fn = ioRuntimeWithContext wrapped
 -- @
 fallibleRuntime :: (FromJSON event, ToJSON result) =>
   (event -> Either String result) -> IO ()
-fallibleRuntime fn = fallibleRuntimeWithContext wrapped
-  where
-    wrapped _ e = fn e
+fallibleRuntime = readerTRuntime . withFallibleInterface . withoutContext
 
 -- | For pure functions that can never fail that also need access to the context.
 --
@@ -381,8 +274,9 @@ fallibleRuntime fn = fallibleRuntimeWithContext wrapped
 --     import AWS.Lambda.Runtime (pureRuntimeWithContext)
 --     import Data.Aeson (FromJSON)
 --     import Data.Text (unpack)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
@@ -396,8 +290,7 @@ fallibleRuntime fn = fallibleRuntimeWithContext wrapped
 -- @
 pureRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> result) -> IO ()
-pureRuntimeWithContext fn = fallibleRuntimeWithContext wrapped
-  where wrapped c e = Right $ fn c e
+pureRuntimeWithContext = readerTRuntime . withPureInterface
 
 -- | For pure functions that can never fail.
 --
@@ -410,8 +303,9 @@ pureRuntimeWithContext fn = fallibleRuntimeWithContext wrapped
 --
 --     import AWS.Lambda.Runtime (pureRuntime)
 --     import Data.Aeson (FromJSON)
+--     import GHC.Generics (Generic)
 --
---     data Named = {
+--     data Named = Named {
 --       name :: String
 --     } deriving Generic
 --     instance FromJSON Named
@@ -423,4 +317,4 @@ pureRuntimeWithContext fn = fallibleRuntimeWithContext wrapped
 --     main = pureRuntime myHandler
 -- @
 pureRuntime :: (FromJSON event, ToJSON result) => (event -> result) -> IO ()
-pureRuntime fn = fallibleRuntime (Right . fn)
+pureRuntime = readerTRuntime . withPureInterface . withoutContext
