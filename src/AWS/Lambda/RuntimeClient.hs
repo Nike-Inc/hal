@@ -8,7 +8,8 @@ Stability   : stable
 -}
 
 module AWS.Lambda.RuntimeClient (
-  getBaseRuntimeRequest,
+  RuntimeClientConfig,
+  getRuntimeClientConfig,
   getNextEvent,
   sendEventSuccess,
   sendEventError,
@@ -43,6 +44,8 @@ data LambdaError = LambdaError
 
 instance ToJSON LambdaError
 
+data RuntimeClientConfig = RuntimeClientConfig Request
+
 -- Exposed Handlers
 
 -- TODO: It would be interesting if we could make the interface a sort of
@@ -50,13 +53,14 @@ instance ToJSON LambdaError
 -- things off we get a 'getNextEvent' handler and then the 'getNextEvent'
 -- handler returns both the 'success' and 'error' handlers.  So things like
 -- baseRequest and reqId are pre-injected.
-getBaseRuntimeRequest :: IO Request
-getBaseRuntimeRequest = do
+getRuntimeClientConfig :: IO RuntimeClientConfig
+getRuntimeClientConfig = do
   awsLambdaRuntimeApi <- getEnv "AWS_LAMBDA_RUNTIME_API"
-  parseRequest $ "http://" ++ awsLambdaRuntimeApi
+  req <- parseRequest $ "http://" ++ awsLambdaRuntimeApi
+  return $ RuntimeClientConfig req
 
-getNextEvent :: FromJSON a => Request -> IO (Response (Either JSONException a))
-getNextEvent baseRuntimeRequest = do
+getNextEvent :: FromJSON a => RuntimeClientConfig -> IO (Response (Either JSONException a))
+getNextEvent rcc@(RuntimeClientConfig baseRuntimeRequest) = do
   resOrEx <- runtimeClientRetryTry $ httpJSONEither $ toNextEventRequest baseRuntimeRequest
   let checkStatus res = if not $ statusIsSuccessful $ getResponseStatus res then
         Left "Unexpected Runtime Error:  Could not retrieve next event."
@@ -65,12 +69,12 @@ getNextEvent baseRuntimeRequest = do
   let resOrMsg = first (displayException :: HttpException -> String) resOrEx >>= checkStatus
   case resOrMsg of
     Left msg -> do
-      _ <- sendInitError baseRuntimeRequest msg
+      _ <- sendInitError rcc msg
       error msg
     Right y -> return y
 
-sendEventSuccess :: ToJSON a => Request -> BS.ByteString -> a -> IO ()
-sendEventSuccess baseRuntimeRequest reqId json = do
+sendEventSuccess :: ToJSON a => RuntimeClientConfig -> BS.ByteString -> a -> IO ()
+sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest) reqId json = do
   resOrEx <- runtimeClientRetryTry $ httpNoBody $ toEventSuccessRequest reqId json baseRuntimeRequest
 
   let resOrTypedMsg = case resOrEx of
@@ -92,16 +96,16 @@ sendEventSuccess baseRuntimeRequest reqId json = do
   case resOrTypedMsg of
     Left (Left msg) ->
       -- If an exception occurs here, we want that to propogate
-      sendEventError baseRuntimeRequest reqId msg
+      sendEventError rcc reqId msg
     Left (Right msg) -> error msg
     Right () -> return ()
 
-sendEventError :: Request -> BS.ByteString -> String -> IO ()
-sendEventError baseRuntimeRequest reqId e =
+sendEventError :: RuntimeClientConfig -> BS.ByteString -> String -> IO ()
+sendEventError (RuntimeClientConfig baseRuntimeRequest) reqId e =
   fmap (const ()) $ runtimeClientRetry $ httpNoBody $ toEventErrorRequest reqId e baseRuntimeRequest
 
-sendInitError :: Request -> String -> IO ()
-sendInitError baseRuntimeRequest e =
+sendInitError :: RuntimeClientConfig -> String -> IO ()
+sendInitError (RuntimeClientConfig baseRuntimeRequest) e =
   fmap (const ()) $ runtimeClientRetry $ httpNoBody $ toInitErrorRequest e baseRuntimeRequest
 
 -- Retry Helpers
