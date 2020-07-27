@@ -38,8 +38,9 @@ module AWS.Lambda.Runtime.Value (
   mRuntimeWithContext
 ) where
 
-import           AWS.Lambda.RuntimeClient (getBaseRuntimeRequest, getNextEvent,
-                                           sendEventError, sendEventSuccess, sendInitError)
+import           AWS.Lambda.RuntimeClient (RuntimeClientConfig, getRuntimeClientConfig,
+                                           getNextEvent, sendEventError, sendEventSuccess,
+                                           sendInitError)
 import           AWS.Lambda.Combinators   (withIOInterface,
                                            withFallibleInterface,
                                            withPureInterface,
@@ -61,8 +62,7 @@ import qualified Data.ByteString.Internal as BSI
 import           Data.Text                (unpack)
 import           Data.Text.Encoding       (decodeUtf8)
 import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
-import           Network.HTTP.Simple      (Request, getResponseBody,
-                                           getResponseHeader)
+import           Network.HTTP.Simple      (getResponseBody, getResponseHeader)
 import           System.Environment       (setEnv)
 import           System.Envy              (decodeEnv)
 
@@ -97,11 +97,11 @@ decodeOptionalHeader header =
     _ -> Nothing
 
 
-runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, ToJSON result) => Request -> StaticContext ->
+runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, ToJSON result) => RuntimeClientConfig -> StaticContext ->
   (Value -> m result) -> m ()
-runtimeLoop baseRuntimeRequest staticContext fn = do
+runtimeLoop runtimeClientConfig staticContext fn = do
   -- Get an event
-  nextRes <- liftIO $ getNextEvent baseRuntimeRequest
+  nextRes <- liftIO $ getNextEvent runtimeClientConfig
 
   -- If we got an event but our requestId is invalid/missing, there's no hope of meaningful recovery
   let reqIdBS = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
@@ -149,8 +149,8 @@ runtimeLoop baseRuntimeRequest staticContext fn = do
         return $ first (displayException :: SomeException -> String) caughtResult
 
   liftIO $ case result of
-    Right r -> sendEventSuccess baseRuntimeRequest reqIdBS r
-    Left e  -> sendEventError baseRuntimeRequest reqIdBS e
+    Right r -> sendEventSuccess runtimeClientConfig reqIdBS r
+    Left e  -> sendEventError runtimeClientConfig reqIdBS e
 
 
 -- | For any monad that supports IO/catch/Reader LambdaContext.
@@ -198,17 +198,15 @@ runtimeLoop baseRuntimeRequest staticContext fn = do
 mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, ToJSON result) =>
   (Value -> m result) -> m ()
 mRuntimeWithContext fn = do
-  -- TODO: Hide the implementation details of Request and StaticContext.
-  -- If we instead have a method that returns an opaque RuntimeClientConfig
-  -- that encapsulates these details, and then all clientMethods accept
-  -- the RuntimeClientConfig instead of a baseRuntimeRequest.
-  baseRuntimeRequest <- liftIO getBaseRuntimeRequest
+  -- TODO: Hide the implementation details of StaticContext within
+  -- RuntimeClientConfig that encapsulates more details
+  runtimeClientConfig <- liftIO getRuntimeClientConfig
 
   possibleStaticCtx <- liftIO $ (decodeEnv :: IO (Either String StaticContext))
 
   case possibleStaticCtx of
-    Left err -> liftIO $ sendInitError baseRuntimeRequest err
-    Right staticContext -> forever $ runtimeLoop baseRuntimeRequest staticContext fn
+    Left err -> liftIO $ sendInitError runtimeClientConfig err
+    Right staticContext -> forever $ runtimeLoop runtimeClientConfig staticContext fn
 
 -- | For functions that can read the lambda context and use IO within the same monad.
 --
