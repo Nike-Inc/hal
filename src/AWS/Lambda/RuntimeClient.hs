@@ -17,14 +17,12 @@ module AWS.Lambda.RuntimeClient (
 ) where
 
 import           Control.Concurrent        (threadDelay)
-import           Control.Exception         (Exception, displayException, throw,
-                                            try)
+import           Control.Exception         (displayException, try, throw)
 import           Control.Monad             (unless)
 import           Control.Monad.IO.Class    (MonadIO, liftIO)
-import           Data.Aeson                (Result (..), Value, encode,
-                                            fromJSON)
+import           Data.Aeson                (encode, Value)
 import           Data.Aeson.Parser         (value')
-import           Data.Aeson.Types          (FromJSON, ToJSON)
+import           Data.Aeson.Types          (ToJSON)
 import           Data.Bifunctor            (first)
 import qualified Data.ByteString           as BS
 import           Data.Conduit              (ConduitM, runConduit, yield, (.|))
@@ -84,10 +82,11 @@ getRuntimeClientConfig = do
              }
   return $ RuntimeClientConfig req man
 
-
-getNextEvent :: FromJSON a => RuntimeClientConfig -> IO (Response (Either JSONParseException a))
+-- AWS lambda guarantees that we will get valid JSON,
+-- so parsing is guaranteed to succeed.
+getNextEvent :: RuntimeClientConfig -> IO (Response Value)
 getNextEvent rcc@(RuntimeClientConfig baseRuntimeRequest manager) = do
-  resOrEx <- runtimeClientRetryTry $ flip httpJSONEither manager $ toNextEventRequest baseRuntimeRequest
+  resOrEx <- runtimeClientRetryTry $ flip httpValue manager $ toNextEventRequest baseRuntimeRequest
   let checkStatus res = if not $ statusIsSuccessful $ getResponseStatus res then
         Left "Unexpected Runtime Error:  Could not retrieve next event."
       else
@@ -135,17 +134,6 @@ sendInitError (RuntimeClientConfig baseRuntimeRequest manager) e =
   fmap (const ()) $ runtimeClientRetry $ flip httpNoBody manager $ toInitErrorRequest e baseRuntimeRequest
 
 -- Helpers for Requests with JSON Bodies
-
-newtype JSONParseException = JSONParseException { getException :: String } deriving (Show)
-instance Exception JSONParseException
-
-httpJSONEither :: FromJSON a => Request -> Manager -> IO (Response (Either JSONParseException a))
-httpJSONEither request manager =
-  let toEither v =
-        case fromJSON v of
-          Error e         -> Left (JSONParseException e)
-          Success decoded -> Right decoded
-  in fmap toEither <$> httpValue request manager
 
 httpValue :: Request -> Manager -> IO (Response Value)
 httpValue request manager =
