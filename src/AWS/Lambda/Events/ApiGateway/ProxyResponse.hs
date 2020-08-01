@@ -9,6 +9,9 @@ Stability   : stable
 module AWS.Lambda.Events.ApiGateway.ProxyResponse
     ( module Network.HTTP.Types.Status
     , ProxyResponse(..)
+    , response
+    , addHeader
+    , setHeader
     , ProxyBody(..)
     , textPlain
     , applicationJson
@@ -20,7 +23,7 @@ import           Data.Aeson                (ToJSON, encode, object, toJSON,
                                             (.=))
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Base64    as B64
-import           Data.CaseInsensitive      (CI, original)
+import           Data.CaseInsensitive      (CI, mk, original)
 import           Data.HashMap.Strict       (HashMap, foldrWithKey, insert,
                                             insertWith)
 import qualified Data.Text                 as T
@@ -49,30 +52,34 @@ data ProxyBody = ProxyBody
 -- integration.  ContentType will be set based on the ProxyBody (recommended)
 -- if a value is not present in the headers field.
 --
+-- This type can be constructed explicity or via the smart constructor
+-- `response`.  Headers can then be added incrementally with `addHeader` or
+-- `setHeader`.  The smart constructor pattern is recommended because it avoids
+-- some of the awkwardness of dealing with the multiValueHeaders field's type.
+--
 -- @
 --     {-\# LANGUAGE NamedFieldPuns \#-}
 --     {-\# LANGUAGE DuplicateRecordFields \#-}
+--     {-\# LANGUAGE OverloadedStrings \#-}
 --
 --     module Main where
 --
 --     import AWS.Lambda.Runtime (pureRuntime)
 --     import AWS.Lambda.Events.ApiGateway.ProxyRequest (ProxyRequest(..), NoAuthorizer)
---     import AWS.Lambda.Events.ApiGateway.ProxyResponse (ProxyResponse(..), textPlain, forbidden403, ok200)
+--     import AWS.Lambda.Events.ApiGateway.ProxyResponse (ProxyResponse(..), textPlain, forbidden403, ok200, response)
 --
 --     myHandler :: ProxyRequest NoAuthorizer -> ProxyResponse
 --     myHandler ProxyRequest { httpMethod = \"GET\", path = "/say_hello" } =
---         ProxyResponse
---         {   status = ok200
---         ,   body = textPlain \"Hello\"
---         ,   headers = mempty
---         ,   multiValueHeaders = mempty
---         }
+--         -- Smart Constructor and added header (recommended)
+--         addHeader "My-Custom-Header" "Value" $
+--           response ok200 $ textPlain \"Hello\"
 --     myHandler _ =
+--         -- Explicit Construction (not recommended)
 --         ProxyResponse
 --         {   status = forbidden403
 --         ,   body = textPlain \"Forbidden\"
---         ,   headers = mempty
---         ,   multiValueHeaders = mempty
+--         ,   multiValueHeaders =
+--               fromList [(mk "My-Custom-Header", ["Other Value])]
 --         }
 --
 --     main :: IO ()
@@ -80,10 +87,28 @@ data ProxyBody = ProxyBody
 -- @
 data ProxyResponse = ProxyResponse
     { status            :: Status
-    , headers           :: HashMap (CI T.Text) T.Text
     , multiValueHeaders :: HashMap (CI T.Text) [T.Text]
     , body              :: ProxyBody
     } deriving (Show)
+
+-- | Smart constructor for creating a ProxyResponse from a status and a body
+response :: Status -> ProxyBody -> ProxyResponse
+response =
+  flip ProxyResponse mempty
+
+-- | Add a header to the ProxyResponse.  If there was already a value for this
+-- header, this one is __added__, meaning the response will include multiple
+-- copies of this header (valid by the HTTP spec).  This does NOT replace any
+-- previous headers or their values.
+addHeader :: T.Text -> T.Text -> ProxyResponse -> ProxyResponse
+addHeader header value (ProxyResponse s mvh b) =
+  ProxyResponse s (insertWith (<>) (mk header) [value] mvh) b
+
+-- | Set a header to the ProxyResponse.  If there were any previous values for
+-- this header they are __all replaced__ by this new value.
+setHeader :: T.Text -> T.Text -> ProxyResponse -> ProxyResponse
+setHeader header value (ProxyResponse s mvh b) =
+  ProxyResponse s (insert (mk header) [value] mvh) b
 
 -- | Smart constructor for creating a ProxyBody with an arbitrary ByteString of
 -- the chosen content type.
@@ -114,17 +139,16 @@ imageJpeg :: ByteString -> ProxyBody
 imageJpeg = genericBinary "image/jpeg"
 
 instance ToJSON ProxyResponse where
-    toJSON (ProxyResponse status h mvh (ProxyBody contentType body isBase64Encoded)) =
+    toJSON (ProxyResponse status mvh (ProxyBody contentType body isBase64Encoded)) =
         let unCI = foldrWithKey (insert . original) mempty
         in object
                [ "statusCode" .= statusCode status
-               , "headers" .=
-                 insertWith
-                     (\_ old -> old)
-                     ("Content-Type" :: T.Text)
-                     contentType
-                     (unCI h)
-               , "multiValueHeaders" .= unCI mvh
+               , "multiValueHeaders" .=
+                     insertWith
+                         (\_ old -> old)
+                         ("Content-Type" :: T.Text)
+                         [contentType]
+                         (unCI mvh)
                , "body" .= body
                , "isBase64Encoded" .= isBase64Encoded
                ]
