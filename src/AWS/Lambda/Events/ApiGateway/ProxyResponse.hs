@@ -7,8 +7,7 @@ Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
 Stability   : stable
 -}
 module AWS.Lambda.Events.ApiGateway.ProxyResponse
-    ( module Network.HTTP.Types.Status
-    , ProxyResponse(..)
+    ( ProxyResponse(..)
     , response
     , addHeader
     , setHeader
@@ -17,6 +16,7 @@ module AWS.Lambda.Events.ApiGateway.ProxyResponse
     , applicationJson
     , imageGif
     , imageJpeg
+    , module Network.HTTP.Types.Status
     ) where
 
 import           Data.Aeson                (ToJSON, encode, object, toJSON,
