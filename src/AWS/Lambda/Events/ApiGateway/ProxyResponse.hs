@@ -39,7 +39,7 @@ import           Network.HTTP.Types.Status hiding (mkStatus,
 -- | Type that represents the body returned to an API Gateway when using HTTP
 -- Lambda Proxy integration.  It is highly recommended that you do not use this
 -- type directly, and instead use the smart constructors exposed such as
--- 'textPlain', 'applicationJSON', and 'genericBinary'.  These make sure that
+-- 'textPlain', 'applicationJson', and 'genericBinary'.  These make sure that
 -- the base64 encodings work transparently.
 data ProxyBody = ProxyBody
     { contentType     :: T.Text
