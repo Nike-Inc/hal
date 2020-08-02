@@ -5,6 +5,10 @@ Copyright   : (c) Nike, Inc., 2019
 License     : BSD3
 Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
 Stability   : stable
+
+This module exposes types used to model incoming __proxy__ requests from AWS
+API Gateway.  These types are a light pass over the incoming JSON
+representation.
 -}
 module AWS.Lambda.Events.ApiGateway.ProxyRequest
     ( ProxyRequest(..)

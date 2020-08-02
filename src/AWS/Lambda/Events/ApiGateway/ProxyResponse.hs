@@ -5,6 +5,12 @@ Copyright   : (c) Nike, Inc., 2019
 License     : BSD3
 Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
 Stability   : stable
+
+This module enable exposes the required types for responding to API Gateway
+Proxy Events.  Responses must return a status, body, and optionaly headers.
+Multiple smart contructors and helpers are provided to help encapsulated
+details like header case-insensitivity, multiple header copies, correct base64
+encoding, and default content type.
 -}
 module AWS.Lambda.Events.ApiGateway.ProxyResponse
     ( ProxyResponse(..)
