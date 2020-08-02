@@ -57,32 +57,32 @@ data ProxyBody = ProxyBody
 -- some of the awkwardness of dealing with the multiValueHeaders field's type.
 --
 -- @
---     {-\# LANGUAGE NamedFieldPuns \#-}
---     {-\# LANGUAGE DuplicateRecordFields \#-}
---     {-\# LANGUAGE OverloadedStrings \#-}
+-- {-\# LANGUAGE NamedFieldPuns \#-}
+-- {-\# LANGUAGE DuplicateRecordFields \#-}
+-- {-\# LANGUAGE OverloadedStrings \#-}
 --
---     module Main where
+-- module Main where
 --
---     import AWS.Lambda.Runtime (pureRuntime)
---     import AWS.Lambda.Events.ApiGateway.ProxyRequest (ProxyRequest(..), NoAuthorizer)
---     import AWS.Lambda.Events.ApiGateway.ProxyResponse (ProxyResponse(..), textPlain, forbidden403, ok200, response)
+-- import AWS.Lambda.Runtime (pureRuntime)
+-- import AWS.Lambda.Events.ApiGateway.ProxyRequest (ProxyRequest(..), NoAuthorizer)
+-- import AWS.Lambda.Events.ApiGateway.ProxyResponse (ProxyResponse(..), textPlain, forbidden403, ok200, response)
 --
---     myHandler :: ProxyRequest NoAuthorizer -> ProxyResponse
---     myHandler ProxyRequest { httpMethod = \"GET\", path = "/say_hello" } =
---         -- Smart Constructor and added header (recommended)
---         addHeader "My-Custom-Header" "Value" $
---           response ok200 $ textPlain \"Hello\"
---     myHandler _ =
---         -- Explicit Construction (not recommended)
---         ProxyResponse
---         {   status = forbidden403
---         ,   body = textPlain \"Forbidden\"
---         ,   multiValueHeaders =
---               fromList [(mk "My-Custom-Header", ["Other Value])]
---         }
+-- myHandler :: ProxyRequest NoAuthorizer -> ProxyResponse
+-- myHandler ProxyRequest { httpMethod = \"GET\", path = "/say_hello" } =
+--     -- Smart Constructor and added header (recommended)
+--     addHeader "My-Custom-Header" "Value" $
+--       response ok200 $ textPlain \"Hello\"
+-- myHandler _ =
+--     -- Explicit Construction (not recommended)
+--     ProxyResponse
+--     {   status = forbidden403
+--     ,   body = textPlain \"Forbidden\"
+--     ,   multiValueHeaders =
+--           fromList [(mk "My-Custom-Header", ["Other Value])]
+--     }
 --
---     main :: IO ()
---     main = pureRuntime myHandler
+-- main :: IO ()
+-- main = pureRuntime myHandler
 -- @
 data ProxyResponse = ProxyResponse
     { status            :: Status
