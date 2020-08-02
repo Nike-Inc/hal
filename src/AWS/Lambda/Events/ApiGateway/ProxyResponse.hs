@@ -14,8 +14,7 @@ module AWS.Lambda.Events.ApiGateway.ProxyResponse
     , ProxyBody(..)
     , textPlain
     , applicationJson
-    , imageGif
-    , imageJpeg
+    , genericBinary
     , module Network.HTTP.Types.Status
     ) where
 
@@ -111,7 +110,18 @@ setHeader header value (ProxyResponse s mvh b) =
   ProxyResponse s (insert (mk header) [value] mvh) b
 
 -- | Smart constructor for creating a ProxyBody with an arbitrary ByteString of
--- the chosen content type.
+-- the chosen content type.  Use this smart constructor to avoid invalid JSON
+-- representations of binary data.
+--
+-- From here it is easy to make more specific body constructors:
+--
+-- @
+-- imageGif :: ByteString -> ProxyBody
+-- imageGif = genericBinary "image/gif"
+--
+-- imageJpeg :: ByteString -> ProxyBody
+-- imageJpeg = genericBinary "image/jpeg"
+-- @
 genericBinary :: T.Text -> ByteString -> ProxyBody
 genericBinary contentType x =
     ProxyBody contentType (TE.decodeUtf8 $ B64.encode x) True
@@ -130,13 +140,6 @@ applicationJson x =
 
 -- | Smart constructor for creating a simple body of a GIF (that has already
 -- been converted to a ByteString).
-imageGif :: ByteString -> ProxyBody
-imageGif = genericBinary "image/gif"
-
--- | Smart constructor for creating a simple body of a JPEG (that has already
--- been converted to a ByteString).
-imageJpeg :: ByteString -> ProxyBody
-imageJpeg = genericBinary "image/jpeg"
 
 instance ToJSON ProxyResponse where
     toJSON (ProxyResponse status mvh (ProxyBody contentType body isBase64Encoded)) =
