@@ -39,14 +39,12 @@ module AWS.Lambda.Runtime.Value (
 ) where
 
 import           AWS.Lambda.RuntimeClient (RuntimeClientConfig, getRuntimeClientConfig,
-                                           getNextData, sendEventError, sendEventSuccess,
-                                           sendInitError)
+                                           getNextData, sendEventError, sendEventSuccess)
 import           AWS.Lambda.Combinators   (withIOInterface,
                                            withFallibleInterface,
                                            withPureInterface,
                                            withoutContext)
 import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..), runReaderTLambdaContext)
-import           AWS.Lambda.Internal      (StaticContext, mkContext)
 import           Control.Exception        (SomeException, displayException)
 import           Control.Monad            (forever)
 import           Control.Monad.Catch      (MonadCatch, try)
@@ -56,16 +54,12 @@ import           Data.Aeson               (ToJSON, Value)
 import           Data.Bifunctor           (first)
 import           Data.Text                (unpack)
 import           System.Environment       (setEnv)
-import           System.Envy              (decodeEnv)
 
-runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, ToJSON result) => RuntimeClientConfig -> StaticContext ->
+runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, ToJSON result) => RuntimeClientConfig ->
   (Value -> m result) -> m ()
-runtimeLoop runtimeClientConfig staticContext fn = do
+runtimeLoop runtimeClientConfig fn = do
   -- Get an event
-  (reqIdBS, event, eDynCtx) <- liftIO $ getNextData runtimeClientConfig
-
-  -- combine our StaticContext and possible DynamicContext into a LambdaContext
-  let eCtx = fmap (mkContext staticContext) eDynCtx
+  (reqIdBS, event, eCtx) <- liftIO $ getNextData runtimeClientConfig
 
   result <- case eCtx of
     Left e -> return $ Left e
@@ -133,15 +127,10 @@ runtimeLoop runtimeClientConfig staticContext fn = do
 mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, ToJSON result) =>
   (Value -> m result) -> m ()
 mRuntimeWithContext fn = do
-  -- TODO: Hide the implementation details of StaticContext within
-  -- RuntimeClientConfig that encapsulates more details
   runtimeClientConfig <- liftIO getRuntimeClientConfig
 
-  possibleStaticCtx <- liftIO $ (decodeEnv :: IO (Either String StaticContext))
+  forever $ runtimeLoop runtimeClientConfig fn
 
-  case possibleStaticCtx of
-    Left err -> liftIO $ sendInitError runtimeClientConfig err
-    Right staticContext -> forever $ runtimeLoop runtimeClientConfig staticContext fn
 
 -- | For functions that can read the lambda context and use IO within the same monad.
 --

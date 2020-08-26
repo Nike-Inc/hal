@@ -14,10 +14,11 @@ module AWS.Lambda.RuntimeClient (
   getNextEvent,
   sendEventSuccess,
   sendEventError,
-  sendInitError
 ) where
 
-import           AWS.Lambda.Internal       (DynamicContext(..))
+import           AWS.Lambda.Context        (LambdaContext(..))
+import           AWS.Lambda.Internal       (DynamicContext(..), StaticContext,
+                                            mkContext)
 import           Control.Applicative       ((<*>))
 import           Control.Concurrent        (threadDelay)
 import           Control.Exception         (displayException, try, throw)
@@ -55,6 +56,7 @@ import           Network.HTTP.Simple       (getResponseBody,
                                             setRequestPath)
 import           Network.HTTP.Types.Status (status403, status413, statusIsSuccessful)
 import           System.Environment        (getEnv)
+import           System.Envy               (decodeEnv)
 
 -- | Lambda runtime error that we pass back to AWS
 data LambdaError = LambdaError
@@ -65,7 +67,7 @@ data LambdaError = LambdaError
 
 instance ToJSON LambdaError
 
-data RuntimeClientConfig = RuntimeClientConfig Request Manager
+data RuntimeClientConfig = RuntimeClientConfig Request Manager StaticContext
 
 -- Exposed Handlers
 
@@ -90,10 +92,18 @@ getRuntimeClientConfig = do
              , managerConnCount = 1
              , managerIdleConnectionCount = 1
              }
-  return $ RuntimeClientConfig req man
 
-getNextData :: RuntimeClientConfig -> IO (BS.ByteString, Value, Either String DynamicContext)
-getNextData runtimeClientConfig = do
+  possibleStaticCtx <- liftIO $ (decodeEnv :: IO (Either String StaticContext))
+
+  case possibleStaticCtx of
+    Left err -> do
+      liftIO $ sendInitError req man err
+      error err
+    Right staticCtx -> return $ RuntimeClientConfig req man staticCtx
+
+
+getNextData :: RuntimeClientConfig -> IO (BS.ByteString, Value, Either String LambdaContext)
+getNextData runtimeClientConfig@(RuntimeClientConfig _ _ staticContext) = do
   nextRes <- getNextEvent runtimeClientConfig
 
   -- If we got an event but our requestId is invalid/missing, there's no hope of meaningful recovery
@@ -120,15 +130,18 @@ getNextData runtimeClientConfig = do
         <*> mClientContext
         <*> mIdentity
 
+  -- combine our StaticContext and possible DynamicContext into a LambdaContext
+  let eCtx = fmap (mkContext staticContext) eDynCtx
+
   let event = getResponseBody nextRes
 
   -- Return the interesting components
-  return (reqIdBS, event, eDynCtx)
+  return (reqIdBS, event, eCtx)
 
 -- AWS lambda guarantees that we will get valid JSON,
 -- so parsing is guaranteed to succeed.
 getNextEvent :: RuntimeClientConfig -> IO (Response Value)
-getNextEvent rcc@(RuntimeClientConfig baseRuntimeRequest manager) = do
+getNextEvent (RuntimeClientConfig baseRuntimeRequest manager _) = do
   resOrEx <- runtimeClientRetryTry $ flip httpValue manager $ toNextEventRequest baseRuntimeRequest
   let checkStatus res = if not $ statusIsSuccessful $ getResponseStatus res then
         Left "Unexpected Runtime Error:  Could not retrieve next event."
@@ -137,12 +150,12 @@ getNextEvent rcc@(RuntimeClientConfig baseRuntimeRequest manager) = do
   let resOrMsg = first (displayException :: HttpException -> String) resOrEx >>= checkStatus
   case resOrMsg of
     Left msg -> do
-      _ <- sendInitError rcc msg
+      _ <- sendInitError baseRuntimeRequest manager msg
       error msg
     Right y -> return y
 
 sendEventSuccess :: ToJSON a => RuntimeClientConfig -> BS.ByteString -> a -> IO ()
-sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest manager) reqId json = do
+sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest manager _) reqId json = do
   resOrEx <- runtimeClientRetryTry $ flip httpNoBody manager $ toEventSuccessRequest reqId json baseRuntimeRequest
 
   let resOrTypedMsg = case resOrEx of
@@ -169,11 +182,11 @@ sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest manager) reqId json
     Right () -> return ()
 
 sendEventError :: RuntimeClientConfig -> BS.ByteString -> String -> IO ()
-sendEventError (RuntimeClientConfig baseRuntimeRequest manager) reqId e =
+sendEventError (RuntimeClientConfig baseRuntimeRequest manager _) reqId e =
   fmap (const ()) $ runtimeClientRetry $ flip httpNoBody manager $ toEventErrorRequest reqId e baseRuntimeRequest
 
-sendInitError :: RuntimeClientConfig -> String -> IO ()
-sendInitError (RuntimeClientConfig baseRuntimeRequest manager) e =
+sendInitError :: Request -> Manager -> String -> IO ()
+sendInitError baseRuntimeRequest manager e =
   fmap (const ()) $ runtimeClientRetry $ flip httpNoBody manager $ toInitErrorRequest e baseRuntimeRequest
 
 
