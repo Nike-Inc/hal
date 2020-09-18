@@ -39,98 +39,33 @@ module AWS.Lambda.Runtime.Value (
 ) where
 
 import           AWS.Lambda.RuntimeClient (RuntimeClientConfig, getRuntimeClientConfig,
-                                           getNextEvent, sendEventError, sendEventSuccess,
+                                           getNextData, sendEventError, sendEventSuccess,
                                            sendInitError)
 import           AWS.Lambda.Combinators   (withIOInterface,
                                            withFallibleInterface,
                                            withPureInterface,
                                            withoutContext)
 import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..), runReaderTLambdaContext)
-import           AWS.Lambda.Internal      (StaticContext, DynamicContext(DynamicContext),
-                                           mkContext)
-import           Control.Applicative      ((<*>))
+import           AWS.Lambda.Internal      (StaticContext, mkContext)
 import           Control.Exception        (SomeException, displayException)
 import           Control.Monad            (forever)
 import           Control.Monad.Catch      (MonadCatch, try)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)
 import           Control.Monad.Reader     (MonadReader, ReaderT, local)
-import           Data.Aeson               (FromJSON, FromJSON, ToJSON, decode, Value)
+import           Data.Aeson               (ToJSON, Value)
 import           Data.Bifunctor           (first)
-import qualified Data.ByteString.Char8    as BSC
-import qualified Data.ByteString.Lazy     as BSW
-import qualified Data.ByteString.Internal as BSI
 import           Data.Text                (unpack)
-import           Data.Text.Encoding       (decodeUtf8)
-import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
-import           Network.HTTP.Simple      (getResponseBody, getResponseHeader)
 import           System.Environment       (setEnv)
 import           System.Envy              (decodeEnv)
-
-exactlyOneHeader :: [a] -> Maybe a
-exactlyOneHeader [a] = Just a
-exactlyOneHeader _ = Nothing
-
-maybeToEither :: b -> Maybe a -> Either b a
-maybeToEither b ma = case ma of
-  Nothing -> Left b
-  Just a -> Right a
-
--- Note: Does not allow whitespace
-readMaybe :: (Read a) => String -> Maybe a
-readMaybe s = case reads s of
-  [(x,"")] -> Just x
-  _ -> Nothing
-
--- TODO: There must be a better way to do this
-decodeHeaderValue :: FromJSON a => BSC.ByteString -> Maybe a
-decodeHeaderValue = decode . BSW.pack . fmap BSI.c2w . BSC.unpack
-
--- An empty array means we successfully decoded, but nothing was there
--- If we have exactly one element, our outer maybe signals successful decode,
---   and our inner maybe signals that there was content sent
--- If we had more than one header value, the event was invalid
-decodeOptionalHeader :: FromJSON a => [BSC.ByteString] -> Maybe (Maybe a)
-decodeOptionalHeader header =
-  case header of
-    [] -> Just Nothing
-    [x] -> fmap Just $ decodeHeaderValue x
-    _ -> Nothing
-
 
 runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, ToJSON result) => RuntimeClientConfig -> StaticContext ->
   (Value -> m result) -> m ()
 runtimeLoop runtimeClientConfig staticContext fn = do
   -- Get an event
-  nextRes <- liftIO $ getNextEvent runtimeClientConfig
+  (reqIdBS, event, eDynCtx) <- liftIO $ getNextData runtimeClientConfig
 
-  -- If we got an event but our requestId is invalid/missing, there's no hope of meaningful recovery
-  let reqIdBS = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
-
-  let mTraceId = fmap decodeUtf8 $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
-  let mFunctionArn = fmap decodeUtf8 $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
-  let mDeadline = do
-        header <- exactlyOneHeader (getResponseHeader "Lambda-Runtime-Deadline-Ms" nextRes)
-        milliseconds :: Double <- readMaybe $ BSC.unpack header
-        return $ posixSecondsToUTCTime $ realToFrac $ milliseconds / 1000
-
-  let mClientContext = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Client-Context" nextRes
-  let mIdentity = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Cognito-Identity" nextRes
-
-  -- Populate the context with values from headers
-  let eCtx =
-        -- combine our StaticContext and possible DynamicContext into a LambdaContext
-        fmap (mkContext staticContext)
-        -- convert the Maybe DynamicContext into an Either String DynamicContext
-        $ maybeToEither "Runtime Error: Unable to decode Context from event response."
-        -- Build the Dynamic Context, collapsing individual Maybes into a single Maybe
-        $ DynamicContext (decodeUtf8 reqIdBS)
-        <$> mTraceId
-        <*> mFunctionArn
-        <*> mDeadline
-        <*> mClientContext
-        <*> mIdentity
-
-  let event = getResponseBody nextRes
+  -- combine our StaticContext and possible DynamicContext into a LambdaContext
+  let eCtx = fmap (mkContext staticContext) eDynCtx
 
   result <- case eCtx of
     Left e -> return $ Left e
