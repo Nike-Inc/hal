@@ -18,9 +18,8 @@ module AWS.Lambda.Events.ApiGateway.ProxyRequest
     , StrictlyNoAuthorizer
     ) where
 
-import           Control.Monad               (mzero)
-import           Data.Aeson                  (FromJSON, Value (Object),
-                                              parseJSON, (.:), (.:?))
+import           Data.Aeson                  (FromJSON, Value, parseJSON,
+                                              withObject, (.:), (.:?))
 import           Data.ByteString.Base64.Lazy (decodeLenient)
 import           Data.ByteString.Lazy        (ByteString)
 import           Data.CaseInsensitive        (CI, mk)
@@ -67,7 +66,7 @@ data RequestContext a = RequestContext
     }
 
 instance FromJSON a => FromJSON (RequestContext a) where
-    parseJSON (Object v) =
+    parseJSON = withObject "ProxyRequest" $ \v ->
         RequestContext <$> v .: "path" <*> v .: "accountId" <*>
         v .:? "authorizer" <*>
         v .: "resourceId" <*>
@@ -80,7 +79,6 @@ instance FromJSON a => FromJSON (RequestContext a) where
         v .: "httpMethod" <*>
         v .:? "extendedRequestId" <*>
         v .: "apiId"
-    parseJSON _ = mzero
 
 -- TODO: Should also include websocket fields
 -- | This type is for representing events that come from API Gateway via the
@@ -155,7 +153,7 @@ type NoAuthorizer = Value
 type StrictlyNoAuthorizer = ()
 
 instance FromJSON a => FromJSON (ProxyRequest a) where
-    parseJSON (Object v) =
+    parseJSON = withObject "ProxyRequest" $ \v ->
         ProxyRequest <$> v .: "path" <*>
         (v .:? "headers" <&> toCIHashMap . fold) <*>
         (v .:? "multiValueHeaders" <&> toCIHashMap . fold) <*>
@@ -167,4 +165,3 @@ instance FromJSON a => FromJSON (ProxyRequest a) where
         (v .:? "queryStringParameters" <&> fold) <*>
         (v .:? "multiValueQueryStringParameters" <&> fold) <*>
         (toByteString <$> v .: "isBase64Encoded" <*> (v .:? "body" <&> fold))
-    parseJSON _ = mzero
