@@ -20,10 +20,12 @@ module AWS.Lambda.Events.ApiGateway.ProxyRequest
 
 import           Control.Monad               (mzero)
 import           Data.Aeson                  (FromJSON, Value (Object),
-                                              parseJSON, (.!=), (.:), (.:?))
+                                              parseJSON, (.:), (.:?))
 import           Data.ByteString.Base64.Lazy (decodeLenient)
 import           Data.ByteString.Lazy        (ByteString)
 import           Data.CaseInsensitive        (CI, mk)
+import           Data.Foldable               (fold)
+import           Data.Functor                ((<&>))
 import           Data.HashMap.Strict         (HashMap, foldrWithKey, insert)
 import           Data.Text                   (Text)
 import qualified Data.Text.Lazy              as TL
@@ -155,14 +157,14 @@ type StrictlyNoAuthorizer = ()
 instance FromJSON a => FromJSON (ProxyRequest a) where
     parseJSON (Object v) =
         ProxyRequest <$> v .: "path" <*>
-        (toCIHashMap <$> (v .:? "headers" .!= mempty)) <*>
-        (toCIHashMap <$> (v .:? "multiValueHeaders" .!= mempty)) <*>
-        v .:? "pathParameters" .!= mempty <*>
-        v .:? "stageVariables" .!= mempty <*>
+        (v .:? "headers" <&> toCIHashMap . fold) <*>
+        (v .:? "multiValueHeaders" <&> toCIHashMap . fold) <*>
+        (v .:? "pathParameters" <&> fold) <*>
+        (v .:? "stageVariables" <&> fold) <*>
         v .: "requestContext" <*>
         v .: "resource" <*>
         v .: "httpMethod" <*>
-        v .:? "queryStringParameters" .!= mempty <*>
-        v .:? "multiValueQueryStringParameters" .!= mempty <*>
-        (toByteString <$> v .: "isBase64Encoded" <*> v .: "body" .!= "")
+        (v .:? "queryStringParameters" <&> fold) <*>
+        (v .:? "multiValueQueryStringParameters" <&> fold) <*>
+        (toByteString <$> v .: "isBase64Encoded" <*> (v .:? "body" <&> fold))
     parseJSON _ = mzero
