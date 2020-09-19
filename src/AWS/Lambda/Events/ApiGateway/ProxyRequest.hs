@@ -29,6 +29,7 @@ import           Data.HashMap.Strict         (HashMap, foldrWithKey, insert)
 import           Data.Text                   (Text)
 import qualified Data.Text.Lazy              as TL
 import qualified Data.Text.Lazy.Encoding     as TLE
+import           Data.Void                   (Void)
 import           GHC.Generics                (Generic (..))
 
 data Identity = Identity
@@ -150,7 +151,7 @@ type NoAuthorizer = Value
 
 -- | For ensuring that there were no API Gateway custom authorizer values (this
 -- is not likely to be useful, you probably want 'NoAuthorizer')
-type StrictlyNoAuthorizer = ()
+type StrictlyNoAuthorizer = Void
 
 instance FromJSON a => FromJSON (ProxyRequest a) where
     parseJSON = withObject "ProxyRequest" $ \v ->
