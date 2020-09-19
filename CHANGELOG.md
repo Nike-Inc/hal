@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
+## Unreleased
+
+  - Most runtime functions now take an additional initialisation action
+  - Generalise `readerTRuntime` over any `(MonadIO m, MonadMask m)`.
+
 ## `0.4.2` - 2020-07-23
 
   - Fix an issue where errors from the runtime were not retried

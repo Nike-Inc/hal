@@ -35,9 +35,9 @@ import           AWS.Lambda.Combinators   (withIOInterface,
                                            withInfallibleParse)
 import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..), runReaderTLambdaContext)
 import qualified AWS.Lambda.Runtime.Value as ValueRuntime
-import           Control.Monad.Catch      (MonadCatch)
+import           Control.Monad.Catch      (MonadMask)
 import           Control.Monad.IO.Class   (MonadIO)
-import           Control.Monad.Reader     (MonadReader, ReaderT)
+import           Control.Monad.Reader     (MonadReader, ReaderT, lift)
 import           Data.Aeson               (FromJSON, ToJSON)
 
 --TODO: Revisit all names before we put them under contract
@@ -67,8 +67,8 @@ import           Data.Aeson               (FromJSON, ToJSON)
 --     } deriving Generic
 --     instance FromJSON Named
 --
---     myHandler :: Named -> StateT Int (ReaderT LambdaContext IO) String
---     myHandler Named { name } = do
+--     myHandler :: () -> Named -> StateT Int (ReaderT LambdaContext IO) String
+--     myHandler () Named { name } = do
 --       LambdaContext { functionName } <- ask
 --       greeting <- liftIO $ getEnv \"GREETING\"
 --
@@ -78,11 +78,11 @@ import           Data.Aeson               (FromJSON, ToJSON)
 --       return $ greeting ++ name ++ " (" ++ show greetingCount ++ ") from " ++ unpack functionName ++ "!"
 --
 --     main :: IO ()
---     main = runReaderTLambdaContext (evalStateT (mRuntimeWithContext myHandler) 0)
+--     main = runReaderTLambdaContext (evalStateT (mRuntimeWithContext (pure ()) myHandler) 0)
 -- @
-mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>
-  (event -> m result) -> m ()
-mRuntimeWithContext = ValueRuntime.mRuntimeWithContext . withInfallibleParse
+mRuntimeWithContext :: (HasLambdaContext r, MonadMask m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>
+  m a -> (a -> event -> m result) -> m ()
+mRuntimeWithContext init fn = ValueRuntime.mRuntimeWithContext init $ withInfallibleParse . fn
 
 -- | For functions that can read the lambda context and use IO within the same monad.
 --
@@ -110,25 +110,26 @@ mRuntimeWithContext = ValueRuntime.mRuntimeWithContext . withInfallibleParse
 --     } deriving Generic
 --     instance FromJSON Named
 --
---     myHandler :: Named -> ReaderT LambdaContext IO String
---     myHandler Named { name } = do
+--     myHandler :: () -> Named -> ReaderT LambdaContext IO String
+--     myHandler () Named { name } = do
 --       LambdaContext { functionName } <- ask
 --       greeting <- liftIO $ getEnv \"GREETING\"
 --       return $ greeting ++ name ++ " from " ++ unpack functionName ++ "!"
 --
 --     main :: IO ()
---     main = readerTRuntime myHandler
+--     main = readerTRuntime (pure ()) myHandler
 -- @
-readerTRuntime :: (FromJSON event, ToJSON result) =>
-  (event -> ReaderT LambdaContext IO result) -> IO ()
-readerTRuntime = runReaderTLambdaContext .  mRuntimeWithContext
+readerTRuntime :: (MonadIO m, MonadMask m, FromJSON event, ToJSON result) =>
+  m a -> (a -> event -> ReaderT LambdaContext m result) -> m ()
+readerTRuntime init fn = runReaderTLambdaContext $ mRuntimeWithContext (lift init) fn
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --
 -- Use this for handlers that need any form of side-effect such as reading
--- environment variables or making network requests, and also need the
--- AWS Lambda Context as input.
--- However, do not use this runtime if you need stateful (caching) behaviors.
+-- environment variables or making network requests, and also need the AWS
+-- Lambda Context as input. If you need stateful (caching) behaviors, you
+-- can create an 'Data.IORef.IORef' or similar in the init action (where
+-- the example uses @pure ()@).
 --
 -- @
 --     {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
@@ -147,23 +148,24 @@ readerTRuntime = runReaderTLambdaContext .  mRuntimeWithContext
 --     } deriving Generic
 --     instance FromJSON Named
 --
---     myHandler :: LambdaContext -> Named -> IO (Either String String)
---     myHandler (LambdaContext { functionName }) (Named { name }) = do
+--     myHandler :: () -> LambdaContext -> Named -> IO (Either String String)
+--     myHandler () (LambdaContext { functionName }) (Named { name }) = do
 --       greeting <- getEnv \"GREETING\"
 --       return $ pure $ greeting ++ name ++ " from " ++ unpack functionName ++ "!"
 --
 --     main :: IO ()
---     main = ioRuntimeWithContext myHandler
+--     main = ioRuntimeWithContext (pure ()) myHandler
 -- @
 ioRuntimeWithContext :: (FromJSON event, ToJSON result) =>
-  (LambdaContext -> event -> IO (Either String result)) -> IO ()
-ioRuntimeWithContext = readerTRuntime . withIOInterface
+  IO a -> (a -> LambdaContext -> event -> IO (Either String result)) -> IO ()
+ioRuntimeWithContext init fn = readerTRuntime init $ withIOInterface . fn
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --
 -- Use this for handlers that need any form of side-effect such as reading
--- environment variables or making network requests.
--- However, do not use this runtime if you need stateful (caching) behaviors.
+-- environment variables or making network requests. If you need stateful
+-- (caching) behaviors, you can create an 'Data.IORef.IORef' or similar in
+-- the init action (where the example uses @pure ()@).
 --
 -- @
 --     {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
@@ -180,17 +182,17 @@ ioRuntimeWithContext = readerTRuntime . withIOInterface
 --     } deriving Generic
 --     instance FromJSON Named
 --
---     myHandler :: Named -> IO (Either String String)
---     myHandler (Named { name }) = do
+--     myHandler :: () -> Named -> IO (Either String String)
+--     myHandler () (Named { name }) = do
 --       greeting <- getEnv \"GREETING\"
 --       return $ pure $ greeting ++ name
 --
 --     main :: IO ()
---     main = ioRuntime myHandler
+--     main = ioRuntime (pure ()) myHandler
 -- @
 ioRuntime :: (FromJSON event, ToJSON result) =>
-  (event -> IO (Either String result)) -> IO ()
-ioRuntime = readerTRuntime . withIOInterface . withoutContext
+  IO a -> (a -> event -> IO (Either String result)) -> IO ()
+ioRuntime init fn = readerTRuntime init $ withIOInterface . withoutContext . fn
 
 -- | For pure functions that can still fail.
 --
@@ -225,7 +227,7 @@ ioRuntime = readerTRuntime . withIOInterface . withoutContext
 -- @
 fallibleRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> Either String result) -> IO ()
-fallibleRuntimeWithContext = readerTRuntime . withFallibleInterface
+fallibleRuntimeWithContext fn = readerTRuntime (pure ()) . const $ withFallibleInterface fn
 
 -- | For pure functions that can still fail.
 --
@@ -258,7 +260,7 @@ fallibleRuntimeWithContext = readerTRuntime . withFallibleInterface
 -- @
 fallibleRuntime :: (FromJSON event, ToJSON result) =>
   (event -> Either String result) -> IO ()
-fallibleRuntime = readerTRuntime . withFallibleInterface . withoutContext
+fallibleRuntime fn = readerTRuntime (pure ()) . const . withFallibleInterface $ withoutContext fn
 
 -- | For pure functions that can never fail that also need access to the context.
 --
@@ -290,7 +292,7 @@ fallibleRuntime = readerTRuntime . withFallibleInterface . withoutContext
 -- @
 pureRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> result) -> IO ()
-pureRuntimeWithContext = readerTRuntime . withPureInterface
+pureRuntimeWithContext fn = readerTRuntime (pure ()) . const $ withPureInterface fn
 
 -- | For pure functions that can never fail.
 --
@@ -317,4 +319,5 @@ pureRuntimeWithContext = readerTRuntime . withPureInterface
 --     main = pureRuntime myHandler
 -- @
 pureRuntime :: (FromJSON event, ToJSON result) => (event -> result) -> IO ()
-pureRuntime = readerTRuntime . withPureInterface . withoutContext
+pureRuntime fn =
+  readerTRuntime (pure ()) . const . withPureInterface $ withoutContext fn
