@@ -1,0 +1,60 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.34.2.
+--
+-- see: https://github.com/sol/hpack
+
+name:           hal
+version:        0.4.4
+synopsis:       A runtime environment for Haskell applications running on AWS Lambda.
+description:    This library uniquely supports different types of AWS Lambda Handlers for your
+                needs/comfort with advanced Haskell. Instead of exposing a single function
+                that constructs a Lambda, this library exposes many.
+category:       Web,AWS
+homepage:       https://github.com/Nike-inc/hal#readme
+bug-reports:    https://github.com/Nike-inc/hal/issues
+author:         Nike, Inc.
+maintainer:     nikeoss
+copyright:      2018 Nike, Inc.
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/Nike-inc/hal
+
+library
+  exposed-modules:
+      AWS.Lambda.Combinators
+      AWS.Lambda.Context
+      AWS.Lambda.Events.S3
+      AWS.Lambda.Events.SQS
+      AWS.Lambda.Internal
+      AWS.Lambda.Runtime
+      AWS.Lambda.Runtime.Value
+      AWS.Lambda.RuntimeClient
+  other-modules:
+      Paths_hal
+  hs-source-dirs:
+      src
+  default-extensions: OverloadedStrings BangPatterns DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable EmptyCase GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses MultiWayIf OverloadedStrings PatternSynonyms ScopedTypeVariables
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -fno-warn-partial-type-signatures -fno-warn-name-shadowing -fwarn-tabs -fwarn-unused-imports -fwarn-missing-signatures -fwarn-incomplete-patterns
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , conduit
+    , conduit-extra
+    , containers
+    , envy <2
+    , exceptions
+    , http-client
+    , http-conduit
+    , http-types
+    , mtl
+    , text
+    , time
+  default-language: Haskell2010

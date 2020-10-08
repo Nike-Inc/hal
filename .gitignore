@@ -205,5 +205,3 @@ tags
 [._]*.un~
 
 # End of https://www.gitignore.io/api/macOS,vim,Intellij+iml,emacs,haskell,cabal,stack
-
-*.cabal
