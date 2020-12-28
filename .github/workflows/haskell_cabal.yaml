@@ -31,7 +31,7 @@ jobs:
             ~/.cabal/packages
             ~/.cabal/store
             dist-newstyle
-          key: ${{ matrix.ghc-version }}
+          key: ${{ matrix.plan.ghc-version }}
       - name: Install Cabal
         uses: haskell/actions/setup@v1
         with:
