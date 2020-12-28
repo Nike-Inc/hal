@@ -26,13 +26,13 @@ jobs:
           curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
       - run: |
           set -ex
-          stack --no-terminal --install-ghc $ARGS test --bench --only-dependencies
+          stack --no-docker --no-terminal --install-ghc $ARGS test --bench --only-dependencies
           set +ex
         env:
           ARGS: ${{ matrix.resolver }}
       - run: |
           set -ex
-          stack --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
+          stack --no-docker --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
           set +ex
         env:
           ARGS: ${{ matrix.resolver }}
