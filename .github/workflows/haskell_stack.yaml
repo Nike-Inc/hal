@@ -1,0 +1,35 @@
+name: Stack Haskell Builds
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        resolver:
+          - "--resolver lts-11"
+          - "--resolver lts-12"
+          - "--resolver lts-13"
+          - "--resolver nightly"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: mstksg/setup-stack@v1
+      - run: |
+          set -ex
+          stack --no-terminal --install-ghc $ARGS test --bench --only-dependencies
+          set +ex
+        env:
+          ARGS: ${{ matrix.resolver }}
+      - run: |
+          set -ex
+          stack --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
+          set +ex
+        env:
+          ARGS: ${{ matrix.resolver }}
