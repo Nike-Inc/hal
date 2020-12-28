@@ -13,10 +13,10 @@ jobs:
     strategy:
       matrix:
         resolver:
-          - "--resolver lts-11"
-          - "--resolver lts-12"
-          - "--resolver lts-13"
-          - "--resolver nightly"
+          - lts-11
+          - lts-12
+          - lts-13
+          - nightly
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -28,14 +28,14 @@ jobs:
       - name: Install Project Dependencies
         run: |
           set -ex
-          stack --no-docker --no-terminal --install-ghc $ARGS test --bench --only-dependencies
+          stack --no-docker --no-terminal --install-ghc --resolver $RESOLVER test --bench --only-dependencies
           set +ex
         env:
-          ARGS: ${{ matrix.resolver }}
+          RESOLVER: ${{ matrix.resolver }}
       - name: Build Project
         run: |
           set -ex
-          stack --no-docker --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
+          stack --no-docker --no-terminal --resolver $RESOLVER test --bench --no-run-benchmarks --haddock --no-haddock-deps
           set +ex
         env:
-          ARGS: ${{ matrix.resolver }}
+          RESOLVER: ${{ matrix.resolver }}
