@@ -20,17 +20,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: |
+      - name: Install Stack
+        run: |
           export PATH=$HOME/.local/bin:$PATH
           mkdir -p ~/.local/bin
           curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-      - run: |
+      - name: Install Project Dependencies
+        run: |
           set -ex
           stack --no-docker --no-terminal --install-ghc $ARGS test --bench --only-dependencies
           set +ex
         env:
           ARGS: ${{ matrix.resolver }}
-      - run: |
+      - name: Build Project
+        run: |
           set -ex
           stack --no-docker --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
           set +ex
