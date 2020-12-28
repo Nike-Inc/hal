@@ -2,11 +2,6 @@ name: Cabal Haskell Builds
 
 on:
   push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
 
 jobs:
   build:
