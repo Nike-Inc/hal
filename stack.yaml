@@ -69,3 +69,6 @@ docker:
 
 # https://docs.haskellstack.org/en/stable/yaml_configuration/#pvp-bounds
 pvp-bounds: both-revision
+
+# We don't ever want or need our Hackage Credentials written to disk
+save-hackage-creds: false
