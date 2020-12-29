@@ -40,12 +40,12 @@ jobs:
       - name: Install Project Dependencies
         run: |
           set -ex
-          cabal install --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1
+          cabal install --lib --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1
           set +ex
       - name: Build Project
         run: |
           set -ex
-          cabal configure --enable-tests --ghc-options -O0
-          cabal build
-          cabal test
+          cabal configure --lib --enable-tests --ghc-options -O0
+          cabal build --lib
+          cabal test --lib
           set +ex
