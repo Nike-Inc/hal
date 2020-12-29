@@ -1,0 +1,30 @@
+name: Publish to Hackage
+
+on:
+  push:
+    tags:
+      - "v?[0-9]+.[0-9]+.[0-9]+"
+      - "v?[0-9]+.[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.stack
+            .stack-work
+          key: publish
+      - name: Install Stack
+        uses: ./.github/actions/install_stack
+      - name: Publish Project
+        run: |
+          set -ex
+          stack --no-docker upload .
+          set +ex
+        env:
+          HACKAGE_USERNAME: ${{ secrets.HackageUsername }}
+          HACKAGE_PASSWORD: ${{ secrets.HackagePassword }}
