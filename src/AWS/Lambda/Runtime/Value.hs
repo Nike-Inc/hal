@@ -124,8 +124,8 @@ runtimeLoop runtimeClientConfig staticContext fn = do
         $ maybeToEither "Runtime Error: Unable to decode Context from event response."
         -- Build the Dynamic Context, collapsing individual Maybes into a single Maybe
         $ DynamicContext (decodeUtf8 reqIdBS)
-        <$> mTraceId
-        <*> mFunctionArn
+        <$> mFunctionArn
+        <*> mTraceId
         <*> mDeadline
         <*> mClientContext
         <*> mIdentity
