@@ -33,10 +33,7 @@ jobs:
             .stack-work
           key: ${{ matrix.resolver }}
       - name: Install Stack
-        run: |
-          export PATH=$HOME/.local/bin:$PATH
-          mkdir -p ~/.local/bin
-          curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+        uses: ./.github/actions/install_stack
       - name: Install Project Dependencies
         run: |
           set -ex
