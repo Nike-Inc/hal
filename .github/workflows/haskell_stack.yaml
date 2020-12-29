@@ -10,13 +10,18 @@ on:
 
 jobs:
   build:
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       matrix:
         resolver:
           - lts-11
           - lts-12
           - lts-13
-          - nightly
+        experimental:
+          - false
+        include:
+          - resolver: nightly
+            experimental: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
