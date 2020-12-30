@@ -20,6 +20,8 @@ jobs:
           key: publish
       - name: Install Stack
         uses: ./.github/actions/install_stack
+      # TODO: It's possible that the tag and the package version don't match,
+      # which would indicate an error and should abort the publish
       - name: Publish Project
         run: |
           set -ex
