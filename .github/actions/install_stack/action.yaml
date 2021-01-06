@@ -1,0 +1,11 @@
+name: 'Install Stack'
+description: 'Install the Haskell Stack build tool'
+runs:
+  using: "composite"
+  steps: 
+    - name: Install
+      run: |
+        export PATH=$HOME/.local/bin:$PATH
+        mkdir -p ~/.local/bin
+        curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+      shell: bash
