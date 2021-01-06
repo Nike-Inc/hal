@@ -1,0 +1,58 @@
+name: Cabal Haskell Builds
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        plan:
+          - ghc-version: '8.0.2'
+            cabal-version: '2.0'
+          - ghc-version: '8.2.2'
+            cabal-version: '2.2'
+          - ghc-version: '8.4.4'
+            cabal-version: '2.2'
+          - ghc-version: '8.8'
+            cabal-version: '3.0'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cabal/packages
+            ~/.cabal/store
+            dist-newstyle
+          key: ${{ matrix.plan.ghc-version }}
+      - name: Install Cabal
+        uses: haskell/actions/setup@v1
+        with:
+          ghc-version: ${{ matrix.plan.ghc-version }}
+          cabal-version: ${{ matrix.plan.cabal-version }}
+      - name: Install Project Dependencies (Cabal v3)
+        run: |
+          set -ex
+          cabal install --lib --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1
+          set +ex
+        if: "startsWith(matrix.plan.cabal-version, '3')"
+      - name: Install Project Dependencies (Cabal v2)
+        run: |
+          set -ex
+          cabal install --enable-tests --enable-benchmarks --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1 
+          set +ex
+        if: "!startsWith(matrix.plan.cabal-version, '3')"
+      - name: Build Project
+        run: |
+          set -ex
+          cabal configure --enable-tests --ghc-options -O0
+          cabal build
+          cabal test
+          set +ex

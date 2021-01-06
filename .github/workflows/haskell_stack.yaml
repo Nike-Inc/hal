@@ -1,0 +1,50 @@
+name: Stack Haskell Builds
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      matrix:
+        resolver:
+          - lts-11
+          - lts-12
+          - lts-13
+        experimental:
+          - false
+        include:
+          - resolver: nightly
+            experimental: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.stack
+            .stack-work
+          key: ${{ matrix.resolver }}
+      - name: Install Stack
+        uses: ./.github/actions/install_stack
+      - name: Install Project Dependencies
+        run: |
+          set -ex
+          stack --no-docker --no-terminal --install-ghc --resolver $RESOLVER test --bench --only-dependencies
+          set +ex
+        env:
+          RESOLVER: ${{ matrix.resolver }}
+      - name: Build Project
+        run: |
+          set -ex
+          stack --no-docker --no-terminal --resolver $RESOLVER test --bench --no-run-benchmarks --haddock --no-haddock-deps
+          set +ex
+        env:
+          RESOLVER: ${{ matrix.resolver }}
