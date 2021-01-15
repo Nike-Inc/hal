@@ -31,6 +31,7 @@ import qualified Data.ByteString.Base64    as B64
 import           Data.CaseInsensitive      (CI, mk, original)
 import           Data.HashMap.Strict       (HashMap, foldrWithKey, insert,
                                             insertWith)
+import           Data.Semigroup            ((<>))
 import qualified Data.Text                 as T
 import qualified Data.Text.Encoding        as TE
 import qualified Data.Text.Lazy            as TL
