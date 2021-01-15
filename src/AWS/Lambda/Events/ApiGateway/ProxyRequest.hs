@@ -24,13 +24,19 @@ import           Data.ByteString.Base64.Lazy (decodeLenient)
 import           Data.ByteString.Lazy        (ByteString)
 import           Data.CaseInsensitive        (CI, mk)
 import           Data.Foldable               (fold)
-import           Data.Functor                ((<&>))
 import           Data.HashMap.Strict         (HashMap, foldrWithKey, insert)
 import           Data.Text                   (Text)
 import qualified Data.Text.Lazy              as TL
 import qualified Data.Text.Lazy.Encoding     as TLE
 import           Data.Void                   (Void)
 import           GHC.Generics                (Generic (..))
+
+-- This function is available in Data.Functor as of base 4.11, but we define it
+-- here for compatibility.
+(<&>) :: Functor f => f a -> (a -> b) -> f b
+(<&>) x f = f <$> x
+
+infixl 1 <&>
 
 data Identity = Identity
     { cognitoIdentityPoolId         :: Maybe Text
