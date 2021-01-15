@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2175dc8b8db69d64e82ae49c3130cc5d820d63bc28a956f8d4aa3af961c4ddb5
+-- hash: 9060c9619ef8354ab4b29c4440d31bc419cf608358c63510805ec0dd25c19e67
 
 name:           hal
 version:        0.4.5
@@ -32,6 +32,8 @@ library
   exposed-modules:
       AWS.Lambda.Combinators
       AWS.Lambda.Context
+      AWS.Lambda.Events.ApiGateway.ProxyRequest
+      AWS.Lambda.Events.ApiGateway.ProxyResponse
       AWS.Lambda.Events.S3
       AWS.Lambda.Events.SQS
       AWS.Lambda.Internal
@@ -42,12 +44,14 @@ library
       Paths_hal
   hs-source-dirs:
       src
-  default-extensions: OverloadedStrings BangPatterns DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable EmptyCase GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses MultiWayIf OverloadedStrings PatternSynonyms ScopedTypeVariables
+  default-extensions: OverloadedStrings BangPatterns DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DuplicateRecordFields EmptyCase GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses MultiWayIf OverloadedStrings PatternSynonyms ScopedTypeVariables
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -fno-warn-partial-type-signatures -fno-warn-name-shadowing -fwarn-tabs -fwarn-unused-imports -fwarn-missing-signatures -fwarn-incomplete-patterns
   build-depends:
       aeson
     , base >=4.7 && <5
+    , base64-bytestring
     , bytestring
+    , case-insensitive
     , conduit
     , conduit-extra
     , containers
@@ -59,4 +63,5 @@ library
     , mtl
     , text
     , time
+    , unordered-containers
   default-language: Haskell2010
