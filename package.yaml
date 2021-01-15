@@ -26,6 +26,7 @@ default-extensions:
   - DeriveGeneric
   - DeriveLift
   - DeriveTraversable
+  - DuplicateRecordFields
   - EmptyCase
   - GeneralizedNewtypeDeriving
   - InstanceSigs
@@ -63,5 +64,8 @@ library:
     - exceptions
     - mtl
     - containers
+    - unordered-containers
     - time
     - text
+    - base64-bytestring
+    - case-insensitive
