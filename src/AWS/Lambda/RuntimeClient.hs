@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-|
 Module      : AWS.Lambda.RuntimeClient
 Description : HTTP related machinery for talking to the AWS Lambda Custom Runtime interface.
@@ -11,6 +12,7 @@ module AWS.Lambda.RuntimeClient (
   RuntimeClientConfig,
   getRuntimeClientConfig,
   getNextData,
+  sendResult,
   getNextEvent,
   sendEventSuccess,
   sendEventError,
@@ -23,6 +25,8 @@ import           Control.Applicative       ((<*>))
 import           Control.Concurrent        (threadDelay)
 import           Control.Exception         (displayException, try, throw)
 import           Control.Monad             (unless)
+import           Control.Monad.Catch       (MonadCatch)
+import           Control.Monad.Reader      (MonadReader, ask)
 import           Control.Monad.IO.Class    (MonadIO, liftIO)
 import           Data.Aeson                (decode, encode, Value)
 import           Data.Aeson.Parser         (value')
@@ -76,11 +80,11 @@ data RuntimeClientConfig = RuntimeClientConfig Request Manager StaticContext
 -- things off we get a 'getNextEvent' handler and then the 'getNextEvent'
 -- handler returns both the 'success' and 'error' handlers.  So things like
 -- baseRequest and reqId are pre-injected.
-getRuntimeClientConfig :: IO RuntimeClientConfig
+getRuntimeClientConfig :: (MonadCatch m, MonadIO m) => m RuntimeClientConfig
 getRuntimeClientConfig = do
-  awsLambdaRuntimeApi <- getEnv "AWS_LAMBDA_RUNTIME_API"
+  awsLambdaRuntimeApi <- liftIO $ getEnv "AWS_LAMBDA_RUNTIME_API"
   req <- parseRequest $ "http://" ++ awsLambdaRuntimeApi
-  man <- newManager
+  man <- liftIO $ newManager
            -- In the off chance that they set a proxy value, we don't want to
            -- use it.  There's also no reason to spend time reading env vars.
            $ managerSetProxy noProxy
@@ -97,14 +101,14 @@ getRuntimeClientConfig = do
 
   case possibleStaticCtx of
     Left err -> do
-      liftIO $ sendInitError req man err
+      sendInitError req man err
       error err
     Right staticCtx -> return $ RuntimeClientConfig req man staticCtx
 
 
-getNextData :: RuntimeClientConfig -> IO (BS.ByteString, Value, Either String LambdaContext)
-getNextData runtimeClientConfig@(RuntimeClientConfig _ _ staticContext) = do
-  nextRes <- getNextEvent runtimeClientConfig
+getNextData :: (MonadReader RuntimeClientConfig m, MonadIO m) => m (BS.ByteString, Value, Either String LambdaContext)
+getNextData = do
+  nextRes <- getNextEvent
 
   -- If we got an event but our requestId is invalid/missing, there's no hope of meaningful recovery
   let reqIdBS = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
@@ -119,6 +123,7 @@ getNextData runtimeClientConfig@(RuntimeClientConfig _ _ staticContext) = do
   let mClientContext = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Client-Context" nextRes
   let mIdentity = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Cognito-Identity" nextRes
 
+  RuntimeClientConfig _ _ staticContext <- ask
   -- Build out the Dynamic portion of the Lambda Context
   let eDynCtx =
         maybeToEither "Runtime Error: Unable to decode Context from event response."
@@ -138,11 +143,16 @@ getNextData runtimeClientConfig@(RuntimeClientConfig _ _ staticContext) = do
   -- Return the interesting components
   return (reqIdBS, event, eCtx)
 
+sendResult :: (ToJSON a, MonadReader RuntimeClientConfig m, MonadIO m) => BS.ByteString -> Either String a -> m ()
+sendResult reqId =
+    either (sendEventError reqId) (sendEventSuccess reqId)
+
 -- AWS lambda guarantees that we will get valid JSON,
 -- so parsing is guaranteed to succeed.
-getNextEvent :: RuntimeClientConfig -> IO (Response Value)
-getNextEvent (RuntimeClientConfig baseRuntimeRequest manager _) = do
-  resOrEx <- runtimeClientRetryTry $ flip httpValue manager $ toNextEventRequest baseRuntimeRequest
+getNextEvent :: (MonadReader RuntimeClientConfig m, MonadIO m) => m (Response Value)
+getNextEvent = do
+  RuntimeClientConfig baseRuntimeRequest manager _ <- ask
+  resOrEx <- liftIO $ runtimeClientRetryTry $ flip httpValue manager $ toNextEventRequest baseRuntimeRequest
   let checkStatus res = if not $ statusIsSuccessful $ getResponseStatus res then
         Left "Unexpected Runtime Error:  Could not retrieve next event."
       else
@@ -154,9 +164,10 @@ getNextEvent (RuntimeClientConfig baseRuntimeRequest manager _) = do
       error msg
     Right y -> return y
 
-sendEventSuccess :: ToJSON a => RuntimeClientConfig -> BS.ByteString -> a -> IO ()
-sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest manager _) reqId json = do
-  resOrEx <- runtimeClientRetryTry $ flip httpNoBody manager $ toEventSuccessRequest reqId json baseRuntimeRequest
+sendEventSuccess :: (ToJSON a, MonadReader RuntimeClientConfig m, MonadIO m) => BS.ByteString -> a -> m ()
+sendEventSuccess reqId json = do
+  RuntimeClientConfig baseRuntimeRequest manager _ <- ask
+  resOrEx <- liftIO $ runtimeClientRetryTry $ flip httpNoBody manager $ toEventSuccessRequest reqId json baseRuntimeRequest
 
   let resOrTypedMsg = case resOrEx of
         Left ex ->
@@ -177,17 +188,18 @@ sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest manager _) reqId js
   case resOrTypedMsg of
     Left (Left msg) ->
       -- If an exception occurs here, we want that to propogate
-      sendEventError rcc reqId msg
+      sendEventError reqId msg
     Left (Right msg) -> error msg
     Right () -> return ()
 
-sendEventError :: RuntimeClientConfig -> BS.ByteString -> String -> IO ()
-sendEventError (RuntimeClientConfig baseRuntimeRequest manager _) reqId e =
-  fmap (const ()) $ runtimeClientRetry $ flip httpNoBody manager $ toEventErrorRequest reqId e baseRuntimeRequest
+sendEventError :: (MonadReader RuntimeClientConfig m, MonadIO m) => BS.ByteString -> String -> m ()
+sendEventError reqId e = do
+  RuntimeClientConfig baseRuntimeRequest manager _ <- ask
+  liftIO $ fmap (const ()) $ runtimeClientRetry $ flip httpNoBody manager $ toEventErrorRequest reqId e baseRuntimeRequest
 
-sendInitError :: Request -> Manager -> String -> IO ()
+sendInitError :: MonadIO m => Request -> Manager -> String -> m ()
 sendInitError baseRuntimeRequest manager e =
-  fmap (const ()) $ runtimeClientRetry $ flip httpNoBody manager $ toInitErrorRequest e baseRuntimeRequest
+  liftIO $ fmap (const ()) $ runtimeClientRetry $ flip httpNoBody manager $ toInitErrorRequest e baseRuntimeRequest
 
 
 -- Helpers (mostly) for Headers

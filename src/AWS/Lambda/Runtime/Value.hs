@@ -38,8 +38,8 @@ module AWS.Lambda.Runtime.Value (
   mRuntimeWithContext
 ) where
 
-import           AWS.Lambda.RuntimeClient (RuntimeClientConfig, getRuntimeClientConfig,
-                                           getNextData, sendEventError, sendEventSuccess)
+import           AWS.Lambda.RuntimeClient (RuntimeClientConfig, getNextData,
+                                           getRuntimeClientConfig, sendResult)
 import           AWS.Lambda.Combinators   (withIOInterface,
                                            withFallibleInterface,
                                            withPureInterface,
@@ -49,17 +49,17 @@ import           Control.Exception        (SomeException, displayException)
 import           Control.Monad            (forever)
 import           Control.Monad.Catch      (MonadCatch, try)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)
-import           Control.Monad.Reader     (MonadReader, ReaderT, local)
+import           Control.Monad.Reader     (MonadReader, ReaderT, local,
+                                           runReaderT)
 import           Data.Aeson               (ToJSON, Value)
 import           Data.Bifunctor           (first)
 import           Data.Text                (unpack)
 import           System.Environment       (setEnv)
 
-runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, ToJSON result) => RuntimeClientConfig ->
-  (Value -> m result) -> m ()
-runtimeLoop runtimeClientConfig fn = do
+runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, ToJSON result) =>  RuntimeClientConfig -> (Value -> m result) -> m ()
+runtimeLoop rcc fn = do
   -- Get an event
-  (reqIdBS, event, eCtx) <- liftIO $ getNextData runtimeClientConfig
+  (reqIdBS, event, eCtx) <- runReaderT getNextData rcc
 
   result <- case eCtx of
     Left e -> return $ Left e
@@ -77,9 +77,7 @@ runtimeLoop runtimeClientConfig fn = do
         -- Map the Either (via first) so it is an `Either String a`
         return $ first (displayException :: SomeException -> String) caughtResult
 
-  liftIO $ case result of
-    Right r -> sendEventSuccess runtimeClientConfig reqIdBS r
-    Left e  -> sendEventError runtimeClientConfig reqIdBS e
+  runReaderT (sendResult reqIdBS result) rcc
 
 
 -- | For any monad that supports IO/catch/Reader LambdaContext.
@@ -127,7 +125,7 @@ runtimeLoop runtimeClientConfig fn = do
 mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, ToJSON result) =>
   (Value -> m result) -> m ()
 mRuntimeWithContext fn = do
-  runtimeClientConfig <- liftIO getRuntimeClientConfig
+  runtimeClientConfig <- getRuntimeClientConfig
 
   forever $ runtimeLoop runtimeClientConfig fn
 
