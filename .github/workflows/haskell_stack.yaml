@@ -17,6 +17,10 @@ jobs:
           - lts-11
           - lts-12
           - lts-13
+          - lts-14
+          - lts-15
+          - lts-16
+          - lts-17
         experimental:
           - false
         include:
