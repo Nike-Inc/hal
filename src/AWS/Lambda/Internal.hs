@@ -12,16 +12,18 @@ Stability   : unstable
 module AWS.Lambda.Internal (
   StaticContext(..),
   DynamicContext(..),
+  getStaticContext,
   mkContext
 ) where
 
 import           AWS.Lambda.Context (ClientContext, CognitoIdentity,
                                      LambdaContext (LambdaContext))
-import           Data.Text          (Text)
+import           Data.Maybe         (fromMaybe)
+import           Data.Text          (Text, pack)
 import           Data.Time.Clock    (UTCTime)
 import           GHC.Generics       (Generic)
-import           System.Envy        (DefConfig (..), FromEnv, Option (..),
-                                     fromEnv, gFromEnvCustom)
+import           System.Environment (getEnv)
+import           Text.Read          (readMaybe)
 
 data StaticContext = StaticContext
   { functionName       :: Text,
@@ -31,14 +33,14 @@ data StaticContext = StaticContext
     logStreamName      :: Text
   } deriving (Show, Generic)
 
-instance DefConfig StaticContext where
-  defConfig = StaticContext "" "" 0 "" ""
-
-instance FromEnv StaticContext where
-  fromEnv = gFromEnvCustom Option {
-                    dropPrefixCount = 0,
-                    customPrefix = "AWS_LAMBDA"
-          }
+getStaticContext :: IO StaticContext
+getStaticContext =
+  StaticContext <$> (pack <$> getEnv "FUNCTION_NAME") <*>
+  (pack <$> getEnv "FUNCTION_VERSION") <*>
+  ((fromMaybe (error "FUNCTION_MEMORY_SIZE was not an Int") . readMaybe) <$>
+   getEnv "FUNCTION_MEMORY_SIZE") <*>
+  (pack <$> getEnv "LOG_GROUP_NAME") <*>
+  (pack <$> getEnv "LOG_STREAM_NAME")
 
 data DynamicContext = DynamicContext
   { awsRequestId       :: Text,

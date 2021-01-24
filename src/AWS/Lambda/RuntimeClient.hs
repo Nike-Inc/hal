@@ -17,12 +17,12 @@ module AWS.Lambda.RuntimeClient (
 ) where
 
 import           AWS.Lambda.Context                (LambdaContext)
-import           AWS.Lambda.Internal               (StaticContext)
+import           AWS.Lambda.Internal               (StaticContext, getStaticContext)
 import           AWS.Lambda.RuntimeClient.Internal (eventResponseToNextData)
 import           Control.Applicative               ((<*>))
 import           Control.Concurrent                (threadDelay)
-import           Control.Exception                 (displayException, throw,
-                                                    try)
+import           Control.Exception                 (IOException, displayException,
+                                                    throw, try)
 import           Control.Monad                     (unless)
 import           Control.Monad.IO.Class            (MonadIO, liftIO)
 import           Data.Aeson                        (Value, encode)
@@ -59,7 +59,6 @@ import           Network.HTTP.Types.Status         (Status, status403,
                                                     status413,
                                                     statusIsSuccessful)
 import           System.Environment                (getEnv)
-import           System.Envy                       (decodeEnv)
 
 -- | Lambda runtime error that we pass back to AWS
 data LambdaError = LambdaError
@@ -96,7 +95,8 @@ getRuntimeClientConfig = do
              , managerIdleConnectionCount = 1
              }
 
-  possibleStaticCtx <- liftIO $ (decodeEnv :: IO (Either String StaticContext))
+  possibleStaticCtx <-
+    first (displayException :: IOException -> String) <$> try getStaticContext
 
   case possibleStaticCtx of
     Left err -> do

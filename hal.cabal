@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d99d12f541c6f41234fdc2ae57170949f60f2136c4a634f557e11d20d843207f
+-- hash: fd1bbbf7692b6a9cd5e97b14652ceae0b867628e99600a30327e49175651e653
 
 name:           hal
 version:        0.4.6
@@ -56,7 +56,6 @@ library
     , conduit
     , conduit-extra
     , containers
-    , envy <2
     , exceptions
     , http-client
     , http-types
