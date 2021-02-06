@@ -29,6 +29,7 @@ import           Data.Time.Clock        (DiffTime, UTCTime,
                                          diffUTCTime, getCurrentTime)
 import           Data.Time.Clock.POSIX  (posixSecondsToUTCTime)
 import           GHC.Generics           (Generic)
+import           System.Envy            (DefConfig (..))
 
 data ClientApplication = ClientApplication
   { appTitle       :: Text,
@@ -82,22 +83,13 @@ class HasLambdaContext r where
 instance HasLambdaContext LambdaContext where
   withContext = const
 
--- TODO: This sticks around for both backwards compatibility and the lack of a
--- clear and better alternative.  A clearer name (since we're no longer trying
--- to satisfy the typeclass) would possibly be sufficient, but this entire flow
--- is clunky.  Our reader's environment type needs to be consistent to keep the
--- type of our monad consistent.  Since we don't have Context to start with,
--- and then get it later, a Maybe seems appealing, but this is totally
--- unhelpful as it's _always_ present by the time that the user's handler
--- executes.
---
--- While it might make sense to simply runReaderT to inject this, so that the
--- handler has the reader, but no other surrounding code does, this makes the
--- current challenge of incorporating two different environments even harder.
---
--- Possibly, this should just be a synonym for `undefined`.
-defConfig :: LambdaContext
-defConfig = LambdaContext "" "" 0 "" "" "" "" "" (posixSecondsToUTCTime 0) Nothing Nothing
+-- TODO: This sticks around for backwards compatibility, and as a conevient-ish
+-- way to runReaderTLambdaContext.  However, long term it would be better if
+-- some of the ergonomics around Reader LambdaContext were improved.  For
+-- example, there _is_ no LambdaContex until the event is received, but our
+-- types don't effectively express that.
+instance DefConfig LambdaContext where
+  defConfig = LambdaContext "" "" 0 "" "" "" "" "" (posixSecondsToUTCTime 0) Nothing Nothing
 
 -- | Helper for using arbitrary monads with only the LambdaContext in its Reader
 runReaderTLambdaContext :: ReaderT LambdaContext m a -> m a

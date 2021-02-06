@@ -57,6 +57,7 @@ library:
     - bytestring
     - conduit
     - conduit-extra
+    - envy
     - http-client
     - http-types
     - exceptions
