@@ -68,3 +68,20 @@ library:
     - text
     - base64-bytestring
     - case-insensitive
+
+tests:
+  hal-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hal
+    - aeson
+    - containers
+    - hspec
+    - http-client
+    - http-types
+    - time

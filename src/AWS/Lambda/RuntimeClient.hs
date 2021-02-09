@@ -16,47 +16,49 @@ module AWS.Lambda.RuntimeClient (
   sendEventError,
 ) where
 
-import           AWS.Lambda.Context        (LambdaContext(..))
-import           AWS.Lambda.Internal       (DynamicContext(..), StaticContext,
-                                            mkContext)
-import           Control.Applicative       ((<*>))
-import           Control.Concurrent        (threadDelay)
-import           Control.Exception         (displayException, try, throw)
-import           Control.Monad             (unless)
-import           Control.Monad.IO.Class    (MonadIO, liftIO)
-import           Data.Aeson                (decode, encode, Value)
-import           Data.Aeson.Parser         (value')
-import           Data.Aeson.Types          (FromJSON, ToJSON)
-import           Data.Bifunctor            (first)
-import qualified Data.ByteString           as BS
-import qualified Data.ByteString.Char8     as BSC
-import qualified Data.ByteString.Lazy      as BSW
-import qualified Data.ByteString.Internal  as BSI
-import           Data.Conduit              (ConduitM, runConduit, yield, (.|))
-import           Data.Conduit.Attoparsec   (sinkParser)
-import           Data.Semigroup            ((<>))
-import           Data.Text.Encoding        (decodeUtf8)
-import           Data.Time.Clock.POSIX     (posixSecondsToUTCTime)
-import           GHC.Generics              (Generic (..))
-import           Network.HTTP.Client       (BodyReader, HttpException, Manager,
-                                            Request,
-                                            RequestBody (RequestBodyLBS),
-                                            Response, brRead,
-                                            defaultManagerSettings, httpNoBody,
-                                            managerConnCount,
-                                            managerIdleConnectionCount,
-                                            managerResponseTimeout,
-                                            managerSetProxy, method, newManager,
-                                            noProxy, parseRequest, path,
-                                            requestBody, requestHeaders,
-                                            responseBody, responseHeaders,
-                                            responseStatus, responseTimeoutNone,
-                                            setRequestCheckStatus, withResponse)
-import           Network.HTTP.Types        (HeaderName)
-import           Network.HTTP.Types.Status (Status, status403, status413,
-                                            statusIsSuccessful)
-import           System.Environment        (getEnv)
-import           System.Envy               (decodeEnv)
+import           AWS.Lambda.Context                (LambdaContext)
+import           AWS.Lambda.Internal               (StaticContext)
+import           AWS.Lambda.RuntimeClient.Internal (eventResponseToNextData)
+import           Control.Applicative               ((<*>))
+import           Control.Concurrent                (threadDelay)
+import           Control.Exception                 (displayException, throw,
+                                                    try)
+import           Control.Monad                     (unless)
+import           Control.Monad.IO.Class            (MonadIO, liftIO)
+import           Data.Aeson                        (Value, encode)
+import           Data.Aeson.Parser                 (value')
+import           Data.Aeson.Types                  (ToJSON)
+import           Data.Bifunctor                    (first)
+import qualified Data.ByteString                   as BS
+import qualified Data.ByteString.Lazy              as BSW
+import           Data.Conduit                      (ConduitM, runConduit, yield,
+                                                    (.|))
+import           Data.Conduit.Attoparsec           (sinkParser)
+import           GHC.Generics                      (Generic (..))
+import           Network.HTTP.Client               (BodyReader, HttpException,
+                                                    Manager, Request,
+                                                    RequestBody (RequestBodyLBS),
+                                                    Response, brRead,
+                                                    defaultManagerSettings,
+                                                    httpNoBody,
+                                                    managerConnCount,
+                                                    managerIdleConnectionCount,
+                                                    managerResponseTimeout,
+                                                    managerSetProxy, method,
+                                                    newManager, noProxy,
+                                                    parseRequest, path,
+                                                    requestBody, requestHeaders,
+                                                    responseBody,
+                                                    responseStatus,
+                                                    responseTimeoutNone,
+                                                    setRequestCheckStatus,
+                                                    withResponse)
+import           Network.HTTP.Types                (HeaderName)
+import           Network.HTTP.Types.Status         (Status, status403,
+                                                    status413,
+                                                    statusIsSuccessful)
+import           System.Environment                (getEnv)
+import           System.Envy                       (decodeEnv)
 
 -- | Lambda runtime error that we pass back to AWS
 data LambdaError = LambdaError
@@ -103,40 +105,8 @@ getRuntimeClientConfig = do
 
 
 getNextData :: RuntimeClientConfig -> IO (BS.ByteString, Value, Either String LambdaContext)
-getNextData runtimeClientConfig@(RuntimeClientConfig _ _ staticContext) = do
-  nextRes <- getNextEvent runtimeClientConfig
-
-  -- If we got an event but our requestId is invalid/missing, there's no hope of meaningful recovery
-  let reqIdBS = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
-
-  let mTraceId = fmap decodeUtf8 $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Trace-Id" nextRes
-  let mFunctionArn = fmap decodeUtf8 $ exactlyOneHeader $ getResponseHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
-  let mDeadline = do
-        header <- exactlyOneHeader (getResponseHeader "Lambda-Runtime-Deadline-Ms" nextRes)
-        milliseconds :: Double <- readMaybe $ BSC.unpack header
-        return $ posixSecondsToUTCTime $ realToFrac $ milliseconds / 1000
-
-  let mClientContext = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Client-Context" nextRes
-  let mIdentity = decodeOptionalHeader $ getResponseHeader "Lambda-Runtime-Cognito-Identity" nextRes
-
-  -- Build out the Dynamic portion of the Lambda Context
-  let eDynCtx =
-        maybeToEither "Runtime Error: Unable to decode Context from event response."
-        -- Build the Dynamic Context, collapsing individual Maybes into a single Maybe
-        $ DynamicContext (decodeUtf8 reqIdBS)
-        <$> mFunctionArn
-        <*> mTraceId
-        <*> mDeadline
-        <*> mClientContext
-        <*> mIdentity
-
-  -- combine our StaticContext and possible DynamicContext into a LambdaContext
-  let eCtx = fmap (mkContext staticContext) eDynCtx
-
-  let event = getResponseBody nextRes
-
-  -- Return the interesting components
-  return (reqIdBS, event, eCtx)
+getNextData runtimeClientConfig@(RuntimeClientConfig _ _ staticContext) =
+  eventResponseToNextData staticContext <$> getNextEvent runtimeClientConfig
 
 -- AWS lambda guarantees that we will get valid JSON,
 -- so parsing is guaranteed to succeed.
@@ -188,39 +158,6 @@ sendEventError (RuntimeClientConfig baseRuntimeRequest manager _) reqId e =
 sendInitError :: Request -> Manager -> String -> IO ()
 sendInitError baseRuntimeRequest manager e =
   fmap (const ()) $ runtimeClientRetry $ flip httpNoBody manager $ toInitErrorRequest e baseRuntimeRequest
-
-
--- Helpers (mostly) for Headers
-
-exactlyOneHeader :: [a] -> Maybe a
-exactlyOneHeader [a] = Just a
-exactlyOneHeader _ = Nothing
-
-maybeToEither :: b -> Maybe a -> Either b a
-maybeToEither b ma = case ma of
-  Nothing -> Left b
-  Just a -> Right a
-
--- Note: Does not allow whitespace
-readMaybe :: (Read a) => String -> Maybe a
-readMaybe s = case reads s of
-  [(x,"")] -> Just x
-  _ -> Nothing
-
--- TODO: There must be a better way to do this
-decodeHeaderValue :: FromJSON a => BSC.ByteString -> Maybe a
-decodeHeaderValue = decode . BSW.pack . fmap BSI.c2w . BSC.unpack
-
--- An empty array means we successfully decoded, but nothing was there
--- If we have exactly one element, our outer maybe signals successful decode,
---   and our inner maybe signals that there was content sent
--- If we had more than one header value, the event was invalid
-decodeOptionalHeader :: FromJSON a => [BSC.ByteString] -> Maybe (Maybe a)
-decodeOptionalHeader header =
-  case header of
-    [] -> Just Nothing
-    [x] -> fmap Just $ decodeHeaderValue x
-    _ -> Nothing
 
 
 -- Helpers for Requests with JSON Bodies
@@ -299,12 +236,6 @@ toInitErrorRequest e =
 
 
 -- HTTP Client Type Helpers
-
-getResponseBody :: Response a -> a
-getResponseBody = responseBody
-
-getResponseHeader :: HeaderName -> Response a -> [BS.ByteString]
-getResponseHeader headerName = fmap snd . filter ((==) headerName . fst) . responseHeaders
 
 getResponseStatus :: Response a -> Status
 getResponseStatus = responseStatus
