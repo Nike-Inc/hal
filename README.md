@@ -110,6 +110,20 @@ executables:
 # ...
 ```
 
+You'll need to either build on a compatible linux host or inside a compatible docker container (or some other mechanism like nix).
+Note that current Stack LTS images are _not_ compatible.
+If you see an error message that contains "version `GLIBC_X.XX' not found" when running (hosted or locally), then your build environment is not compatible.
+
+Enable stack's docker integration and define an optional image within stack.yaml:
+
+```yaml
+# file: stack.yaml
+docker:
+  enabled: true
+  # If omitted, this defaults to fpco/stack-build:lts-${YOUR_LTS_VERSIO}
+  image: ${BUILD_IMAGE}
+```
+
 Don't forget to define your [CloudFormation] stack:
 
 ```yaml
@@ -164,7 +178,6 @@ aws lambda invoke \
 
   - [Stack][stack.yaml]
   - [Docker]
-  - [aws-sam-cli] (>v0.8.0)
 
 ### Build
 
@@ -173,7 +186,19 @@ docker pull fpco/stack-build:lts-{version} # First build only, find the latest v
 stack build --copy-bins
 ```
 
-### Execute
+### Execute w/ Docker
+
+```bash
+echo '{ "accountId": "byebye" }' | docker run -i --rm \
+    -e DOCKER_LAMBDA_USE_STDIN=1 \
+    # TODO: check that this pathing works
+    -v .stack-work/docker/_home/.local/bin/:/var/task \
+    lambci/lambda:provided
+```
+
+### Execute w/ SAM Local
+
+Note that [aws-sam-cli] is currently only supported until <1.0.
 
 ```bash
 echo '{ "accountId": "byebye" }' | sam local invoke --region us-east-1
