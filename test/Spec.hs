@@ -80,7 +80,8 @@ main =
         let (_, _, context) =
               eventResponseToNextData staticContext (minJsonResponse headers)
         fmap clientContext context `shouldBe`
-          (Left "Runtime Error: Unable to decode Context from event response.")
+          (Left
+             "Runtime Error: Unable to decode Context from event response.\nCould not JSON decode header Lambda-Runtime-Client-Context: Error in $: key \"client\" not present")
       it
         "fails to construct the Context if there are two client context headers" $ do
         let headers =
@@ -91,7 +92,8 @@ main =
         let (_, _, context) =
               eventResponseToNextData staticContext (minJsonResponse headers)
         fmap clientContext context `shouldBe`
-          (Left "Runtime Error: Unable to decode Context from event response.")
+          (Left
+             "Runtime Error: Unable to decode Context from event response.\nToo many values for header Lambda-Runtime-Client-Context")
       it "has identity if it was provided" $ do
         let headers =
               ( "Lambda-Runtime-Cognito-Identity"
@@ -113,7 +115,8 @@ main =
         let (_, _, context) =
               eventResponseToNextData staticContext (minJsonResponse headers)
         fmap clientContext context `shouldBe`
-          (Left "Runtime Error: Unable to decode Context from event response.")
+          (Left
+             "Runtime Error: Unable to decode Context from event response.\nCould not JSON decode header Lambda-Runtime-Cognito-Identity: Error in $: key \"identityId\" not present")
       it
         "fails to construct the Context if there are two cognito identity headers" $ do
         let headers =
@@ -124,7 +127,8 @@ main =
         let (_, _, context) =
               eventResponseToNextData staticContext (minJsonResponse headers)
         fmap clientContext context `shouldBe`
-          (Left "Runtime Error: Unable to decode Context from event response.")
+          (Left
+             "Runtime Error: Unable to decode Context from event response.\nToo many values for header Lambda-Runtime-Cognito-Identity")
       it "fails to create the context if trace Id is not provided" $ do
         let headers =
               [ ("Lambda-Runtime-Aws-Request-Id", "abc")
@@ -134,13 +138,15 @@ main =
         let (_, _, context) =
               eventResponseToNextData staticContext (minJsonResponse headers)
         context `shouldBe`
-          (Left "Runtime Error: Unable to decode Context from event response.")
+          (Left
+             "Runtime Error: Unable to decode Context from event response.\nMissing response header Lambda-Runtime-Trace-Id")
       it "fails to create the context if trace id has multiple values" $ do
         let headers = ("Lambda-Runtime-Trace-Id", "123") : basicValidHeaders
         let (_, _, context) =
               eventResponseToNextData staticContext (minJsonResponse headers)
         context `shouldBe`
-          (Left "Runtime Error: Unable to decode Context from event response.")
+          (Left
+             "Runtime Error: Unable to decode Context from event response.\nToo many values for header Lambda-Runtime-Trace-Id")
       it "fails to create the context if function ARN is not provided" $ do
         let headers =
               [ ("Lambda-Runtime-Aws-Request-Id", "abc")
@@ -150,14 +156,16 @@ main =
         let (_, _, context) =
               eventResponseToNextData staticContext (minJsonResponse headers)
         context `shouldBe`
-          (Left "Runtime Error: Unable to decode Context from event response.")
+          (Left
+             "Runtime Error: Unable to decode Context from event response.\nMissing response header Lambda-Runtime-Invoked-Function-Arn")
       it "fails to create the context if function ARN has multiple values" $ do
         let headers =
               ("Lambda-Runtime-Invoked-Function-Arn", "arn") : basicValidHeaders
         let (_, _, context) =
               eventResponseToNextData staticContext (minJsonResponse headers)
         context `shouldBe`
-          (Left "Runtime Error: Unable to decode Context from event response.")
+          (Left
+             "Runtime Error: Unable to decode Context from event response.\nToo many values for header Lambda-Runtime-Invoked-Function-Arn")
       it "fails to create the context if a deadline is not provided" $ do
         let headers =
               [ ("Lambda-Runtime-Aws-Request-Id", "abc")
@@ -167,14 +175,16 @@ main =
         let (_, _, context) =
               eventResponseToNextData staticContext (minJsonResponse headers)
         context `shouldBe`
-          (Left "Runtime Error: Unable to decode Context from event response.")
+          (Left
+             "Runtime Error: Unable to decode Context from event response.\nMissing response header Lambda-Runtime-Deadline-Ms")
       it "fails to create the context if the deadline has multiple values" $ do
         let headers =
               ("Lambda-Runtime-Deadline-Ms", "12332000") : basicValidHeaders
         let (_, _, context) =
               eventResponseToNextData staticContext (minJsonResponse headers)
         context `shouldBe`
-          (Left "Runtime Error: Unable to decode Context from event response.")
+          (Left
+             "Runtime Error: Unable to decode Context from event response.\nToo many values for header Lambda-Runtime-Deadline-Ms")
       it "fails to create the context if the deadline is not a valid timestamp" $ do
         let headers =
               [ ("Lambda-Runtime-Aws-Request-Id", "abc")
@@ -185,7 +195,8 @@ main =
         let (_, _, context) =
               eventResponseToNextData staticContext (minJsonResponse headers)
         context `shouldBe`
-          (Left "Runtime Error: Unable to decode Context from event response.")
+          (Left
+             "Runtime Error: Unable to decode Context from event response.\nCould not parse deadline")
 
 minResponse :: [Header] -> a -> Response a
 minResponse headers body =
