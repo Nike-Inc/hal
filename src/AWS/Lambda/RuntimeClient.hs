@@ -34,6 +34,7 @@ import qualified Data.ByteString.Lazy              as BSW
 import           Data.Conduit                      (ConduitM, runConduit, yield,
                                                     (.|))
 import           Data.Conduit.Attoparsec           (sinkParser)
+import           Data.Semigroup                    ((<>))
 import           GHC.Generics                      (Generic (..))
 import           Network.HTTP.Client               (BodyReader, HttpException,
                                                     Manager, Request,
