@@ -191,8 +191,7 @@ stack build --copy-bins
 ```bash
 echo '{ "accountId": "byebye" }' | docker run -i --rm \
     -e DOCKER_LAMBDA_USE_STDIN=1 \
-    # TODO: check that this pathing works
-    -v .stack-work/docker/_home/.local/bin/:/var/task \
+    -v ${PWD}/.stack-work/docker/_home/.local/bin/:/var/task \
     lambci/lambda:provided
 ```
 
