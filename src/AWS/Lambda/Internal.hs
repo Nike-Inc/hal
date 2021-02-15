@@ -35,12 +35,12 @@ data StaticContext = StaticContext
 
 getStaticContext :: IO StaticContext
 getStaticContext =
-  StaticContext <$> (pack <$> getEnv "FUNCTION_NAME") <*>
-  (pack <$> getEnv "FUNCTION_VERSION") <*>
-  ((fromMaybe (error "FUNCTION_MEMORY_SIZE was not an Int") . readMaybe) <$>
-   getEnv "FUNCTION_MEMORY_SIZE") <*>
-  (pack <$> getEnv "LOG_GROUP_NAME") <*>
-  (pack <$> getEnv "LOG_STREAM_NAME")
+  StaticContext <$> (pack <$> getEnv "AWS_LAMBDA_FUNCTION_NAME") <*>
+  (pack <$> getEnv "AWS_LAMBDA_FUNCTION_VERSION") <*>
+  ((fromMaybe (error "AWS_LAMBDA_FUNCTION_MEMORY_SIZE was not an Int") . readMaybe) <$>
+   getEnv "AWS_LAMBDA_FUNCTION_MEMORY_SIZE") <*>
+  (pack <$> getEnv "AWS_LAMBDA_LOG_GROUP_NAME") <*>
+  (pack <$> getEnv "AWS_LAMBDA_LOG_STREAM_NAME")
 
 data DynamicContext = DynamicContext
   { awsRequestId       :: Text,
