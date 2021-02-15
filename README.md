@@ -112,7 +112,7 @@ executables:
 
 You'll need to either build on a compatible linux host or inside a compatible docker container (or some other mechanism like nix).
 Note that current Stack LTS images are _not_ compatible.
-If you see an error message that contains "version `GLIBC_X.XX' not found" when running (hosted or locally), then your build environment is not compatible.
+If you see an error message that contains "version 'GLIBC_X.XX' not found" when running (hosted or locally), then your build environment is not compatible.
 
 Enable stack's docker integration and define an optional image within stack.yaml:
 
@@ -120,7 +120,7 @@ Enable stack's docker integration and define an optional image within stack.yaml
 # file: stack.yaml
 docker:
   enabled: true
-  # If omitted, this defaults to fpco/stack-build:lts-${YOUR_LTS_VERSIO}
+  # If omitted, this defaults to fpco/stack-build:lts-${YOUR_LTS_VERSION}
   image: ${BUILD_IMAGE}
 ```
 
@@ -197,7 +197,7 @@ echo '{ "accountId": "byebye" }' | docker run -i --rm \
 
 ### Execute w/ SAM Local
 
-Note that [aws-sam-cli] is currently only supported until <1.0.
+Note that hal currently only supports [aws-sam-cli] on versions <1.0.
 
 ```bash
 echo '{ "accountId": "byebye" }' | sam local invoke --region us-east-1
