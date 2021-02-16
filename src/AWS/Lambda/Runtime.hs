@@ -25,20 +25,28 @@ module AWS.Lambda.Runtime (
   ioRuntime,
   ioRuntimeWithContext,
   readerTRuntime,
+  mRuntimeWithContext',
+  mRuntime,
   mRuntimeWithContext
 ) where
 
-import           AWS.Lambda.Combinators   (withIOInterface,
-                                           withFallibleInterface,
-                                           withPureInterface,
-                                           withoutContext,
-                                           withInfallibleParse)
-import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..), runReaderTLambdaContext)
+import           AWS.Lambda.Combinators   (withInfallibleParse)
+import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..))
 import qualified AWS.Lambda.Runtime.Value as ValueRuntime
 import           Control.Monad.Catch      (MonadCatch)
 import           Control.Monad.IO.Class   (MonadIO)
 import           Control.Monad.Reader     (MonadReader, ReaderT)
 import           Data.Aeson               (FromJSON, ToJSON)
+
+-- | TODO
+mRuntimeWithContext' :: (MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => (LambdaContext -> event -> m result) -> m ()
+mRuntimeWithContext' = ValueRuntime.mRuntimeWithContext' . fmap withInfallibleParse
+
+
+-- | TODO
+mRuntime :: (MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => (event -> m result) -> m ()
+mRuntime = ValueRuntime.mRuntime . withInfallibleParse
+
 
 --TODO: Revisit all names before we put them under contract
 -- | For any monad that supports IO/catch/Reader LambdaContext.
@@ -80,6 +88,7 @@ import           Data.Aeson               (FromJSON, ToJSON)
 --     main :: IO ()
 --     main = runReaderTLambdaContext (evalStateT (mRuntimeWithContext myHandler) 0)
 -- @
+{-# DEPRECATED mRuntimeWithContext "mRuntimeWithContext will be replaced with mRuntimeWithContext' in future versions.  The original signature was problematic in that it pretended the LambdaContext was always available, when that is not the case." #-}
 mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>
   (event -> m result) -> m ()
 mRuntimeWithContext = ValueRuntime.mRuntimeWithContext . withInfallibleParse
@@ -121,7 +130,7 @@ mRuntimeWithContext = ValueRuntime.mRuntimeWithContext . withInfallibleParse
 -- @
 readerTRuntime :: (FromJSON event, ToJSON result) =>
   (event -> ReaderT LambdaContext IO result) -> IO ()
-readerTRuntime = runReaderTLambdaContext .  mRuntimeWithContext
+readerTRuntime = ValueRuntime.readerTRuntime . withInfallibleParse
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --
@@ -157,7 +166,7 @@ readerTRuntime = runReaderTLambdaContext .  mRuntimeWithContext
 -- @
 ioRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> IO (Either String result)) -> IO ()
-ioRuntimeWithContext = readerTRuntime . withIOInterface
+ioRuntimeWithContext = ValueRuntime.ioRuntimeWithContext . fmap withInfallibleParse
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --
@@ -190,7 +199,7 @@ ioRuntimeWithContext = readerTRuntime . withIOInterface
 -- @
 ioRuntime :: (FromJSON event, ToJSON result) =>
   (event -> IO (Either String result)) -> IO ()
-ioRuntime = readerTRuntime . withIOInterface . withoutContext
+ioRuntime = ValueRuntime.ioRuntime . withInfallibleParse
 
 -- | For pure functions that can still fail.
 --
@@ -225,7 +234,7 @@ ioRuntime = readerTRuntime . withIOInterface . withoutContext
 -- @
 fallibleRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> Either String result) -> IO ()
-fallibleRuntimeWithContext = readerTRuntime . withFallibleInterface
+fallibleRuntimeWithContext = ValueRuntime.fallibleRuntimeWithContext . fmap withInfallibleParse
 
 -- | For pure functions that can still fail.
 --
@@ -258,7 +267,7 @@ fallibleRuntimeWithContext = readerTRuntime . withFallibleInterface
 -- @
 fallibleRuntime :: (FromJSON event, ToJSON result) =>
   (event -> Either String result) -> IO ()
-fallibleRuntime = readerTRuntime . withFallibleInterface . withoutContext
+fallibleRuntime = ValueRuntime.fallibleRuntime . withInfallibleParse
 
 -- | For pure functions that can never fail that also need access to the context.
 --
@@ -290,7 +299,7 @@ fallibleRuntime = readerTRuntime . withFallibleInterface . withoutContext
 -- @
 pureRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> result) -> IO ()
-pureRuntimeWithContext = readerTRuntime . withPureInterface
+pureRuntimeWithContext = ValueRuntime.pureRuntimeWithContext . fmap withInfallibleParse
 
 -- | For pure functions that can never fail.
 --
@@ -317,4 +326,4 @@ pureRuntimeWithContext = readerTRuntime . withPureInterface
 --     main = pureRuntime myHandler
 -- @
 pureRuntime :: (FromJSON event, ToJSON result) => (event -> result) -> IO ()
-pureRuntime = readerTRuntime . withPureInterface . withoutContext
+pureRuntime = ValueRuntime.pureRuntime . withInfallibleParse

@@ -13,12 +13,14 @@ They map functions (instead of values) to turn basic handlers into handlers comp
 
 module AWS.Lambda.Combinators (
     withIOInterface,
+    liftIOEither,
     withFallibleInterface,
     withPureInterface,
     withoutContext,
     withInfallibleParse
 ) where
 
+import           Control.Monad ((<=<))
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Reader   (MonadReader, ask)
 import           Data.Aeson             (FromJSON, parseJSON, Value)
@@ -31,6 +33,11 @@ dropEither = \case
      Left e  -> error e
      Right x -> return x
 
+
+-- | TODO
+liftIOEither :: MonadIO m => IO (Either String a) -> m a
+liftIOEither =
+  dropEither <=< liftIO
 
 -- | Upgrades a handler that uses the `IO` monad with an `Either` inside into a
 -- base runtime handler.
@@ -71,6 +78,7 @@ dropEither = \case
 --     main :: IO ()
 --     main = (readerTRuntime . withIOInterface) myHandler
 -- @
+{-# DEPRECATED withIOInterface "This combinator is useful when combined with the current mRuntimeWithContext, which is deprecated." #-}
 withIOInterface :: (MonadReader c m, MonadIO m) => (c -> b -> IO (Either String a)) -> (b -> m a)
 withIOInterface fn event = do
   config <- ask
@@ -114,6 +122,7 @@ withIOInterface fn event = do
 --     main :: IO ()
 --     main = (readerTRuntime . withFallibleInterface) myHandler
 -- @
+{-# DEPRECATED withFallibleInterface "This combinator is useful when combined with the current mRuntimeWithContext, which is deprecated." #-}
 withFallibleInterface :: MonadReader c m => (c -> b -> Either String a) -> b -> m a
 withFallibleInterface fn event = do
   config <- ask
@@ -155,6 +164,7 @@ withFallibleInterface fn event = do
 --     main :: IO ()
 --     main = (readerTRuntime . withPureInterface) myHandler
 -- @
+{-# DEPRECATED withPureInterface "This combinator is useful when combined with the current mRuntimeWithContext, which is deprecated." #-}
 withPureInterface :: MonadReader c m => (c -> b -> a) -> b -> m a
 withPureInterface fn event = do
   config <- ask

@@ -35,51 +35,56 @@ module AWS.Lambda.Runtime.Value (
   ioRuntime,
   ioRuntimeWithContext,
   readerTRuntime,
+  mRuntimeWithContext',
+  mRuntime,
   mRuntimeWithContext
 ) where
 
 import           AWS.Lambda.RuntimeClient (RuntimeClientConfig, getRuntimeClientConfig,
                                            getNextData, sendEventError, sendEventSuccess)
-import           AWS.Lambda.Combinators   (withIOInterface,
-                                           withFallibleInterface,
-                                           withPureInterface,
-                                           withoutContext)
-import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..), runReaderTLambdaContext)
+import           AWS.Lambda.Combinators   (liftIOEither, withoutContext)
+import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..))
 import           Control.Exception        (SomeException, displayException)
 import           Control.Monad            (forever)
 import           Control.Monad.Catch      (MonadCatch, try)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)
-import           Control.Monad.Reader     (MonadReader, ReaderT, local)
+import           Control.Monad.Reader     (MonadReader, ReaderT, local, runReaderT)
 import           Data.Aeson               (ToJSON, Value)
 import           Data.Bifunctor           (first)
 import           Data.Text                (unpack)
 import           System.Environment       (setEnv)
 
-runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, ToJSON result) => RuntimeClientConfig ->
-  (Value -> m result) -> m ()
+runtimeLoop :: (MonadCatch m, MonadIO m, ToJSON result) => RuntimeClientConfig -> (LambdaContext -> Value -> m result) -> m ()
 runtimeLoop runtimeClientConfig fn = do
   -- Get an event
   (reqIdBS, event, eCtx) <- liftIO $ getNextData runtimeClientConfig
 
-  result <- case eCtx of
-    Left e -> return $ Left e
-    Right ctx ->
-      local (withContext ctx) $ do
-        -- Propagate the tracing header (Exception safe for this env var name)
-        liftIO $ setEnv "_X_AMZN_TRACE_ID" $ unpack $ xRayTraceId ctx
+  -- Propagate the tracing header (Exception safe for this env var name)
+  liftIO $ either (const (pure ())) (setEnv "_X_AMZN_TRACE_ID" . unpack . xRayTraceId) eCtx
 
-        {- Catching like this is _usually_ considered bad practice, but this is a true
-             case where we want to both catch all errors and propogate information about them.
-             See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
-        -}
-        -- Put any exceptions in an Either
-        caughtResult <- try (fn event)
-        -- Map the Either (via first) so it is an `Either String a`
-        return $ first (displayException :: SomeException -> String) caughtResult
+  {- Catching like this is _usually_ considered bad practice, but this is a true
+   case where we want to both catch all errors and propogate information about them.
+   See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
+  -}
+  -- Put any exceptions in an Either
+  caughtResult <- try (fn (either error id eCtx) event)
+  -- Map the Either (via first) so it is an `Either String a`
+  let result = first (displayException :: SomeException -> String) caughtResult
 
   liftIO $ case result of
     Right r -> sendEventSuccess runtimeClientConfig reqIdBS r
     Left e  -> sendEventError runtimeClientConfig reqIdBS e
+
+-- | TODO
+mRuntimeWithContext' :: (MonadCatch m, MonadIO m, ToJSON result) => (LambdaContext -> Value -> m result) -> m ()
+mRuntimeWithContext' fn = do
+  runtimeClientConfig <- liftIO getRuntimeClientConfig
+
+  forever $ runtimeLoop runtimeClientConfig fn
+
+-- | TODO
+mRuntime :: (MonadCatch m, MonadIO m, ToJSON result) => (Value -> m result) -> m ()
+mRuntime = mRuntimeWithContext' . withoutContext
 
 
 -- | For any monad that supports IO/catch/Reader LambdaContext.
@@ -124,12 +129,10 @@ runtimeLoop runtimeClientConfig fn = do
 --     main :: IO ()
 --     main = runReaderTLambdaContext (evalStateT (mRuntimeWithContext myHandler) 0)
 -- @
+{-# DEPRECATED mRuntimeWithContext "mRuntimeWithContext will be replaced with mRuntimeWithContext' in future versions.  The original signature was problematic in that it pretended the LambdaContext was always available, when that is not the case." #-}
 mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, ToJSON result) =>
   (Value -> m result) -> m ()
-mRuntimeWithContext fn = do
-  runtimeClientConfig <- liftIO getRuntimeClientConfig
-
-  forever $ runtimeLoop runtimeClientConfig fn
+mRuntimeWithContext fn = mRuntimeWithContext' (\lc -> local (withContext lc) . fn)
 
 
 -- | For functions that can read the lambda context and use IO within the same monad.
@@ -173,7 +176,7 @@ mRuntimeWithContext fn = do
 -- @
 readerTRuntime :: ToJSON result =>
   (Value -> ReaderT LambdaContext IO result) -> IO ()
-readerTRuntime = runReaderTLambdaContext .  mRuntimeWithContext
+readerTRuntime fn = mRuntimeWithContext' $ flip (runReaderT . fn)
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --
@@ -214,7 +217,7 @@ readerTRuntime = runReaderTLambdaContext .  mRuntimeWithContext
 -- @
 ioRuntimeWithContext :: ToJSON result =>
   (LambdaContext -> Value -> IO (Either String result)) -> IO ()
-ioRuntimeWithContext = readerTRuntime . withIOInterface
+ioRuntimeWithContext = mRuntimeWithContext' . fmap (fmap liftIOEither)
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --
@@ -252,7 +255,7 @@ ioRuntimeWithContext = readerTRuntime . withIOInterface
 -- @
 ioRuntime :: ToJSON result =>
   (Value -> IO (Either String result)) -> IO ()
-ioRuntime = readerTRuntime . withIOInterface . withoutContext
+ioRuntime = ioRuntimeWithContext . withoutContext
 
 -- | For pure functions that can still fail.
 --
@@ -291,7 +294,7 @@ ioRuntime = readerTRuntime . withIOInterface . withoutContext
 -- @
 fallibleRuntimeWithContext :: ToJSON result =>
   (LambdaContext -> Value -> Either String result) -> IO ()
-fallibleRuntimeWithContext = readerTRuntime . withFallibleInterface
+fallibleRuntimeWithContext = mRuntimeWithContext' . fmap (fmap pure)
 
 -- | For pure functions that can still fail.
 --
@@ -328,7 +331,7 @@ fallibleRuntimeWithContext = readerTRuntime . withFallibleInterface
 -- @
 fallibleRuntime :: ToJSON result =>
   (Value -> Either String result) -> IO ()
-fallibleRuntime = readerTRuntime . withFallibleInterface . withoutContext
+fallibleRuntime = fallibleRuntimeWithContext . withoutContext
 
 -- | For pure functions that can never fail that also need access to the context.
 --
@@ -364,7 +367,7 @@ fallibleRuntime = readerTRuntime . withFallibleInterface . withoutContext
 -- @
 pureRuntimeWithContext :: ToJSON result =>
   (LambdaContext -> Value -> result) -> IO ()
-pureRuntimeWithContext = readerTRuntime . withPureInterface
+pureRuntimeWithContext = mRuntimeWithContext' . fmap (fmap pure)
 
 -- | For pure functions that can never fail.
 --
@@ -396,4 +399,4 @@ pureRuntimeWithContext = readerTRuntime . withPureInterface
 --     main = pureRuntime myHandler
 -- @
 pureRuntime :: ToJSON result => (Value -> result) -> IO ()
-pureRuntime = readerTRuntime . withPureInterface . withoutContext
+pureRuntime = pureRuntimeWithContext . withoutContext
