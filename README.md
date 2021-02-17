@@ -115,7 +115,7 @@ Note that current Stack LTS images are _not_ compatible.
 If you see an error message that contains "version 'GLIBC_X.XX' not found" when running (hosted or locally), then your build environment is not compatible.
 
 An example Dockerfile is included in this repo, which can build out later Stack LTS snapshots.
-Build it with `docker -t ${BUILD_IMAGE_NAME} ${DOCKER_FILE_ROOT_DIR}`.
+Build it with `docker build -t ${BUILD_IMAGE_NAME} ${DOCKER_FILE_ROOT_DIR}`.
 
 Enable stack's docker integration and define an optional image within stack.yaml:
 
