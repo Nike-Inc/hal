@@ -59,7 +59,6 @@ library:
     - conduit-extra
     - envy < 2
     - http-client
-    - http-conduit
     - http-types
     - exceptions
     - mtl

@@ -38,23 +38,22 @@ import           Data.Text.Encoding        (decodeUtf8)
 import           Data.Time.Clock.POSIX     (posixSecondsToUTCTime)
 import           GHC.Generics              (Generic (..))
 import           Network.HTTP.Client       (BodyReader, HttpException, Manager,
-                                            Request, Response, brRead,
+                                            Request,
+                                            RequestBody (RequestBodyLBS),
+                                            Response, brRead,
                                             defaultManagerSettings, httpNoBody,
                                             managerConnCount,
                                             managerIdleConnectionCount,
                                             managerResponseTimeout,
-                                            managerSetProxy, newManager,
-                                            noProxy, parseRequest, responseBody,
-                                            responseTimeoutNone, withResponse)
-import           Network.HTTP.Simple       (getResponseBody,
-                                            getResponseHeader,
-                                            getResponseStatus,
-                                            setRequestBodyJSON,
-                                            setRequestBodyLBS,
-                                            setRequestCheckStatus,
-                                            setRequestHeader, setRequestMethod,
-                                            setRequestPath)
-import           Network.HTTP.Types.Status (status403, status413, statusIsSuccessful)
+                                            managerSetProxy, method, newManager,
+                                            noProxy, parseRequest, path,
+                                            requestBody, requestHeaders,
+                                            responseBody, responseHeaders,
+                                            responseStatus, responseTimeoutNone,
+                                            setRequestCheckStatus, withResponse)
+import           Network.HTTP.Types        (HeaderName)
+import           Network.HTTP.Types.Status (Status, status403, status413,
+                                            statusIsSuccessful)
 import           System.Environment        (getEnv)
 import           System.Envy               (decodeEnv)
 
@@ -296,3 +295,35 @@ toEventErrorRequest reqId e =
 toInitErrorRequest :: String -> Request -> Request
 toInitErrorRequest e =
   setRequestPath "2018-06-01/runtime/init/error" . toBaseErrorRequest e
+
+
+-- HTTP Client Type Helpers
+
+getResponseBody :: Response a -> a
+getResponseBody = responseBody
+
+getResponseHeader :: HeaderName -> Response a -> [BS.ByteString]
+getResponseHeader headerName = fmap snd . filter ((==) headerName . fst) . responseHeaders
+
+getResponseStatus :: Response a -> Status
+getResponseStatus = responseStatus
+
+setRequestBodyJSON :: ToJSON a => a -> Request -> Request
+setRequestBodyJSON = setRequestBodyLBS . encode
+
+setRequestBodyLBS :: BSW.ByteString -> Request -> Request
+setRequestBodyLBS body req = req { requestBody = RequestBodyLBS body }
+
+setRequestHeader :: HeaderName -> [BS.ByteString] -> Request -> Request
+setRequestHeader headerName values req =
+  let
+    withoutPrevious = filter ((/=) headerName . fst) $ requestHeaders req
+    withNew = fmap ((,) headerName) values <> withoutPrevious
+  in
+    req { requestHeaders = withNew }
+
+setRequestMethod :: BS.ByteString -> Request -> Request
+setRequestMethod m req = req { method = m }
+
+setRequestPath :: BS.ByteString -> Request -> Request
+setRequestPath p req = req { path = p }
