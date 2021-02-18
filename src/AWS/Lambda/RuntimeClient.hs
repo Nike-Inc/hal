@@ -34,6 +34,7 @@ import qualified Data.ByteString.Lazy      as BSW
 import qualified Data.ByteString.Internal  as BSI
 import           Data.Conduit              (ConduitM, runConduit, yield, (.|))
 import           Data.Conduit.Attoparsec   (sinkParser)
+import           Data.Semigroup            ((<>))
 import           Data.Text.Encoding        (decodeUtf8)
 import           Data.Time.Clock.POSIX     (posixSecondsToUTCTime)
 import           GHC.Generics              (Generic (..))
