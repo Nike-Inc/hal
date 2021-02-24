@@ -42,10 +42,10 @@ module AWS.Lambda.Runtime.Value (
 
 import           AWS.Lambda.RuntimeClient (RuntimeClientConfig, getRuntimeClientConfig,
                                            getNextData, sendEventError, sendEventSuccess)
-import           AWS.Lambda.Combinators   (liftIOEither, withoutContext)
+import           AWS.Lambda.Combinators   (withoutContext)
 import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..))
 import           Control.Exception        (SomeException, displayException)
-import           Control.Monad            (forever)
+import           Control.Monad            ((<=<), forever)
 import           Control.Monad.Catch      (MonadCatch, try)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)
 import           Control.Monad.Reader     (MonadReader, ReaderT, local, runReaderT)
@@ -217,7 +217,7 @@ readerTRuntime fn = mRuntimeWithContext' $ flip (runReaderT . fn)
 -- @
 ioRuntimeWithContext :: ToJSON result =>
   (LambdaContext -> Value -> IO (Either String result)) -> IO ()
-ioRuntimeWithContext = mRuntimeWithContext' . fmap (fmap liftIOEither)
+ioRuntimeWithContext fn = mRuntimeWithContext' (\lc -> either error pure <=< liftIO . fn lc)
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --

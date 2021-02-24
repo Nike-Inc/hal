@@ -13,14 +13,12 @@ They map functions (instead of values) to turn basic handlers into handlers comp
 
 module AWS.Lambda.Combinators (
     withIOInterface,
-    liftIOEither,
     withFallibleInterface,
     withPureInterface,
     withoutContext,
     withInfallibleParse
 ) where
 
-import           Control.Monad ((<=<))
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Reader   (MonadReader, ask)
 import           Data.Aeson             (FromJSON, parseJSON, Value)
@@ -32,12 +30,6 @@ dropEither :: Monad m => Either String a -> m a
 dropEither = \case 
      Left e  -> error e
      Right x -> return x
-
-
--- | TODO
-liftIOEither :: MonadIO m => IO (Either String a) -> m a
-liftIOEither =
-  dropEither <=< liftIO
 
 -- | Upgrades a handler that uses the `IO` monad with an `Either` inside into a
 -- base runtime handler.
