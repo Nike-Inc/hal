@@ -36,7 +36,7 @@ data ClientApplication = ClientApplication
     appVersionName :: Text,
     appVersionCode :: Text,
     appPackageName :: Text
-  } deriving (Show, Generic)
+  } deriving (Show, Generic, Eq)
 
 instance ToJSON ClientApplication
 instance FromJSON ClientApplication
@@ -45,7 +45,7 @@ data ClientContext = ClientContext
   { client      :: ClientApplication,
     custom      :: Map Text Text,
     environment :: Map Text Text
-  } deriving (Show, Generic)
+  } deriving (Show, Generic, Eq)
 
 instance ToJSON ClientContext
 instance FromJSON ClientContext
@@ -53,7 +53,7 @@ instance FromJSON ClientContext
 data CognitoIdentity = CognitoIdentity
   { identityId     :: Text
   , identityPoolId :: Text
-  } deriving (Show, Generic)
+  } deriving (Show, Generic, Eq)
 
 instance ToJSON CognitoIdentity
 instance FromJSON CognitoIdentity
@@ -75,7 +75,7 @@ data LambdaContext = LambdaContext
     deadline           :: UTCTime,
     clientContext      :: Maybe ClientContext,
     identity           :: Maybe CognitoIdentity
-  } deriving (Show, Generic)
+  } deriving (Show, Generic, Eq)
 
 class HasLambdaContext r where
   withContext :: (LambdaContext -> r -> r)

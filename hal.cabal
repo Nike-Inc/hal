@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: afb08ca777c8ba66061199260eb5bbbf73e3ccd8e245287fc9428d4a1e3a37b7
+-- hash: d99d12f541c6f41234fdc2ae57170949f60f2136c4a634f557e11d20d843207f
 
 name:           hal
 version:        0.4.6
@@ -40,6 +40,7 @@ library
       AWS.Lambda.Runtime
       AWS.Lambda.Runtime.Value
       AWS.Lambda.RuntimeClient
+      AWS.Lambda.RuntimeClient.Internal
   other-modules:
       Paths_hal
   hs-source-dirs:
@@ -63,4 +64,24 @@ library
     , text
     , time
     , unordered-containers
+  default-language: Haskell2010
+
+test-suite hal-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_hal
+  hs-source-dirs:
+      test
+  default-extensions: OverloadedStrings BangPatterns DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DuplicateRecordFields EmptyCase GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses MultiWayIf OverloadedStrings PatternSynonyms ScopedTypeVariables
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -fno-warn-partial-type-signatures -fno-warn-name-shadowing -fwarn-tabs -fwarn-unused-imports -fwarn-missing-signatures -fwarn-incomplete-patterns -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , containers
+    , hal
+    , hspec
+    , http-client
+    , http-types
+    , time
   default-language: Haskell2010
