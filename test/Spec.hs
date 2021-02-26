@@ -10,7 +10,8 @@ import           Data.Semigroup                    ((<>))
 import           Data.Time.Clock.POSIX             (posixSecondsToUTCTime)
 import           Network.HTTP.Client.Internal      (Response (..))
 import           Network.HTTP.Types                (Header)
-import           Test.Hspec                        (describe, it, shouldBe)
+import           Test.Hspec                        (describe, it, shouldBe,
+                                                    shouldStartWith)
 import           Test.Hspec.Runner                 (hspec)
 
 main :: IO ()
@@ -79,9 +80,9 @@ main =
               ("Lambda-Runtime-Client-Context", "{}") : basicValidHeaders
         let (_, _, context) =
               eventResponseToNextData staticContext (minJsonResponse headers)
-        fmap clientContext context `shouldBe`
-          (Left
-             "Runtime Error: Unable to decode Context from event response.\nCould not JSON decode header Lambda-Runtime-Client-Context: Error in $: key \"client\" not present")
+        let msg = either id (const (error "Was able to parse a context that should have failed!")) context
+        msg `shouldStartWith`
+          "Runtime Error: Unable to decode Context from event response.\nCould not JSON decode header Lambda-Runtime-Client-Context: "
       it
         "fails to construct the Context if there are two client context headers" $ do
         let headers =
@@ -114,9 +115,9 @@ main =
               ("Lambda-Runtime-Cognito-Identity", "{}") : basicValidHeaders
         let (_, _, context) =
               eventResponseToNextData staticContext (minJsonResponse headers)
-        fmap clientContext context `shouldBe`
-          (Left
-             "Runtime Error: Unable to decode Context from event response.\nCould not JSON decode header Lambda-Runtime-Cognito-Identity: Error in $: key \"identityId\" not present")
+        let msg = either id (const (error "Was able to parse a context that should have failed!")) context
+        msg `shouldStartWith`
+          "Runtime Error: Unable to decode Context from event response.\nCould not JSON decode header Lambda-Runtime-Cognito-Identity: "
       it
         "fails to construct the Context if there are two cognito identity headers" $ do
         let headers =
