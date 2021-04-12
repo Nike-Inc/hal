@@ -84,10 +84,10 @@ instance HasLambdaContext LambdaContext where
   withContext = const
 
 -- TODO: This sticks around for backwards compatibility, and as a conevient-ish
--- way to runReaderTLambdaContext.  However, long term it would be better if
--- some of the ergonomics around Reader LambdaContext were improved.  For
--- example, there _is_ no LambdaContex until the event is received, but our
--- types don't effectively express that.
+-- way to runReaderTLambdaContext.  In the long term though, all runtimes based
+-- on the ReaderT LambdaContext approach will be removed, and this instance
+-- (and the dependency on its package, envy) can be dropped entirely on that
+-- breaking change.
 instance DefConfig LambdaContext where
   defConfig = LambdaContext "" "" 0 "" "" "" "" "" (posixSecondsToUTCTime 0) Nothing Nothing
 
