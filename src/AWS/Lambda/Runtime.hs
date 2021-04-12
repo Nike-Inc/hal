@@ -38,12 +38,82 @@ import           Control.Monad.IO.Class   (MonadIO)
 import           Control.Monad.Reader     (MonadReader, ReaderT)
 import           Data.Aeson               (FromJSON, ToJSON)
 
--- | TODO
+-- | For any monad that supports 'IO' and 'catch'. Useful if you need
+-- caching behaviours or are comfortable manipulating monad
+-- transformers, and want full control over your monadic interface.
+--
+-- In a future version, this function will be renamed to
+-- @mRuntimeWithContext@ (after the deprecated function is removed).
+--
+-- @
+-- {-\# LANGUAGE DeriveGeneric, NamedFieldPuns \#-}
+--
+-- module Main where
+--
+-- import AWS.Lambda.Context (LambdaContext(..))
+-- import AWS.Lambda.Runtime (mRuntimeWithContext')
+-- import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
+-- import Control.Monad.Trans (liftIO)
+-- import Data.Aeson (FromJSON)
+-- import Data.Text (unpack)
+-- import System.Environment (getEnv)
+-- import GHC.Generics (Generic)
+--
+-- data Named = Named {
+--   name :: String
+-- } deriving Generic
+-- instance FromJSON Named
+--
+-- myHandler :: LambdaContext -> Named -> StateT Int IO String
+-- myHandler LambdaContext { functionName } Named { name } = do
+--   greeting <- liftIO $ getEnv \"GREETING\"
+--
+--   greetingCount <- get
+--   put $ greetingCount + 1
+--
+--   return $ greeting ++ name ++ " (" ++ show greetingCount ++ ") from " ++ unpack functionName ++ "!"
+--
+-- main :: IO ()
+-- main = evalStateT (mRuntimeWithContext' myHandler) 0
+-- @
 mRuntimeWithContext' :: (MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => (LambdaContext -> event -> m result) -> m ()
 mRuntimeWithContext' = ValueRuntime.mRuntimeWithContext' . fmap withInfallibleParse
 
 
--- | TODO
+-- | For any monad that supports 'IO' and 'catch'. Useful if you need
+-- caching behaviours or are comfortable manipulating monad
+-- transformers, want full control over your monadic interface, but
+-- don't need to inspect the 'LambdaContext'.
+--
+-- @
+-- {-\# LANGUAGE DeriveGeneric, NamedFieldPuns \#-}
+--
+-- module Main where
+--
+-- import AWS.Lambda.Runtime (mRuntime)
+-- import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
+-- import Control.Monad.Trans (liftIO)
+-- import Data.Aeson (FromJSON)
+-- import System.Environment (getEnv)
+-- import GHC.Generics (Generic)
+--
+-- data Named = Named {
+--   name :: String
+-- } deriving Generic
+-- instance FromJSON Named
+--
+-- myHandler :: Named -> StateT Int IO String
+-- myHandler Named { name } = do
+--   greeting <- liftIO $ getEnv \"GREETING\"
+--
+--   greetingCount <- get
+--   put $ greetingCount + 1
+--
+--   return $ greeting ++ name ++ " (" ++ show greetingCount ++ ")!"
+--
+-- main :: IO ()
+-- main = evalStateT (mRuntime myHandler) 0
+-- @
 mRuntime :: (MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => (event -> m result) -> m ()
 mRuntime = ValueRuntime.mRuntime . withInfallibleParse
 

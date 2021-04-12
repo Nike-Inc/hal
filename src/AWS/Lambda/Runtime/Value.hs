@@ -75,14 +75,104 @@ runtimeLoop runtimeClientConfig fn = do
     Right r -> sendEventSuccess runtimeClientConfig reqIdBS r
     Left e  -> sendEventError runtimeClientConfig reqIdBS e
 
--- | TODO
+-- | For any monad that supports 'IO' and 'catch'. Useful if you need
+-- caching behaviours or are comfortable manipulating monad
+-- transformers, and want full control over your monadic interface.
+--
+-- In a future version, this function will be renamed to
+-- @mRuntimeWithContext@ (after the deprecated function is removed).
+--
+-- A contrived example, that parses the 'Value' argument directly
+-- instead of using the higher-level features in
+-- @AWS.Lambda.Runtime.Value@:
+--
+-- @
+-- {-\# LANGUAGE DeriveAnyClass, DeriveGeneric, NamedFieldPuns \#-}
+--
+-- module Main where
+--
+-- import AWS.Lambda.Context (LambdaContext(..))
+-- import AWS.Lambda.Runtime (mRuntimeWithContext')
+-- import Control.Monad.Catch (Exception, throwM)
+-- import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
+-- import Control.Monad.Trans (liftIO)
+-- import Data.Aeson (FromJSON, Result(..), Value, fromJSON)
+-- import Data.Text (unpack)
+-- import System.Environment (getEnv)
+-- import GHC.Generics (Generic)
+--
+-- data AesonParseException = AesonParseException String
+--   deriving (Show, Exception)
+--
+-- data Named = Named {
+--   name :: String
+-- } deriving Generic
+-- instance FromJSON Named
+--
+-- myHandler :: LambdaContext -> Value -> StateT Int IO String
+-- myHandler LambdaContext { functionName } value = do
+--   greeting <- liftIO $ getEnv \"GREETING\"
+--   Named { name } <- case fromJSON value of
+--     Error err -> throwM $ AesonParseException err
+--     Success named -> pure named
+--   greetingCount <- get
+--   put $ greetingCount + 1
+--
+--   return $ greeting ++ name ++ " (" ++ show greetingCount ++ ") from " ++ unpack functionName ++ "!"
+--
+-- main :: IO ()
+-- main = evalStateT (mRuntimeWithContext' myHandler) 0
+-- @
 mRuntimeWithContext' :: (MonadCatch m, MonadIO m, ToJSON result) => (LambdaContext -> Value -> m result) -> m ()
 mRuntimeWithContext' fn = do
   runtimeClientConfig <- liftIO getRuntimeClientConfig
 
   forever $ runtimeLoop runtimeClientConfig fn
 
--- | TODO
+-- | For any monad that supports 'IO' and 'catch'. Useful if you need
+-- caching behaviours or are comfortable manipulating monad
+-- transformers, want full control over your monadic interface, but
+-- don't need to inspect the 'LambdaContext'.
+--
+-- A contrived example, that parses the 'Value' argument directly
+-- instead of using the higher-level features in
+-- @AWS.Lambda.Runtime.Value@:
+--
+-- @
+-- {-\# LANGUAGE DeriveAnyClass, DeriveGeneric, NamedFieldPuns \#-}
+--
+-- module Main where
+--
+-- import AWS.Lambda.Runtime (mRuntime)
+-- import Control.Monad.Catch (Exception, throwM)
+-- import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
+-- import Control.Monad.Trans (liftIO)
+-- import Data.Aeson (FromJSON, Result(..), Value, fromJSON)
+-- import System.Environment (getEnv)
+-- import GHC.Generics (Generic)
+--
+-- data AesonParseException = AesonParseException String
+--   deriving (Show, Exception)
+--
+-- data Named = Named {
+--   name :: String
+-- } deriving Generic
+-- instance FromJSON Named
+--
+-- myHandler ::  Value -> StateT Int IO String
+-- myHandler value = do
+--   greeting <- liftIO $ getEnv \"GREETING\"
+--   Named { name } <- case fromJSON value of
+--     Error err -> throwM $ AesonParseException err
+--     Success named -> pure named
+--   greetingCount <- get
+--   put $ greetingCount + 1
+--
+--   return $ greeting ++ name ++ " (" ++ show greetingCount ++ ")!"
+--
+-- main :: IO ()
+-- main = evalStateT (mRuntime myHandler) 0
+-- @
 mRuntime :: (MonadCatch m, MonadIO m, ToJSON result) => (Value -> m result) -> m ()
 mRuntime = mRuntimeWithContext' . withoutContext
 
