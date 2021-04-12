@@ -14,11 +14,11 @@ jobs:
       matrix:
         plan:
           - ghc-version: '8.0.2'
-            cabal-version: '2.0'
+            cabal-version: '2.4'
           - ghc-version: '8.2.2'
-            cabal-version: '2.2'
+            cabal-version: '2.4'
           - ghc-version: '8.4.4'
-            cabal-version: '2.2'
+            cabal-version: '2.4'
           - ghc-version: '8.8'
             cabal-version: '3.0'
     runs-on: ubuntu-latest
