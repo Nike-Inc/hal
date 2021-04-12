@@ -68,7 +68,7 @@ runtimeLoop runtimeClientConfig fn = do
   -}
   -- Put any exceptions in an Either
   caughtResult <- try (fn (either error id eCtx) event)
-  -- Map the Either (via first) so it is an `Either String a`
+  -- Map the Either (via first) so it is an `Either String result`
   let result = first (displayException :: SomeException -> String) caughtResult
 
   liftIO $ case result of
