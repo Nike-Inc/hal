@@ -2,9 +2,8 @@
 
 module Main where
 
-import AWS.Lambda.Context (LambdaContext(..), runReaderTLambdaContext)
-import AWS.Lambda.Runtime (mRuntimeWithContext)
-import Control.Monad.Reader (ReaderT, ask)
+import AWS.Lambda.Context (LambdaContext(..))
+import AWS.Lambda.Runtime (mRuntimeWithContext')
 import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
 import Control.Monad.Trans (liftIO)
 import Data.Aeson (Value, FromJSON, parseJSON)
@@ -18,12 +17,11 @@ data Named = Named {
 } deriving Generic
 instance FromJSON Named
 
-myHandler :: Value -> StateT Int (ReaderT LambdaContext IO) String
-myHandler jsonAst =
+myHandler :: LambdaContext -> Value -> StateT Int IO String
+myHandler LambdaContext { functionName } jsonAst =
   case parseMaybe parseJSON jsonAst of
     Nothing -> return $ "My name is HAL, what's yours?"
     Just Named { name } -> do
-      LambdaContext { functionName } <- ask
       greeting <- liftIO $ getEnv "GREETING"
 
       greetingCount <- get
@@ -32,4 +30,4 @@ myHandler jsonAst =
       return $ greeting ++ name ++ " (" ++ show greetingCount ++ ") from " ++ unpack functionName ++ "!"
 
 main :: IO ()
-main = runReaderTLambdaContext (evalStateT (mRuntimeWithContext myHandler) 0)
+main = evalStateT (mRuntimeWithContext' myHandler) 0
