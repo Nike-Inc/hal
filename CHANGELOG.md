@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
+## `0.4.7` - 2021-04-12
+
+  - Drop http-conduit as a dependency for potentially smaller binaries
+  - Add more detailed error messages to context parsing failures
+  - Increase compatibility by loosening envy version bounds
+  - Add mRuntimeWithContext' and mRuntime
+  - Deprecate withIoInterface, withFallibleInterface, withPureInterface, HasLambdaContext, runRaderTLambdaContext, mRuntimeWithContext
+
 ## `0.4.2` - 2020-07-23
 
   - Fix an issue where errors from the runtime were not retried
