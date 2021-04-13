@@ -35,101 +35,199 @@ module AWS.Lambda.Runtime.Value (
   ioRuntime,
   ioRuntimeWithContext,
   readerTRuntime,
+  mRuntimeWithContext',
+  mRuntime,
   mRuntimeWithContext
 ) where
 
 import           AWS.Lambda.RuntimeClient (RuntimeClientConfig, getRuntimeClientConfig,
                                            getNextData, sendEventError, sendEventSuccess)
-import           AWS.Lambda.Combinators   (withIOInterface,
-                                           withFallibleInterface,
-                                           withPureInterface,
-                                           withoutContext)
-import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..), runReaderTLambdaContext)
+import           AWS.Lambda.Combinators   (withoutContext)
+import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..))
 import           Control.Exception        (SomeException, displayException)
-import           Control.Monad            (forever)
+import           Control.Monad            ((<=<), forever)
 import           Control.Monad.Catch      (MonadCatch, try)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)
-import           Control.Monad.Reader     (MonadReader, ReaderT, local)
+import           Control.Monad.Reader     (MonadReader, ReaderT, local, runReaderT)
 import           Data.Aeson               (ToJSON, Value)
 import           Data.Bifunctor           (first)
 import           Data.Text                (unpack)
 import           System.Environment       (setEnv)
 
-runtimeLoop :: (HasLambdaContext r, MonadReader r m, MonadCatch m, MonadIO m, ToJSON result) => RuntimeClientConfig ->
-  (Value -> m result) -> m ()
+runtimeLoop :: (MonadCatch m, MonadIO m, ToJSON result) => RuntimeClientConfig -> (LambdaContext -> Value -> m result) -> m ()
 runtimeLoop runtimeClientConfig fn = do
   -- Get an event
   (reqIdBS, event, eCtx) <- liftIO $ getNextData runtimeClientConfig
 
-  result <- case eCtx of
-    Left e -> return $ Left e
-    Right ctx ->
-      local (withContext ctx) $ do
-        -- Propagate the tracing header (Exception safe for this env var name)
-        liftIO $ setEnv "_X_AMZN_TRACE_ID" $ unpack $ xRayTraceId ctx
+  -- Propagate the tracing header (Exception safe for this env var name)
+  liftIO $ either (const (pure ())) (setEnv "_X_AMZN_TRACE_ID" . unpack . xRayTraceId) eCtx
 
-        {- Catching like this is _usually_ considered bad practice, but this is a true
-             case where we want to both catch all errors and propogate information about them.
-             See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
-        -}
-        -- Put any exceptions in an Either
-        caughtResult <- try (fn event)
-        -- Map the Either (via first) so it is an `Either String a`
-        return $ first (displayException :: SomeException -> String) caughtResult
+  {- Catching like this is _usually_ considered bad practice, but this is a true
+   case where we want to both catch all errors and propogate information about them.
+   See: http://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception.html#g:4
+  -}
+  -- Put any exceptions in an Either
+  caughtResult <- try (fn (either error id eCtx) event)
+  -- Map the Either (via first) so it is an `Either String result`
+  let result = first (displayException :: SomeException -> String) caughtResult
 
   liftIO $ case result of
     Right r -> sendEventSuccess runtimeClientConfig reqIdBS r
     Left e  -> sendEventError runtimeClientConfig reqIdBS e
 
-
--- | For any monad that supports IO/catch/Reader LambdaContext.
+-- | For any monad that supports 'IO' and 'catch'. Useful if you need
+-- caching behaviours or are comfortable manipulating monad
+-- transformers, and want full control over your monadic interface.
 --
--- Use this if you need caching behavours or are comfortable manipulating monad
--- transformers and want full control over your monadic interface.
+-- In a future version, this function will be renamed to
+-- @mRuntimeWithContext@ (after the deprecated function is removed).
+--
+-- A contrived example, that parses the 'Value' argument directly
+-- instead of using the higher-level features in
+-- @AWS.Lambda.Runtime.Value@:
 --
 -- @
---     {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
+-- {-\# LANGUAGE DeriveAnyClass, DeriveGeneric, NamedFieldPuns \#-}
 --
---     module Main where
+-- module Main where
 --
---     import AWS.Lambda.Context (LambdaContext(..), runReaderTLambdaContext)
---     import AWS.Lambda.Runtime (mRuntimeWithContext)
---     import Control.Monad.Reader (ReaderT, ask)
---     import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
---     import Control.Monad.Trans (liftIO)
---     import Data.Aeson (Value, FromJSON, parseJSON)
---     import Data.Aeson.Types (parseMaybe)
---     import Data.Text (unpack)
---     import System.Environment (getEnv)
---     import GHC.Generics (Generic)
+-- import AWS.Lambda.Context (LambdaContext(..))
+-- import AWS.Lambda.Runtime (mRuntimeWithContext')
+-- import Control.Monad.Catch (Exception, throwM)
+-- import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
+-- import Control.Monad.Trans (liftIO)
+-- import Data.Aeson (FromJSON, Result(..), Value, fromJSON)
+-- import Data.Text (unpack)
+-- import System.Environment (getEnv)
+-- import GHC.Generics (Generic)
 --
---     data Named = Named {
---       name :: String
---     } deriving Generic
---     instance FromJSON Named
+-- data AesonParseException = AesonParseException String
+--   deriving (Show, Exception)
 --
---     myHandler :: Value -> StateT Int (ReaderT LambdaContext IO) String
---     myHandler jsonAst =
---       case parseMaybe parseJSON jsonAst of
---         Nothing -> return $ "My name is HAL, what's yours?"
---         Just Named { name } -> do
---           LambdaContext { functionName } <- ask
---           greeting <- liftIO $ getEnv \"GREETING\"
+-- data Named = Named {
+--   name :: String
+-- } deriving Generic
+-- instance FromJSON Named
 --
---           greetingCount <- get
---           put $ greetingCount + 1
+-- myHandler :: LambdaContext -> Value -> StateT Int IO String
+-- myHandler LambdaContext { functionName } value = do
+--   greeting <- liftIO $ getEnv \"GREETING\"
+--   Named { name } <- case fromJSON value of
+--     Error err -> throwM $ AesonParseException err
+--     Success named -> pure named
+--   greetingCount <- get
+--   put $ greetingCount + 1
 --
---           return $ greeting ++ name ++ " (" ++ show greetingCount ++ ") from " ++ unpack functionName ++ "!"
+--   return $ greeting ++ name ++ " (" ++ show greetingCount ++ ") from " ++ unpack functionName ++ "!"
 --
---     main :: IO ()
---     main = runReaderTLambdaContext (evalStateT (mRuntimeWithContext myHandler) 0)
+-- main :: IO ()
+-- main = evalStateT (mRuntimeWithContext' myHandler) 0
 -- @
-mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, ToJSON result) =>
-  (Value -> m result) -> m ()
-mRuntimeWithContext fn = do
+mRuntimeWithContext' :: (MonadCatch m, MonadIO m, ToJSON result) => (LambdaContext -> Value -> m result) -> m ()
+mRuntimeWithContext' fn = do
   runtimeClientConfig <- liftIO getRuntimeClientConfig
 
   forever $ runtimeLoop runtimeClientConfig fn
+
+-- | For any monad that supports 'IO' and 'catch'. Useful if you need
+-- caching behaviours or are comfortable manipulating monad
+-- transformers, want full control over your monadic interface, but
+-- don't need to inspect the 'LambdaContext'.
+--
+-- A contrived example, that parses the 'Value' argument directly
+-- instead of using the higher-level features in
+-- @AWS.Lambda.Runtime.Value@:
+--
+-- @
+-- {-\# LANGUAGE DeriveAnyClass, DeriveGeneric, NamedFieldPuns \#-}
+--
+-- module Main where
+--
+-- import AWS.Lambda.Runtime (mRuntime)
+-- import Control.Monad.Catch (Exception, throwM)
+-- import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
+-- import Control.Monad.Trans (liftIO)
+-- import Data.Aeson (FromJSON, Result(..), Value, fromJSON)
+-- import System.Environment (getEnv)
+-- import GHC.Generics (Generic)
+--
+-- data AesonParseException = AesonParseException String
+--   deriving (Show, Exception)
+--
+-- data Named = Named {
+--   name :: String
+-- } deriving Generic
+-- instance FromJSON Named
+--
+-- myHandler ::  Value -> StateT Int IO String
+-- myHandler value = do
+--   greeting <- liftIO $ getEnv \"GREETING\"
+--   Named { name } <- case fromJSON value of
+--     Error err -> throwM $ AesonParseException err
+--     Success named -> pure named
+--   greetingCount <- get
+--   put $ greetingCount + 1
+--
+--   return $ greeting ++ name ++ " (" ++ show greetingCount ++ ")!"
+--
+-- main :: IO ()
+-- main = evalStateT (mRuntime myHandler) 0
+-- @
+mRuntime :: (MonadCatch m, MonadIO m, ToJSON result) => (Value -> m result) -> m ()
+mRuntime = mRuntimeWithContext' . withoutContext
+
+-- | For any monad that supports IO\/catch\/Reader LambdaContext.
+--
+-- This function is problematic, and has been deprecated. The
+-- 'HasLambdaContext' constraint requires that a 'LambdaContext' is
+-- settable in the @m@ monad, but that is not the case - we only have
+-- a 'LambdaContext' during the request/response cycle.
+--
+-- If you need caching behavours or are comfortable manipulating monad
+-- transformers and want full control over your monadic interface,
+-- consider 'mRuntimeWithContext''.
+--
+-- @
+-- {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
+--
+-- module Main where
+--
+-- import AWS.Lambda.Context (LambdaContext(..), runReaderTLambdaContext)
+-- import AWS.Lambda.Runtime (mRuntimeWithContext)
+-- import Control.Monad.Reader (ReaderT, ask)
+-- import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
+-- import Control.Monad.Trans (liftIO)
+-- import Data.Aeson (Value, FromJSON, parseJSON)
+-- import Data.Aeson.Types (parseMaybe)
+-- import Data.Text (unpack)
+-- import System.Environment (getEnv)
+-- import GHC.Generics (Generic)
+--
+-- data Named = Named {
+--   name :: String
+-- } deriving Generic
+-- instance FromJSON Named
+--
+-- myHandler :: Value -> StateT Int (ReaderT LambdaContext IO) String
+-- myHandler jsonAst =
+--   case parseMaybe parseJSON jsonAst of
+--     Nothing -> return $ "My name is HAL, what's yours?"
+--     Just Named { name } -> do
+--       LambdaContext { functionName } <- ask
+--       greeting <- liftIO $ getEnv \"GREETING\"
+--
+--       greetingCount <- get
+--       put $ greetingCount + 1
+--
+--       return $ greeting ++ name ++ " (" ++ show greetingCount ++ ") from " ++ unpack functionName ++ "!"
+--
+-- main :: IO ()
+-- main = runReaderTLambdaContext (evalStateT (mRuntimeWithContext myHandler) 0)
+-- @
+{-# DEPRECATED mRuntimeWithContext "mRuntimeWithContext will be replaced by mRuntimeWithContext' in a future version. This type signature makes impossible promises - see the haddock for details." #-}
+mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, ToJSON result) =>
+  (Value -> m result) -> m ()
+mRuntimeWithContext fn = mRuntimeWithContext' (\lc -> local (withContext lc) . fn)
 
 
 -- | For functions that can read the lambda context and use IO within the same monad.
@@ -140,40 +238,40 @@ mRuntimeWithContext fn = do
 -- However, do not use this runtime if you need stateful (caching) behaviors.
 --
 -- @
---     {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
+-- {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
 --
---     module Main where
+-- module Main where
 --
---     import AWS.Lambda.Context (LambdaContext(..))
---     import AWS.Lambda.Runtime (readerTRuntime)
---     import Control.Monad.Reader (ReaderT, ask)
---     import Control.Monad.Trans (liftIO)
---     import Data.Aeson (Value, FromJSON, parseJSON)
---     import Data.Aeson.Types (parseMaybe)
---     import Data.Text (unpack)
---     import System.Environment (getEnv)
---     import GHC.Generics (Generic)
+-- import AWS.Lambda.Context (LambdaContext(..))
+-- import AWS.Lambda.Runtime (readerTRuntime)
+-- import Control.Monad.Reader (ReaderT, ask)
+-- import Control.Monad.Trans (liftIO)
+-- import Data.Aeson (Value, FromJSON, parseJSON)
+-- import Data.Aeson.Types (parseMaybe)
+-- import Data.Text (unpack)
+-- import System.Environment (getEnv)
+-- import GHC.Generics (Generic)
 --
---     data Named = Named {
---       name :: String
---     } deriving Generic
---     instance FromJSON Named
+-- data Named = Named {
+--   name :: String
+-- } deriving Generic
+-- instance FromJSON Named
 --
---     myHandler :: Value -> ReaderT LambdaContext IO String
---     myHandler jsonAst =
---       case parseMaybe parseJSON jsonAst of
---         Nothing -> return $ "My name is HAL, what's yours?"
---         Just Named { name } -> do
---           LambdaContext { functionName } <- ask
---           greeting <- liftIO $ getEnv \"GREETING\"
---           return $ greeting ++ name ++ " from " ++ unpack functionName ++ "!"
+-- myHandler :: Value -> ReaderT LambdaContext IO String
+-- myHandler jsonAst =
+--   case parseMaybe parseJSON jsonAst of
+--     Nothing -> return $ "My name is HAL, what's yours?"
+--     Just Named { name } -> do
+--       LambdaContext { functionName } <- ask
+--       greeting <- liftIO $ getEnv \"GREETING\"
+--       return $ greeting ++ name ++ " from " ++ unpack functionName ++ "!"
 --
---     main :: IO ()
---     main = readerTRuntime myHandler
+-- main :: IO ()
+-- main = readerTRuntime myHandler
 -- @
 readerTRuntime :: ToJSON result =>
   (Value -> ReaderT LambdaContext IO result) -> IO ()
-readerTRuntime = runReaderTLambdaContext .  mRuntimeWithContext
+readerTRuntime fn = mRuntimeWithContext' $ flip (runReaderT . fn)
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --
@@ -183,38 +281,38 @@ readerTRuntime = runReaderTLambdaContext .  mRuntimeWithContext
 -- However, do not use this runtime if you need stateful (caching) behaviors.
 --
 -- @
---     {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
+-- {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
 --
---     module Main where
+-- module Main where
 --
---     import AWS.Lambda.Context (LambdaContext(..))
---     import AWS.Lambda.Runtime (ioRuntimeWithContext)
---     import Control.Monad.Trans (liftIO)
---     import Data.Aeson (Value, FromJSON, parseJSON)
---     import Data.Aeson.Types (parseMaybe)
---     import Data.Text (unpack)
---     import System.Environment (getEnv)
---     import GHC.Generics (Generic)
+-- import AWS.Lambda.Context (LambdaContext(..))
+-- import AWS.Lambda.Runtime (ioRuntimeWithContext)
+-- import Control.Monad.Trans (liftIO)
+-- import Data.Aeson (Value, FromJSON, parseJSON)
+-- import Data.Aeson.Types (parseMaybe)
+-- import Data.Text (unpack)
+-- import System.Environment (getEnv)
+-- import GHC.Generics (Generic)
 --
---     data Named = Named {
---       name :: String
---     } deriving Generic
---     instance FromJSON Named
+-- data Named = Named {
+--   name :: String
+-- } deriving Generic
+-- instance FromJSON Named
 --
---     myHandler :: LambdaContext -> Value -> IO (Either String String)
---     myHandler (LambdaContext { functionName }) jsonAst =
---       case parseMaybe parseJSON jsonAst of
---         Nothing -> return $ pure "My name is HAL, what's yours?"
---         Just Named { name } -> do
---           greeting <- liftIO $ getEnv \"GREETING\"
---           return $ pure $ greeting ++ name ++ " from " ++ unpack functionName ++ "!"
+-- myHandler :: LambdaContext -> Value -> IO (Either String String)
+-- myHandler (LambdaContext { functionName }) jsonAst =
+--   case parseMaybe parseJSON jsonAst of
+--     Nothing -> return $ pure "My name is HAL, what's yours?"
+--     Just Named { name } -> do
+--       greeting <- liftIO $ getEnv \"GREETING\"
+--       return $ pure $ greeting ++ name ++ " from " ++ unpack functionName ++ "!"
 --
---     main :: IO ()
---     main = ioRuntimeWithContext myHandler
+-- main :: IO ()
+-- main = ioRuntimeWithContext myHandler
 -- @
 ioRuntimeWithContext :: ToJSON result =>
   (LambdaContext -> Value -> IO (Either String result)) -> IO ()
-ioRuntimeWithContext = readerTRuntime . withIOInterface
+ioRuntimeWithContext fn = mRuntimeWithContext' (\lc -> either error pure <=< liftIO . fn lc)
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --
@@ -223,36 +321,36 @@ ioRuntimeWithContext = readerTRuntime . withIOInterface
 -- However, do not use this runtime if you need stateful (caching) behaviors.
 --
 -- @
---     {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
+-- {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
 --
---     module Main where
+-- module Main where
 --
---     import AWS.Lambda.Runtime (ioRuntime)
---     import Control.Monad.Trans (liftIO)
---     import Data.Aeson (Value, FromJSON, parseJSON)
---     import Data.Aeson.Types (parseMaybe)
---     import System.Environment (getEnv)
---     import GHC.Generics (Generic)
+-- import AWS.Lambda.Runtime (ioRuntime)
+-- import Control.Monad.Trans (liftIO)
+-- import Data.Aeson (Value, FromJSON, parseJSON)
+-- import Data.Aeson.Types (parseMaybe)
+-- import System.Environment (getEnv)
+-- import GHC.Generics (Generic)
 --
---     data Named = Named {
---       name :: String
---     } deriving Generic
---     instance FromJSON Named
+-- data Named = Named {
+--   name :: String
+-- } deriving Generic
+-- instance FromJSON Named
 --
---     myHandler :: Value -> IO (Either String String)
---     myHandler jsonAst =
---       case parseMaybe parseJSON jsonAst of
---         Nothing -> return $ pure "My name is HAL, what's yours?"
---         Just Named { name } -> do
---           greeting <- liftIO $ getEnv \"GREETING\"
---           return $ pure $ greeting ++ name
+-- myHandler :: Value -> IO (Either String String)
+-- myHandler jsonAst =
+--   case parseMaybe parseJSON jsonAst of
+--     Nothing -> return $ pure "My name is HAL, what's yours?"
+--     Just Named { name } -> do
+--       greeting <- liftIO $ getEnv \"GREETING\"
+--       return $ pure $ greeting ++ name
 --
---     main :: IO ()
---     main = ioRuntime myHandler
+-- main :: IO ()
+-- main = ioRuntime myHandler
 -- @
 ioRuntime :: ToJSON result =>
   (Value -> IO (Either String result)) -> IO ()
-ioRuntime = readerTRuntime . withIOInterface . withoutContext
+ioRuntime = ioRuntimeWithContext . withoutContext
 
 -- | For pure functions that can still fail.
 --
@@ -260,38 +358,38 @@ ioRuntime = readerTRuntime . withIOInterface . withoutContext
 -- but can fail and need the AWS Lambda Context as input.
 --
 -- @
---     {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
+-- {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
 --
---     module Main where
+-- module Main where
 --
---     import AWS.Lambda.Context (LambdaContext(..))
---     import AWS.Lambda.Runtime (fallibleRuntimeWithContext)
---     import Data.Aeson (Value, FromJSON, parseJSON)
---     import Data.Aeson.Types (parseMaybe)
---     import Data.Text (unpack)
---     import GHC.Generics (Generic)
+-- import AWS.Lambda.Context (LambdaContext(..))
+-- import AWS.Lambda.Runtime (fallibleRuntimeWithContext)
+-- import Data.Aeson (Value, FromJSON, parseJSON)
+-- import Data.Aeson.Types (parseMaybe)
+-- import Data.Text (unpack)
+-- import GHC.Generics (Generic)
 --
---     data Named = Named {
---       name :: String
---     } deriving Generic
---     instance FromJSON Named
+-- data Named = Named {
+--   name :: String
+-- } deriving Generic
+-- instance FromJSON Named
 --
---     myHandler :: LambdaContext -> Value -> Either String String
---     myHandler (LambdaContext { functionName }) jsonAst =
---       case parseMaybe parseJSON jsonAst of
---         Nothing -> Right "My name is HAL, what's yours?"
---         Just Named { name } ->
---           if name == \"World\" then
---             Right $ "Hello, World from " ++ unpack functionName ++ "!"
---           else
---             Left "Can only greet the world."
+-- myHandler :: LambdaContext -> Value -> Either String String
+-- myHandler (LambdaContext { functionName }) jsonAst =
+--   case parseMaybe parseJSON jsonAst of
+--     Nothing -> Right "My name is HAL, what's yours?"
+--     Just Named { name } ->
+--       if name == \"World\" then
+--         Right $ "Hello, World from " ++ unpack functionName ++ "!"
+--       else
+--         Left "Can only greet the world."
 --
---     main :: IO ()
---     main = fallibleRuntimeWithContext myHandler
+-- main :: IO ()
+-- main = fallibleRuntimeWithContext myHandler
 -- @
 fallibleRuntimeWithContext :: ToJSON result =>
   (LambdaContext -> Value -> Either String result) -> IO ()
-fallibleRuntimeWithContext = readerTRuntime . withFallibleInterface
+fallibleRuntimeWithContext = mRuntimeWithContext' . fmap (fmap pure)
 
 -- | For pure functions that can still fail.
 --
@@ -299,36 +397,36 @@ fallibleRuntimeWithContext = readerTRuntime . withFallibleInterface
 -- but can fail.
 --
 -- @
---     {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
+-- {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
 --
---     module Main where
+-- module Main where
 --
---     import AWS.Lambda.Runtime (fallibleRuntime)
---     import Data.Aeson (Value, FromJSON, parseJSON)
---     import Data.Aeson.Types (parseMaybe)
---     import GHC.Generics (Generic)
+-- import AWS.Lambda.Runtime (fallibleRuntime)
+-- import Data.Aeson (Value, FromJSON, parseJSON)
+-- import Data.Aeson.Types (parseMaybe)
+-- import GHC.Generics (Generic)
 --
---     data Named = Named {
---       name :: String
---     } deriving Generic
---     instance FromJSON Named
+-- data Named = Named {
+--   name :: String
+-- } deriving Generic
+-- instance FromJSON Named
 --
---     myHandler :: Value -> Either String String
---     myHandler jsonAst =
---       case parseMaybe parseJSON jsonAst of
---         Nothing -> Right "My name is HAL, what's yours?"
---         Just Named { name } ->
---           if name == \"World\" then
---             Right "Hello, World!"
---           else
---             Left "Can only greet the world."
+-- myHandler :: Value -> Either String String
+-- myHandler jsonAst =
+--   case parseMaybe parseJSON jsonAst of
+--     Nothing -> Right "My name is HAL, what's yours?"
+--     Just Named { name } ->
+--       if name == \"World\" then
+--         Right "Hello, World!"
+--       else
+--         Left "Can only greet the world."
 --
---     main :: IO ()
---     main = fallibleRuntime myHandler
+-- main :: IO ()
+-- main = fallibleRuntime myHandler
 -- @
 fallibleRuntime :: ToJSON result =>
   (Value -> Either String result) -> IO ()
-fallibleRuntime = readerTRuntime . withFallibleInterface . withoutContext
+fallibleRuntime = fallibleRuntimeWithContext . withoutContext
 
 -- | For pure functions that can never fail that also need access to the context.
 --
@@ -336,64 +434,64 @@ fallibleRuntime = readerTRuntime . withFallibleInterface . withoutContext
 -- but that need the AWS Lambda Context as input.
 --
 -- @
---     {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
+-- {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
 --
---     module Main where
+-- module Main where
 --
---     import AWS.Lambda.Context (LambdaContext(..))
---     import AWS.Lambda.Runtime (pureRuntimeWithContext)
---     import Data.Aeson (Value, FromJSON, parseJSON)
---     import Data.Aeson.Types (parseMaybe)
---     import Data.Text (unpack)
---     import GHC.Generics (Generic)
+-- import AWS.Lambda.Context (LambdaContext(..))
+-- import AWS.Lambda.Runtime (pureRuntimeWithContext)
+-- import Data.Aeson (Value, FromJSON, parseJSON)
+-- import Data.Aeson.Types (parseMaybe)
+-- import Data.Text (unpack)
+-- import GHC.Generics (Generic)
 --
---     data Named = Named {
---       name :: String
---     } deriving Generic
---     instance FromJSON Named
+-- data Named = Named {
+--   name :: String
+-- } deriving Generic
+-- instance FromJSON Named
 --
---     myHandler :: LambdaContext -> Value -> Either String String
---     myHandler (LambdaContext { functionName }) jsonAst =
---       case parseMaybe parseJSON jsonAst of
---         Nothing -> Right "My name is HAL, what's yours?"
---         Just Named { name } ->
---           Right $ "Hello, " ++ name ++ " from " ++ unpack functionName ++ "!"
+-- myHandler :: LambdaContext -> Value -> Either String String
+-- myHandler (LambdaContext { functionName }) jsonAst =
+--   case parseMaybe parseJSON jsonAst of
+--     Nothing -> Right "My name is HAL, what's yours?"
+--     Just Named { name } ->
+--       Right $ "Hello, " ++ name ++ " from " ++ unpack functionName ++ "!"
 --
---     main :: IO ()
---     main = pureRuntimeWithContext myHandler
+-- main :: IO ()
+-- main = pureRuntimeWithContext myHandler
 -- @
 pureRuntimeWithContext :: ToJSON result =>
   (LambdaContext -> Value -> result) -> IO ()
-pureRuntimeWithContext = readerTRuntime . withPureInterface
+pureRuntimeWithContext = mRuntimeWithContext' . fmap (fmap pure)
 
 -- | For pure functions that can never fail.
 --
 -- Use this for simple handlers that just translate input to output without side-effects.
 --
 -- @
---     {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
+-- {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
 --
---     module Main where
+-- module Main where
 --
---     import AWS.Lambda.Runtime (pureRuntime)
---     import Data.Aeson (Value, FromJSON, parseJSON)
---     import Data.Aeson.Types (parseMaybe)
---     import GHC.Generics (Generic)
+-- import AWS.Lambda.Runtime (pureRuntime)
+-- import Data.Aeson (Value, FromJSON, parseJSON)
+-- import Data.Aeson.Types (parseMaybe)
+-- import GHC.Generics (Generic)
 --
---     data Named = Named {
---       name :: String
---     } deriving Generic
---     instance FromJSON Named
+-- data Named = Named {
+--   name :: String
+-- } deriving Generic
+-- instance FromJSON Named
 --
---     myHandler :: Value -> String
---     myHandler jsonAst =
---       case parseMaybe parseJSON jsonAst of
---         Nothing -> "My name is HAL, what's yours?"
---         Just Named { name } ->
---           "Hello, " ++ name ++ "!"
+-- myHandler :: Value -> String
+-- myHandler jsonAst =
+--   case parseMaybe parseJSON jsonAst of
+--     Nothing -> "My name is HAL, what's yours?"
+--     Just Named { name } ->
+--       "Hello, " ++ name ++ "!"
 --
---     main :: IO ()
---     main = pureRuntime myHandler
+-- main :: IO ()
+-- main = pureRuntime myHandler
 -- @
 pureRuntime :: ToJSON result => (Value -> result) -> IO ()
-pureRuntime = readerTRuntime . withPureInterface . withoutContext
+pureRuntime = pureRuntimeWithContext . withoutContext

@@ -14,9 +14,9 @@ module AWS.Lambda.Context (
   ClientContext(..),
   CognitoIdentity(..),
   LambdaContext(..),
+  getRemainingTime,
   HasLambdaContext(..),
   defConfig,
-  getRemainingTime,
   runReaderTLambdaContext
 ) where
 
@@ -77,6 +77,7 @@ data LambdaContext = LambdaContext
     identity           :: Maybe CognitoIdentity
   } deriving (Show, Generic, Eq)
 
+{-# DEPRECATED HasLambdaContext "HasLambdaContext will be removed along with the original mRuntimeWithContext.  This utility is no longer necessary without it." #-}
 class HasLambdaContext r where
   withContext :: (LambdaContext -> r -> r)
 
@@ -92,5 +93,6 @@ instance DefConfig LambdaContext where
   defConfig = LambdaContext "" "" 0 "" "" "" "" "" (posixSecondsToUTCTime 0) Nothing Nothing
 
 -- | Helper for using arbitrary monads with only the LambdaContext in its Reader
+{-# DEPRECATED runReaderTLambdaContext "runReaderTLambdaContext will be removed along with the original mRuntimeWithContext.  This particular approach was problematic, in that it required a default LambdaContext, when in reality, there is no valid instance." #-}
 runReaderTLambdaContext :: ReaderT LambdaContext m a -> m a
 runReaderTLambdaContext = flip runReaderT defConfig
