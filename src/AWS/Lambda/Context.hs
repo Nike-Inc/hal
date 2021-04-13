@@ -83,6 +83,11 @@ class HasLambdaContext r where
 instance HasLambdaContext LambdaContext where
   withContext = const
 
+-- TODO: This sticks around for backwards compatibility, and as a conevient-ish
+-- way to runReaderTLambdaContext.  In the long term, all runtimes where the
+-- LambdaContext is (incorrectly) available outside of the request/response
+-- cycle will be removed.  This instance (and its dependent package, envy) can
+-- be dropped on that breaking change.
 instance DefConfig LambdaContext where
   defConfig = LambdaContext "" "" 0 "" "" "" "" "" (posixSecondsToUTCTime 0) Nothing Nothing
 
