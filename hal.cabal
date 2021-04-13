@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ac72c27a2329613830cbbdeaf5c590a17af49cb9f6987d444b538ded08a8d451
+-- hash: 557af18f03f463b0f035e2cce32a527e96357e255ae8ee74518c0f6f3c6811c2
 
 name:           hal
 version:        0.4.7
@@ -23,6 +23,7 @@ license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     README.md
+    CHANGELOG.md
 
 source-repository head
   type: git
