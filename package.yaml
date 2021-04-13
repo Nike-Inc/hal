@@ -13,6 +13,7 @@ copyright:           2018 Nike, Inc.
 category:            Web,AWS
 extra-source-files:
 - README.md
+- CHANGELOG.md
 
 dependencies:
   - base >= 4.7 && < 5
