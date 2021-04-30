@@ -59,6 +59,7 @@ library:
     - conduit
     - conduit-extra
     - envy
+    - hashable
     - http-client
     - http-types
     - exceptions

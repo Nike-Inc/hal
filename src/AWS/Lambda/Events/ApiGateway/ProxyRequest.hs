@@ -18,13 +18,16 @@ module AWS.Lambda.Events.ApiGateway.ProxyRequest
     , StrictlyNoAuthorizer
     ) where
 
-import           Data.Aeson                  (FromJSON, Value, parseJSON,
-                                              withObject, (.:), (.:?))
-import           Data.ByteString.Base64.Lazy (decodeLenient)
+import           Data.Aeson                  (FromJSON(..), ToJSON(..), Value,
+                                              object, withObject, (.=), (.:),
+                                              (.:?))
+import           Data.ByteString.Base64.Lazy (decodeLenient, encode)
 import           Data.ByteString.Lazy        (ByteString)
-import           Data.CaseInsensitive        (CI, mk)
+import           Data.CaseInsensitive        (CI, FoldCase, mk, original)
 import           Data.Foldable               (fold)
+import           Data.Hashable               (Hashable)
 import           Data.HashMap.Strict         (HashMap, foldrWithKey, insert)
+import           Data.Maybe                  (catMaybes)
 import           Data.Text                   (Text)
 import qualified Data.Text.Lazy              as TL
 import qualified Data.Text.Lazy.Encoding     as TLE
@@ -55,6 +58,7 @@ data Identity = Identity
     } deriving (Generic)
 
 instance FromJSON Identity
+instance ToJSON Identity
 
 data RequestContext a = RequestContext
     { path              :: Text
@@ -86,6 +90,24 @@ instance FromJSON a => FromJSON (RequestContext a) where
         v .: "httpMethod" <*>
         v .:? "extendedRequestId" <*>
         v .: "apiId"
+
+-- | @since 0.4.8
+instance ToJSON a => ToJSON (RequestContext a) where
+    toJSON r = object $ catMaybes
+        [ Just $ "path" .= path (r :: RequestContext a)
+        , Just $ "accountId" .= accountId (r :: RequestContext a)
+        , ("authorizer" .=) <$> authorizer r
+        , Just $ "resourceId" .= resourceId r
+        , Just $ "stage" .= stage r
+        , ("domainPrefix" .=) <$> domainPrefix r
+        , Just $ "requestId" .= requestId r
+        , Just $ "identity" .= identity r
+        , ("domainName" .=) <$> domainName r
+        , Just $ "resourcePath" .= resourcePath r
+        , Just $ "httpMethod" .= httpMethod (r :: RequestContext a)
+        , ("extendedRequestId" .=) <$> extendedRequestId r
+        , Just $ "apiId" .= apiId r
+        ]
 
 -- TODO: Should also include websocket fields
 -- | This type is for representing events that come from API Gateway via the
@@ -143,14 +165,20 @@ data ProxyRequest a = ProxyRequest
     , body                            :: ByteString
     } deriving (Generic)
 
-toCIHashMap :: HashMap Text a -> HashMap (CI Text) a
+toCIHashMap :: (Eq k, FoldCase k, Hashable k) => HashMap k a -> HashMap (CI k) a
 toCIHashMap = foldrWithKey (insert . mk) mempty
+
+fromCIHashMap :: (Eq k, Hashable k) => HashMap (CI k) a -> HashMap k a
+fromCIHashMap = foldrWithKey (insert . original) mempty
 
 toByteString :: Bool -> TL.Text -> ByteString
 toByteString isBase64Encoded =
     if isBase64Encoded
         then decodeLenient . TLE.encodeUtf8
         else TLE.encodeUtf8
+
+toMaybe :: Bool -> a -> Maybe a
+toMaybe b a = if b then Just a else Nothing
 
 -- | For ignoring API Gateway custom authorizer values
 type NoAuthorizer = Value
@@ -172,3 +200,27 @@ instance FromJSON a => FromJSON (ProxyRequest a) where
         (v .:? "queryStringParameters" <&> fold) <*>
         (v .:? "multiValueQueryStringParameters" <&> fold) <*>
         (toByteString <$> v .: "isBase64Encoded" <*> (v .:? "body" <&> fold))
+
+-- | @since 0.4.8
+instance ToJSON a => ToJSON (ProxyRequest a) where
+    toJSON r = object $ catMaybes
+        [ Just $ "path" .= path (r :: ProxyRequest a)
+        , toMaybe (not . null $ headers r) $
+              "headers" .= fromCIHashMap (headers r)
+        , toMaybe (not . null $ multiValueHeaders r) $
+              "multiValueHeaders" .= fromCIHashMap (multiValueHeaders r)
+        , toMaybe (not . null $ pathParameters r) $
+              "pathParameters" .= pathParameters r
+        , toMaybe (not . null $ stageVariables r) $
+              "stageVariables" .= stageVariables r
+        , Just $ "requestContext" .= requestContext r
+        , Just $ "resource" .= resource r
+        , Just $ "httpMethod" .= httpMethod (r :: ProxyRequest a)
+        , toMaybe (not . null $ queryStringParameters r) $
+              "queryStringParameters" .= queryStringParameters r
+        , toMaybe (not . null $ multiValueQueryStringParameters r) $
+              "multiValueQueryStringParameters" .=
+                  multiValueQueryStringParameters r
+        , Just $ "isBase64Encoded" .= True
+        , Just $ "body" .= TLE.decodeUtf8 (encode (body r))
+        ]
