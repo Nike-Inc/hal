@@ -191,9 +191,6 @@ applicationJson x =
         (TL.toStrict $ TLE.decodeUtf8 $ encode x)
         False
 
--- | Smart constructor for creating a simple body of a GIF (that has already
--- been converted to a ByteString).
-
 instance ToJSON ProxyResponse where
     toJSON (ProxyResponse status mvh (ProxyBody contentType body isBase64Encoded)) =
         let unCI = foldrWithKey (insert . original) mempty
