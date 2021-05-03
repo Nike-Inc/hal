@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
+## `0.5.0` - Unreleased
+
+  - `AWS.Lambda.Events.ApiGateway.ProxyResponse` now contains a `Maybe
+    ProxyBody`
+  - New function: `AWS.Lambda.Events.ApiGateway.ProxyResponse.responseNoBody`,
+
 ## `0.4.7` - 2021-04-12
 
   - Drop http-conduit as a dependency for potentially smaller binaries

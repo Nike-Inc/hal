@@ -114,15 +114,13 @@ instance FromJSON a => FromJSON (RequestContext a) where
 --     myHandler ProxyRequest { httpMethod = \"GET\", path = "/say_hello" } =
 --         ProxyResponse
 --         {   status = ok200
---         ,   body = textPlain \"Hello\"
---         ,   headers = mempty
+--         ,   body = Just $ textPlain \"Hello\"
 --         ,   multiValueHeaders = mempty
 --         }
 --     myHandler _ =
 --         ProxyResponse
 --         {   status = forbidden403
---         ,   body = textPlain \"Forbidden\"
---         ,   headers = mempty
+--         ,   body = Just $ textPlain \"Forbidden\"
 --         ,   multiValueHeaders = mempty
 --         }
 --

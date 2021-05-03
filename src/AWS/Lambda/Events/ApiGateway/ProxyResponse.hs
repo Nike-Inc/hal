@@ -15,6 +15,7 @@ encoding, and default content type.
 module AWS.Lambda.Events.ApiGateway.ProxyResponse
     ( ProxyResponse(..)
     , response
+    , responseNoBody
     , addHeader
     , setHeader
     , ProxyBody(..)
@@ -129,7 +130,7 @@ data ProxyBody = ProxyBody
 --     -- Explicit Construction (not recommended)
 --     ProxyResponse
 --     {   status = forbidden403
---     ,   body = textPlain \"Forbidden\"
+--     ,   body = Just $ textPlain \"Forbidden\"
 --     ,   multiValueHeaders =
 --           fromList [(mk "My-Custom-Header", ["Other Value])]
 --     }
@@ -140,13 +141,18 @@ data ProxyBody = ProxyBody
 data ProxyResponse = ProxyResponse
     { status            :: Status
     , multiValueHeaders :: HashMap (CI T.Text) [T.Text]
-    , body              :: ProxyBody
+    , body              :: Maybe ProxyBody
     } deriving (Show)
 
--- | Smart constructor for creating a ProxyResponse from a status and a body
+-- | Smart constructor for creating a @ProxyResponse@ from a status and a body
 response :: Status -> ProxyBody -> ProxyResponse
-response =
-  flip ProxyResponse mempty
+response status body = ProxyResponse status mempty (Just body)
+
+-- | Construct a @ProxyResponse@ with no body. Useful for redirects.
+--
+-- @since 0.5.0
+responseNoBody :: Status -> ProxyResponse
+responseNoBody status = ProxyResponse status mempty Nothing
 
 -- | Add a header to the ProxyResponse.  If there was already a value for this
 -- header, this one is __added__, meaning the response will include multiple
@@ -195,16 +201,25 @@ applicationJson x =
 -- been converted to a ByteString).
 
 instance ToJSON ProxyResponse where
-    toJSON (ProxyResponse status mvh (ProxyBody contentType body isBase64Encoded)) =
-        let unCI = foldrWithKey (insert . original) mempty
-        in object
+    toJSON (ProxyResponse status mvh mProxyBody) =
+        let
+            unCI = foldrWithKey (insert . original) mempty
+            mvh' = case mProxyBody of
+                Just (ProxyBody contentType _ _) ->
+                    insertWith
+                        (\_ old -> old)
+                        ("Content-Type" :: T.Text)
+                        [contentType]
+                        (unCI mvh)
+                Nothing -> unCI mvh
+            bodyFields = case mProxyBody of
+                Just (ProxyBody _ body isBase64Encoded) ->
+                    [ "body" .= body
+                    , "isBase64Encoded" .= isBase64Encoded
+                    ]
+                Nothing -> []
+
+        in object $
                [ "statusCode" .= statusCode status
-               , "multiValueHeaders" .=
-                     insertWith
-                         (\_ old -> old)
-                         ("Content-Type" :: T.Text)
-                         [contentType]
-                         (unCI mvh)
-               , "body" .= body
-               , "isBase64Encoded" .= isBase64Encoded
-               ]
+               , "multiValueHeaders" .= mvh'
+               ] ++ bodyFields
