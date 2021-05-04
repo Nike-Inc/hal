@@ -55,7 +55,7 @@ data Identity = Identity
     , apiKeyId                      :: Maybe Text
     , userAgent                     :: Maybe Text
     , user                          :: Maybe Text
-    } deriving (Generic)
+    } deriving (Eq, Generic, Show)
 
 instance FromJSON Identity
 instance ToJSON Identity
@@ -74,7 +74,7 @@ data RequestContext a = RequestContext
     , httpMethod        :: Text
     , extendedRequestId :: Maybe Text
     , apiId             :: Text
-    }
+    } deriving (Eq, Generic, Show)
 
 instance FromJSON a => FromJSON (RequestContext a) where
     parseJSON = withObject "ProxyRequest" $ \v ->
@@ -163,7 +163,7 @@ data ProxyRequest a = ProxyRequest
     , queryStringParameters           :: HashMap Text Text
     , multiValueQueryStringParameters :: HashMap Text [Text]
     , body                            :: ByteString
-    } deriving (Generic)
+    } deriving (Eq, Generic, Show)
 
 toCIHashMap :: (Eq k, FoldCase k, Hashable k) => HashMap k a -> HashMap (CI k) a
 toCIHashMap = foldrWithKey (insert . mk) mempty

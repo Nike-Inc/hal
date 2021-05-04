@@ -95,6 +95,7 @@ import           Network.HTTP.Types.Status (Status (..), accepted202,
                                             unprocessableEntity422,
                                             unsupportedMediaType415,
                                             upgradeRequired426, useProxy305)
+import           GHC.Generics               (Generic (..))
 
 -- This function is available in Data.Functor as of base 4.11, but we define it
 -- here for compatibility.
@@ -112,7 +113,7 @@ data ProxyBody = ProxyBody
     { contentType     :: T.Text
     , serialized      :: T.Text
     , isBase64Encoded :: Bool
-    } deriving (Show)
+    } deriving (Eq, Generic, Show)
 
 -- | A response returned to an API Gateway when using the HTTP Lambda Proxy
 -- integration.  ContentType will be set based on the ProxyBody (recommended)
@@ -155,7 +156,7 @@ data ProxyResponse = ProxyResponse
     { status            :: Status
     , multiValueHeaders :: HashMap (CI T.Text) [T.Text]
     , body              :: ProxyBody
-    } deriving (Show)
+    } deriving (Eq, Generic, Show)
 
 toCIHashMap :: (Eq k, FoldCase k, Hashable k) => HashMap k a -> HashMap (CI k) a
 toCIHashMap = foldrWithKey (insert . mk) mempty
