@@ -7,8 +7,10 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
 
 ## `0.4.8` - unreleased
 
-  - Add `ToJSON` instances for `ProxyRequest` types
-  - Add `FromJSON` instance for `ProxyResponse`
+  - Add `ToJSON` instances for `ProxyRequest` types, and test
+    round-tripping as much as possible
+  - Add `FromJSON` instance for `ProxyResponse`, and test
+    round-tripping as much as possible
 
 ## `0.4.7` - 2021-04-12
 

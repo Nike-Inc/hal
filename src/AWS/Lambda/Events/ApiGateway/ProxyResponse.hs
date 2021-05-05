@@ -24,8 +24,6 @@ module AWS.Lambda.Events.ApiGateway.ProxyResponse
     , module Network.HTTP.Types.Status
     ) where
 
-import           Prelude                   hiding (lookup)
-
 import           Data.Aeson                (FromJSON(..), ToJSON, encode,
                                             object, toJSON, withObject, (.:),
                                             (.:?), (.=))
@@ -35,8 +33,8 @@ import           Data.CaseInsensitive      (CI, FoldCase, mk, original)
 import qualified Data.CaseInsensitive      as CI
 import           Data.Foldable             (fold)
 import           Data.Hashable             (Hashable)
-import           Data.HashMap.Strict       (HashMap, foldrWithKey, insert,
-                                            insertWith, lookup)
+import           Data.HashMap.Strict       (HashMap)
+import qualified Data.HashMap.Strict       as H
 import           Data.Semigroup            ((<>))
 import qualified Data.Text                 as T
 import qualified Data.Text.Encoding        as TE
@@ -159,7 +157,7 @@ data ProxyResponse = ProxyResponse
     } deriving (Eq, Generic, Show)
 
 toCIHashMap :: (Eq k, FoldCase k, Hashable k) => HashMap k a -> HashMap (CI k) a
-toCIHashMap = foldrWithKey (insert . mk) mempty
+toCIHashMap = H.foldrWithKey (H.insert . mk) mempty
 
 -- | Smart constructor for creating a ProxyResponse from a status and a body
 response :: Status -> ProxyBody -> ProxyResponse
@@ -172,13 +170,13 @@ response =
 -- previous headers or their values.
 addHeader :: T.Text -> T.Text -> ProxyResponse -> ProxyResponse
 addHeader header value (ProxyResponse s mvh b) =
-  ProxyResponse s (insertWith (<>) (mk header) [value] mvh) b
+  ProxyResponse s (H.insertWith (<>) (mk header) [value] mvh) b
 
 -- | Set a header to the ProxyResponse.  If there were any previous values for
 -- this header they are __all replaced__ by this new value.
 setHeader :: T.Text -> T.Text -> ProxyResponse -> ProxyResponse
 setHeader header value (ProxyResponse s mvh b) =
-  ProxyResponse s (insert (mk header) [value] mvh) b
+  ProxyResponse s (H.insert (mk header) [value] mvh) b
 
 -- | Smart constructor for creating a ProxyBody with an arbitrary ByteString of
 -- the chosen content type.  Use this smart constructor to avoid invalid JSON
@@ -211,11 +209,11 @@ applicationJson x =
 
 instance ToJSON ProxyResponse where
     toJSON (ProxyResponse status mvh (ProxyBody contentType body isBase64Encoded)) =
-        let unCI = foldrWithKey (insert . original) mempty
+        let unCI = H.foldrWithKey (H.insert . original) mempty
         in object
                [ "statusCode" .= statusCode status
                , "multiValueHeaders" .=
-                     insertWith
+                     H.insertWith
                          (\_ old -> old)
                          ("Content-Type" :: T.Text)
                          [contentType]
@@ -228,12 +226,15 @@ instance ToJSON ProxyResponse where
 instance FromJSON ProxyResponse where
     parseJSON = withObject "ProxyResponse" $ \v -> do
         headers <- v .:? "multiValueHeaders" <&> toCIHashMap . fold
-        let contentType =
-              case lookup (CI.map TE.decodeUtf8 hContentType) headers of
-                  Just (h:_) -> h
-                  _ -> "application/octet-stream"
+        -- Move the "Content-Type" header into the ProxyBody. This is
+        -- necessary to ensure round-tripping.
+        let contentTypeHeader = CI.map TE.decodeUtf8 hContentType
+            contentType = case H.lookup contentTypeHeader headers of
+                Just (h:_) -> h
+                _ -> "application/octet-stream"
+            headers' = H.delete contentTypeHeader headers
         status <- v .: "statusCode" <&> toEnum
         proxyBody <- ProxyBody contentType
             <$> v .: "body"
             <*> v .: "isBase64Encoded"
-        pure $ ProxyResponse status headers proxyBody
+        pure $ ProxyResponse status headers' proxyBody

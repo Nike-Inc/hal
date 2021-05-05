@@ -82,8 +82,18 @@ tests:
     dependencies:
     - hal
     - aeson
+    - base64-bytestring
+    - bytestring
+    - case-insensitive
     - containers
+    - hedgehog
     - hspec
+    - hspec-hedgehog
     - http-client
     - http-types
+    - scientific
+    - text
     - time
+    - transformers
+    - unordered-containers
+    - vector

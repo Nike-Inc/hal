@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3bc61c9bb0e8a18aa64090de9bc0dff18a9cdc7872eabcc61f8b60cee3e7016c
+-- hash: 8d7407531964cbc0f58e5c320813a3dbdf8fac1c8829c04d9a61f5e98d569f4f
 
 name:           hal
 version:        0.4.7
@@ -72,6 +72,11 @@ test-suite hal-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen
+      AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen.Parameters
+      AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen.Resource
+      AWS.Lambda.Events.ApiGateway.ProxyResponse.Gen
+      Gen.Header
       Paths_hal
   hs-source-dirs:
       test
@@ -80,10 +85,20 @@ test-suite hal-test
   build-depends:
       aeson
     , base >=4.7 && <5
+    , base64-bytestring
+    , bytestring
+    , case-insensitive
     , containers
     , hal
+    , hedgehog
     , hspec
+    , hspec-hedgehog
     , http-client
     , http-types
+    , scientific
+    , text
     , time
+    , transformers
+    , unordered-containers
+    , vector
   default-language: Haskell2010

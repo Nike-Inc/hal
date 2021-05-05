@@ -18,9 +18,9 @@ module AWS.Lambda.Events.ApiGateway.ProxyRequest
     , StrictlyNoAuthorizer
     ) where
 
-import           Data.Aeson                  (FromJSON(..), ToJSON(..), Value,
-                                              object, withObject, (.=), (.:),
-                                              (.:?))
+import           Data.Aeson                  (FromJSON(..), ToJSON(..),
+                                              Value(..), object, withObject,
+                                              (.=), (.:), (.:?))
 import           Data.ByteString.Base64.Lazy (decodeLenient, encode)
 import           Data.ByteString.Lazy        (ByteString)
 import           Data.CaseInsensitive        (CI, FoldCase, mk, original)
