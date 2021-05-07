@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8d7407531964cbc0f58e5c320813a3dbdf8fac1c8829c04d9a61f5e98d569f4f
+-- hash: 5aa4d3277782a2b5f74a8eee42fd8fc7628f68de720eba62972feb282661473a
 
 name:           hal
 version:        0.4.7
@@ -90,7 +90,7 @@ test-suite hal-test
     , case-insensitive
     , containers
     , hal
-    , hedgehog
+    , hedgehog >=1.0.3 && <1.1
     , hspec
     , hspec-hedgehog
     , http-client
