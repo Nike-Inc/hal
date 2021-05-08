@@ -9,6 +9,7 @@ import           Data.HashMap.Strict       (HashMap)
 import qualified Data.HashMap.Strict       as H
 import           Data.List.NonEmpty        (NonEmpty)
 import qualified Data.List.NonEmpty        as NE
+import           Data.Semigroup            ((<>))
 import qualified Data.Set                  as S
 import           Data.Text                 (Text)
 import qualified Data.Text                 as T

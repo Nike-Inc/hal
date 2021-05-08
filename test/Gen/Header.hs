@@ -6,6 +6,7 @@ import qualified Data.CaseInsensitive      as CI
 import           Data.Char                 (toUpper, toLower)
 import           Data.HashMap.Strict       (HashMap)
 import qualified Data.HashMap.Strict       as H
+import           Data.Semigroup            ((<>))
 import           Data.Set                  (Set)
 import qualified Data.Set                  as S
 import           Data.Text                 (Text)

@@ -2,7 +2,7 @@
 
 module AWS.Lambda.Events.ApiGateway.ProxyResponse.Gen where
 
-import           AWS.Lambda.Events.ApiGateway.ProxyResponse hiding (multiValueHeaders, status)
+import           AWS.Lambda.Events.ApiGateway.ProxyResponse
 import qualified Data.ByteString.Base64                     as B64
 import           Data.CaseInsensitive                       (CI)
 import qualified Data.CaseInsensitive                       as CI
@@ -14,16 +14,16 @@ import qualified Gen.Header                                 as Header
 import           Hedgehog
 import qualified Hedgehog.Gen                               as Gen
 import qualified Hedgehog.Range                             as Range
-import Network.HTTP.Types (hContentType)
+import           Network.HTTP.Types                         (hContentType)
 
 proxyResponse :: Gen ProxyResponse
 proxyResponse = ProxyResponse
-    <$> status
-    <*> multiValueHeaders
-    <*> proxyBody
+    <$> responseStatus
+    <*> responseHeaders
+    <*> responseBody
 
-status :: Gen Status
-status = Gen.element
+responseStatus :: Gen Status
+responseStatus = Gen.element
     [ continue100
     , switchingProtocols101
     , ok200
@@ -77,13 +77,13 @@ status = Gen.element
 -- | Do not generate @Content-Type@ headers, as they will break
 -- round-tripping: the 'ToJSON' instance for 'ProxyResponse' drops the
 -- 'contentType' of the 'ProxyBody' if such a header is present.
-multiValueHeaders :: Gen (HashMap (CI Text) [Text])
-multiValueHeaders = Header.multiValueHeadersExcept
+responseHeaders :: Gen (HashMap (CI Text) [Text])
+responseHeaders = Header.multiValueHeadersExcept
     . S.singleton
     $ CI.map TE.decodeUtf8 hContentType
 
-proxyBody :: Gen ProxyBody
-proxyBody = do
+responseBody :: Gen ProxyBody
+responseBody = do
   contentType <- Gen.text (Range.linear 1 20) Gen.latin1
   (serialized, isBase64Encoded) <- Gen.choice
       [ (, False) <$> Gen.text (Range.exponential 1 2000) Gen.unicode
