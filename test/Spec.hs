@@ -2,16 +2,24 @@ import           AWS.Lambda.Context                (ClientApplication (..),
                                                     ClientContext (..),
                                                     CognitoIdentity (..),
                                                     LambdaContext (..))
+import qualified Gen.Header                        as Header
+import qualified AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen as ProxyRequest
+import qualified AWS.Lambda.Events.ApiGateway.ProxyResponse.Gen as ProxyResponse
 import           AWS.Lambda.Internal               (StaticContext (..))
 import           AWS.Lambda.RuntimeClient.Internal (eventResponseToNextData)
-import           Data.Aeson                        (Value (Null))
+import           Data.Aeson                        (Value (Null), decode, encode)
+import qualified Data.CaseInsensitive              as CI
 import           Data.Map                          (singleton)
 import           Data.Semigroup                    ((<>))
 import           Data.Time.Clock.POSIX             (posixSecondsToUTCTime)
+import           Hedgehog
+import qualified Hedgehog.Gen                      as Gen
+import qualified Hedgehog.Range                    as Range
 import           Network.HTTP.Client.Internal      (Response (..))
 import           Network.HTTP.Types                (Header)
 import           Test.Hspec                        (describe, it, shouldBe,
-                                                    shouldStartWith)
+                                                    shouldStartWith, specify)
+import           Test.Hspec.Hedgehog               (hedgehog)
 import           Test.Hspec.Runner                 (hspec)
 
 main :: IO ()
@@ -198,6 +206,25 @@ main =
         context `shouldBe`
           (Left
              "Runtime Error: Unable to decode Context from event response.\nCould not parse deadline")
+
+    describe "properties" $ do
+        specify "Header.unfoldCase preserves equality" $
+            hedgehog $ do
+                -- CI only promises equality over the Latin-1 set
+                s <- forAll $ CI.mk <$> Gen.text (Range.linear 1 100) Gen.latin1
+                t <- forAll $ Header.unfoldCase s
+                s === t
+
+        specify "ProxyRequest tripping" $
+            hedgehog $ do
+                request <- forAll ProxyRequest.proxyRequest
+                tripping request encode decode
+
+        specify "ProxyResponse tripping" $
+            hedgehog $ do
+                request <- forAll ProxyResponse.proxyResponse
+                tripping request encode decode
+
 
 minResponse :: [Header] -> a -> Response a
 minResponse headers body =

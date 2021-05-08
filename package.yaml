@@ -59,6 +59,7 @@ library:
     - conduit
     - conduit-extra
     - envy
+    - hashable
     - http-client
     - http-types
     - exceptions
@@ -81,8 +82,18 @@ tests:
     dependencies:
     - hal
     - aeson
+    - base64-bytestring
+    - bytestring
+    - case-insensitive
     - containers
+    - hedgehog ^>= 1.0.3
     - hspec
+    - hspec-hedgehog
     - http-client
-    - http-types
+    - http-types ^>= 0.12.2
+    - scientific
+    - text
     - time
+    - transformers
+    - unordered-containers
+    - vector

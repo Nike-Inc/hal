@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
+## `0.4.8` - unreleased
+
+  - Add `ToJSON` instances for `ProxyRequest` types, and test
+    round-tripping as much as possible
+  - Add `FromJSON` instance for `ProxyResponse`, and test
+    round-tripping as much as possible
+
 ## `0.4.7` - 2021-04-12
 
   - Drop http-conduit as a dependency for potentially smaller binaries

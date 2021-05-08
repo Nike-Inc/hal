@@ -46,7 +46,8 @@ jobs:
       - name: Install Project Dependencies (Cabal v2)
         run: |
           set -ex
-          cabal install --enable-tests --enable-benchmarks --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1 
+          cabal install happy
+          cabal install --enable-tests --enable-benchmarks --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1
           set +ex
         if: "!startsWith(matrix.plan.cabal-version, '3')"
       - name: Build Project

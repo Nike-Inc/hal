@@ -41,14 +41,14 @@ jobs:
       - name: Install Project Dependencies
         run: |
           set -ex
-          stack --no-docker --no-terminal --install-ghc --resolver $RESOLVER test --bench --only-dependencies
+          stack --no-docker --no-terminal --install-ghc --stack-yaml stack-$RESOLVER.yaml --resolver $RESOLVER test --bench --only-dependencies
           set +ex
         env:
           RESOLVER: ${{ matrix.resolver }}
       - name: Build Project
         run: |
           set -ex
-          stack --no-docker --no-terminal --resolver $RESOLVER test --bench --no-run-benchmarks --haddock --no-haddock-deps
+          stack --no-docker --no-terminal --stack-yaml stack-$RESOLVER.yaml --resolver $RESOLVER test --bench --no-run-benchmarks --haddock --no-haddock-deps
           set +ex
         env:
           RESOLVER: ${{ matrix.resolver }}

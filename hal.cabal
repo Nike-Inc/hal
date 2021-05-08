@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 557af18f03f463b0f035e2cce32a527e96357e255ae8ee74518c0f6f3c6811c2
+-- hash: 71609b4648a62b91c8ea748203f49d4995bf918f03082300cacba20b980a57c0
 
 name:           hal
 version:        0.4.7
@@ -59,6 +59,7 @@ library
     , containers
     , envy
     , exceptions
+    , hashable
     , http-client
     , http-types
     , mtl
@@ -71,6 +72,11 @@ test-suite hal-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen
+      AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen.Parameters
+      AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen.Resource
+      AWS.Lambda.Events.ApiGateway.ProxyResponse.Gen
+      Gen.Header
       Paths_hal
   hs-source-dirs:
       test
@@ -79,10 +85,20 @@ test-suite hal-test
   build-depends:
       aeson
     , base >=4.7 && <5
+    , base64-bytestring
+    , bytestring
+    , case-insensitive
     , containers
     , hal
+    , hedgehog >=1.0.3 && <1.1
     , hspec
+    , hspec-hedgehog
     , http-client
-    , http-types
+    , http-types >=0.12.2 && <0.13
+    , scientific
+    , text
     , time
+    , transformers
+    , unordered-containers
+    , vector
   default-language: Haskell2010

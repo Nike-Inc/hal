@@ -24,18 +24,23 @@ module AWS.Lambda.Events.ApiGateway.ProxyResponse
     , module Network.HTTP.Types.Status
     ) where
 
-import           Data.Aeson                (ToJSON, encode, object, toJSON,
-                                            (.=))
+import           Data.Aeson                (FromJSON(..), ToJSON, encode,
+                                            object, toJSON, withObject, (.:),
+                                            (.:?), (.=))
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Base64    as B64
-import           Data.CaseInsensitive      (CI, mk, original)
-import           Data.HashMap.Strict       (HashMap, foldrWithKey, insert,
-                                            insertWith)
+import           Data.CaseInsensitive      (CI, FoldCase, mk, original)
+import qualified Data.CaseInsensitive      as CI
+import           Data.Foldable             (fold)
+import           Data.Hashable             (Hashable)
+import           Data.HashMap.Strict       (HashMap)
+import qualified Data.HashMap.Strict       as H
 import           Data.Semigroup            ((<>))
 import qualified Data.Text                 as T
 import qualified Data.Text.Encoding        as TE
 import qualified Data.Text.Lazy            as TL
 import qualified Data.Text.Lazy.Encoding   as TLE
+import           Network.HTTP.Types.Header (hContentType)
 import           Network.HTTP.Types.Status (Status (..), accepted202,
                                             badGateway502, badRequest400,
                                             conflict409, continue100,
@@ -88,6 +93,14 @@ import           Network.HTTP.Types.Status (Status (..), accepted202,
                                             unprocessableEntity422,
                                             unsupportedMediaType415,
                                             upgradeRequired426, useProxy305)
+import           GHC.Generics               (Generic (..))
+
+-- This function is available in Data.Functor as of base 4.11, but we define it
+-- here for compatibility.
+(<&>) :: Functor f => f a -> (a -> b) -> f b
+(<&>) x f = f <$> x
+
+infixl 1 <&>
 
 -- | Type that represents the body returned to an API Gateway when using HTTP
 -- Lambda Proxy integration.  It is highly recommended that you do not use this
@@ -98,7 +111,7 @@ data ProxyBody = ProxyBody
     { contentType     :: T.Text
     , serialized      :: T.Text
     , isBase64Encoded :: Bool
-    } deriving (Show)
+    } deriving (Eq, Generic, Show)
 
 -- | A response returned to an API Gateway when using the HTTP Lambda Proxy
 -- integration.  ContentType will be set based on the ProxyBody (recommended)
@@ -141,7 +154,10 @@ data ProxyResponse = ProxyResponse
     { status            :: Status
     , multiValueHeaders :: HashMap (CI T.Text) [T.Text]
     , body              :: ProxyBody
-    } deriving (Show)
+    } deriving (Eq, Generic, Show)
+
+toCIHashMap :: (Eq k, FoldCase k, Hashable k) => HashMap k a -> HashMap (CI k) a
+toCIHashMap = H.foldrWithKey (H.insert . mk) mempty
 
 -- | Smart constructor for creating a ProxyResponse from a status and a body
 response :: Status -> ProxyBody -> ProxyResponse
@@ -154,13 +170,13 @@ response =
 -- previous headers or their values.
 addHeader :: T.Text -> T.Text -> ProxyResponse -> ProxyResponse
 addHeader header value (ProxyResponse s mvh b) =
-  ProxyResponse s (insertWith (<>) (mk header) [value] mvh) b
+  ProxyResponse s (H.insertWith (<>) (mk header) [value] mvh) b
 
 -- | Set a header to the ProxyResponse.  If there were any previous values for
 -- this header they are __all replaced__ by this new value.
 setHeader :: T.Text -> T.Text -> ProxyResponse -> ProxyResponse
 setHeader header value (ProxyResponse s mvh b) =
-  ProxyResponse s (insert (mk header) [value] mvh) b
+  ProxyResponse s (H.insert (mk header) [value] mvh) b
 
 -- | Smart constructor for creating a ProxyBody with an arbitrary ByteString of
 -- the chosen content type.  Use this smart constructor to avoid invalid JSON
@@ -191,16 +207,13 @@ applicationJson x =
         (TL.toStrict $ TLE.decodeUtf8 $ encode x)
         False
 
--- | Smart constructor for creating a simple body of a GIF (that has already
--- been converted to a ByteString).
-
 instance ToJSON ProxyResponse where
     toJSON (ProxyResponse status mvh (ProxyBody contentType body isBase64Encoded)) =
-        let unCI = foldrWithKey (insert . original) mempty
+        let unCI = H.foldrWithKey (H.insert . original) mempty
         in object
                [ "statusCode" .= statusCode status
                , "multiValueHeaders" .=
-                     insertWith
+                     H.insertWith
                          (\_ old -> old)
                          ("Content-Type" :: T.Text)
                          [contentType]
@@ -208,3 +221,20 @@ instance ToJSON ProxyResponse where
                , "body" .= body
                , "isBase64Encoded" .= isBase64Encoded
                ]
+
+-- | @since 0.4.8
+instance FromJSON ProxyResponse where
+    parseJSON = withObject "ProxyResponse" $ \v -> do
+        headers <- v .:? "multiValueHeaders" <&> toCIHashMap . fold
+        -- Move the "Content-Type" header into the ProxyBody. This is
+        -- necessary to ensure round-tripping.
+        let contentTypeHeader = CI.map TE.decodeUtf8 hContentType
+            contentType = case H.lookup contentTypeHeader headers of
+                Just (h:_) -> h
+                _ -> "application/octet-stream"
+            headers' = H.delete contentTypeHeader headers
+        status <- v .: "statusCode" <&> toEnum
+        proxyBody <- ProxyBody contentType
+            <$> v .: "body"
+            <*> v .: "isBase64Encoded"
+        pure $ ProxyResponse status headers' proxyBody
