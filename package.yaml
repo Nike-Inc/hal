@@ -90,7 +90,7 @@ tests:
     - hspec
     - hspec-hedgehog
     - http-client
-    - http-types
+    - http-types ^>= 0.12.2
     - scientific
     - text
     - time

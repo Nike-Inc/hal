@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 5aa4d3277782a2b5f74a8eee42fd8fc7628f68de720eba62972feb282661473a
+-- hash: 71609b4648a62b91c8ea748203f49d4995bf918f03082300cacba20b980a57c0
 
 name:           hal
 version:        0.4.7
@@ -94,7 +94,7 @@ test-suite hal-test
     , hspec
     , hspec-hedgehog
     , http-client
-    , http-types
+    , http-types >=0.12.2 && <0.13
     , scientific
     , text
     , time
