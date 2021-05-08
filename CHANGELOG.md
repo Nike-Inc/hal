@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
-## `0.4.8` - unreleased
+## `0.4.8` - 2021-05-07
 
   - Add `ToJSON` instances for `ProxyRequest` types, and test
     round-tripping as much as possible

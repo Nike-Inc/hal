@@ -1,13 +1,13 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.2.
+-- This file has been generated from package.yaml by hpack version 0.33.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 71609b4648a62b91c8ea748203f49d4995bf918f03082300cacba20b980a57c0
+-- hash: 7c955e07ae70fb5926acbb0029b59e32fb611f8acf5fbac34f5112f883602f07
 
 name:           hal
-version:        0.4.7
+version:        0.4.8
 synopsis:       A runtime environment for Haskell applications running on AWS Lambda.
 description:    This library uniquely supports different types of AWS Lambda Handlers for your
                 needs/comfort with advanced Haskell. Instead of exposing a single function
