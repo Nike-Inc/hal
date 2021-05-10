@@ -13,8 +13,8 @@ For lambdas that are pure and safe, then `pureRuntime` is ideal.
 It accepts a handler with the signature `(FromJSON a, ToJSON b) => a -> b`.
 This runtime guarantees that side-effects cannot occur.
 
-For advanced use cases `mRuntimeWithContext` unlocks the full power of Monad Transformers.
-It accepts handlers with the signature `(HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>  (event -> m result)`
+For advanced use cases `mRuntime` unlocks the full power of Monad Transformers.
+It accepts handlers with the signature `(MonadCatch m, MonadIO m, FromJSON event, ToJSON result) =>  (event -> m result)`
 This enables users to add caching logic or expose complex environments.
 
 With numerous options in between these two, developers can choose the right balance of flexibility vs simplicity.
@@ -85,10 +85,10 @@ import Data.Aeson         (FromJSON, ToJSON)
 import GHC.Generics       (Generic)
 
 data IdEvent  = IdEvent { input   :: String } deriving Generic
-instance FromJSON IdEvent where
+instance FromJSON IdEvent
 
 data IdResult = IdResult { output :: String } deriving Generic
-instance ToJSON IdResult where
+instance ToJSON IdResult
 
 handler :: IdEvent -> IdResult
 handler IdEvent { input } = IdResult { output = input }
