@@ -63,9 +63,8 @@ dependency list (either `project-name.cabal` or `package.yaml`)
 
 ```yaml
 #...
-packages:
-  - '.'
-  - hal-0.1.2
+extra-deps:
+  - hal-${DESIRED_VERSION}
 # ...
 docker:
   enable: true
