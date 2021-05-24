@@ -90,7 +90,7 @@ stack build --copy-bins
 
 # Create your function package
 aws cloudformation package \
-  --template-file template.yaml
+  --template-file template.yaml \
   --s3-bucket your-existing-bucket > \
   deployment_stack.yaml
 
@@ -104,8 +104,8 @@ aws cloudformation deploy \
 # Take it for a spin!
 aws lambda invoke \
   --function-name your-function-name \
-  --region us-west-2
-  --payload '{"input": "foo"}'
+  --region us-west-2 \
+  --payload '{"input": "foo"}' \
   output.txt
 ```
 
