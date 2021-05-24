@@ -1,4 +1,5 @@
-[![Build Status](https://travis-ci.org/Nike-Inc/hal.svg?branch=master)](https://travis-ci.org/Nike-Inc/hal)
+[![Stack Haskell Builds](https://github.com/Nike-Inc/hal/actions/workflows/haskell_stack.yaml/badge.svg)](https://github.com/Nike-Inc/hal/actions/workflows/haskell_stack.yaml)
+[![Cabal Haskell Builds](https://github.com/Nike-Inc/hal/actions/workflows/haskell_cabal.yaml/badge.svg)](https://github.com/Nike-Inc/hal/actions/workflows/haskell_cabal.yaml)
 
 # hal
 
