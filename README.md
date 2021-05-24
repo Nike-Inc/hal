@@ -61,8 +61,7 @@ dependency list (either `project-name.cabal` or `package.yaml`)
 
 ```yaml
 #...
-packages:
-  - '.'
+extra-deps:
   - hal-0.1.2
 # ...
 docker:
