@@ -183,7 +183,7 @@ echo '{ "accountId": "byebye" }' | sam local invoke --region us-east-1
 [aws-sam-cli]: https://github.com/awslabs/aws-sam-cli
 [Rust Runtime]: https://github.com/awslabs/aws-lambda-rust-runtime
 [lambda-env]: https://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
-[ci]: https://travis-ci.org/Nike-Inc/hal
+[ci]: https://github.com/Nike-Inc/hal/actions
 [stackage]: https://www.stackage.org/
 [GHC]: https://www.haskell.org/ghc/download.html
 [Cabal]: https://www.haskell.org/cabal/download.html
