@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-|
 Module      : AWS.Lambda.Events.ApiGateway.ProxyResponse
 Description : Data types that represent typical lambda responses
@@ -35,7 +36,9 @@ import           Data.Foldable             (fold)
 import           Data.Hashable             (Hashable)
 import           Data.HashMap.Strict       (HashMap)
 import qualified Data.HashMap.Strict       as H
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Semigroup            ((<>))
+#endif
 import qualified Data.Text                 as T
 import qualified Data.Text.Encoding        as TE
 import qualified Data.Text.Lazy            as TL

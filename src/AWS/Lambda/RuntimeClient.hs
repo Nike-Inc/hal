@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-|
 Module      : AWS.Lambda.RuntimeClient
 Description : HTTP related machinery for talking to the AWS Lambda Custom Runtime interface.
@@ -19,7 +20,6 @@ module AWS.Lambda.RuntimeClient (
 import           AWS.Lambda.Context                (LambdaContext)
 import           AWS.Lambda.Internal               (StaticContext, getStaticContext)
 import           AWS.Lambda.RuntimeClient.Internal (eventResponseToNextData)
-import           Control.Applicative               ((<*>))
 import           Control.Concurrent                (threadDelay)
 import           Control.Exception                 (IOException, displayException,
                                                     throw, try)
@@ -34,7 +34,9 @@ import qualified Data.ByteString.Lazy              as BSW
 import           Data.Conduit                      (ConduitM, runConduit, yield,
                                                     (.|))
 import           Data.Conduit.Attoparsec           (sinkParser)
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Semigroup                    ((<>))
+#endif
 import           GHC.Generics                      (Generic (..))
 import           Network.HTTP.Client               (BodyReader, HttpException,
                                                     Manager, Request,
