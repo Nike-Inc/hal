@@ -5,6 +5,7 @@ import           AWS.Lambda.Context                (ClientApplication (..),
 import qualified Gen.Header                        as Header
 import qualified AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen as ProxyRequest
 import qualified AWS.Lambda.Events.ApiGateway.ProxyResponse.Gen as ProxyResponse
+import qualified AWS.Lambda.Events.Kafka.Spec      as Kafka
 import           AWS.Lambda.Internal               (StaticContext (..))
 import           AWS.Lambda.RuntimeClient.Internal (eventResponseToNextData)
 import           Data.Aeson                        (Value (Null), decode, encode)
@@ -25,6 +26,7 @@ import           Test.Hspec.Runner                 (hspec)
 main :: IO ()
 main =
   hspec $ do
+    describe "KafkaEvent" Kafka.spec
     describe "Event Response Data" $ do
       let staticContext =
             StaticContext
