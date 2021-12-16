@@ -20,7 +20,7 @@ import           Test.Hspec.Hedgehog         (hedgehog)
 import           Text.RawString.QQ           (r)
 
 spec :: Spec
-spec = describe "KafkaEvent" $ do
+spec = do
     specify "read MSK payload" $
         eitherDecode sampleMskPayload
             `shouldBe` Right expectedMskPayload
