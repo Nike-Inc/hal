@@ -3,12 +3,13 @@ import           AWS.Lambda.Context                (ClientApplication (..),
                                                     CognitoIdentity (..),
                                                     LambdaContext (..))
 import qualified Gen.Header                        as Header
-import qualified AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen as ProxyRequest
-import qualified AWS.Lambda.Events.ApiGateway.ProxyResponse.Gen as ProxyResponse
+import qualified AWS.Lambda.Events.ApiGateway.ProxyRequest.Spec as ProxyRequest
+import qualified AWS.Lambda.Events.ApiGateway.ProxyResponse.Spec as ProxyResponse
+
 import qualified AWS.Lambda.Events.Kafka.Spec      as Kafka
 import           AWS.Lambda.Internal               (StaticContext (..))
 import           AWS.Lambda.RuntimeClient.Internal (eventResponseToNextData)
-import           Data.Aeson                        (Value (Null), decode, encode)
+import           Data.Aeson                        (Value (Null))
 import qualified Data.CaseInsensitive              as CI
 import           Data.Map                          (singleton)
 import           Data.Semigroup                    ((<>))
@@ -26,7 +27,12 @@ import           Test.Hspec.Runner                 (hspec)
 main :: IO ()
 main =
   hspec $ do
-    describe "KafkaEvent" Kafka.spec
+    describe "Events" $ do
+      describe "Kafka" Kafka.spec
+      describe "ApiGateway" $ do
+        describe "ProxyRequest" ProxyRequest.spec
+        describe "ProxyResponse" ProxyResponse.spec
+
     describe "Event Response Data" $ do
       let staticContext =
             StaticContext
@@ -216,17 +222,6 @@ main =
                 s <- forAll $ CI.mk <$> Gen.text (Range.linear 1 100) Gen.latin1
                 t <- forAll $ Header.unfoldCase s
                 s === t
-
-        specify "ProxyRequest tripping" $
-            hedgehog $ do
-                request <- forAll ProxyRequest.proxyRequest
-                tripping request encode decode
-
-        specify "ProxyResponse tripping" $
-            hedgehog $ do
-                request <- forAll ProxyResponse.proxyResponse
-                tripping request encode decode
-
 
 minResponse :: [Header] -> a -> Response a
 minResponse headers body =

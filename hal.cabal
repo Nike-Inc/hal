@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 379155184c5b0737922c4723661569ad7f8dded92f329cf103cce715f86505d9
+-- hash: 7a06a90a677a7608851d79aabd34f2ce8856ba75c861cc7c8a0c54e8e6e11a82
 
 name:           hal
 version:        0.4.8
@@ -96,7 +96,9 @@ test-suite hal-test
       AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen
       AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen.Parameters
       AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen.Resource
+      AWS.Lambda.Events.ApiGateway.ProxyRequest.Spec
       AWS.Lambda.Events.ApiGateway.ProxyResponse.Gen
+      AWS.Lambda.Events.ApiGateway.ProxyResponse.Spec
       AWS.Lambda.Events.Kafka.Gen
       AWS.Lambda.Events.Kafka.Spec
       Gen.Header

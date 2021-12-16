@@ -30,7 +30,7 @@ spec = do
             `shouldBe` Right expectedSelfManagedKafkaPayload
 
     describe "properties" $ do
-        specify "KafkaEvent tripping" $
+        specify "tripping" $
             hedgehog $ do
                 request <- forAll Gen.kafkaEvent
                 tripping request encode decode
