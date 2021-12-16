@@ -28,10 +28,10 @@ main :: IO ()
 main =
   hspec $ do
     describe "Events" $ do
-      describe "Kafka" Kafka.spec
       describe "ApiGateway" $ do
         describe "ProxyRequest" ProxyRequest.spec
         describe "ProxyResponse" ProxyResponse.spec
+      describe "Kafka" Kafka.spec
 
     describe "Event Response Data" $ do
       let staticContext =
