@@ -53,6 +53,7 @@ import           Data.Int               (Int32, Int64)
 import           Data.Map               (Map)
 import           Data.Maybe             (catMaybes, maybeToList)
 import           Data.Scientific        (toBoundedInteger)
+import           Data.Semigroup         ((<>))
 import           Data.Text              (Text)
 import qualified Data.Text              as T
 import qualified Data.Text.Encoding     as TE

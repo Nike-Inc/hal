@@ -14,6 +14,7 @@ import           Data.List                  (intersperse)
 import qualified Data.List.NonEmpty         as NE
 import           Data.List.NonEmpty         (NonEmpty)
 import           Data.Map                   (Map)
+import           Data.Semigroup             ((<>))
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
 import           Data.Time                  (UTCTime)
