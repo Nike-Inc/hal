@@ -67,10 +67,10 @@ library:
     - http-client
     - http-types
     - mtl
-    - scientific ^>=0.3.7.0
+    - scientific ^>=0.3.3.0
     - text
     - time
-    - vector ^>=0.12.3.1
+    - vector ^>=0.12.0.0
     - unordered-containers
 
 tests:
