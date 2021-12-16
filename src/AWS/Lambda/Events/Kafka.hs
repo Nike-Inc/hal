@@ -10,16 +10,17 @@ License     : BSD3
 Stability   : stable
 
 It is possible to subscribe Lambda functions to Kafka topics. You can
-subscribe to topics in Amazon Managed Streaming for Kafka (MSK) as
+subscribe to topics from Amazon Managed Streaming for Kafka (MSK) as
 well as self-managed Kafka clusters.
 
-The AWS documentation does not appear to detail the payload format for
-Kafka event sources. Lambda considers Amazon Managed Streaming for
-Kafka (MSK) to be a different event source type from a self-managed
-Apache Kafka cluster, but their payloads are very similar. The types
-in this module are derived from inspecting invocation payloads, and
-from reading the following blog posts:
+Lambda considers Amazon Managed Streaming for Kafka (MSK) to be a
+different event source type from a self-managed Apache Kafka cluster,
+but their payloads are very similar. The types in this module are
+derived from inspecting invocation payloads, and from reading the
+following links:
 
+  * https://docs.aws.amazon.com/lambda/latest/dg/with-kafka.html
+  * https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html
   * https://aws.amazon.com/blogs/compute/using-amazon-msk-as-an-event-source-for-aws-lambda/
   * https://aws.amazon.com/blogs/compute/using-self-hosted-apache-kafka-as-an-event-source-for-aws-lambda/
 
