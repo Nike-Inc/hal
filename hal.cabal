@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7a06a90a677a7608851d79aabd34f2ce8856ba75c861cc7c8a0c54e8e6e11a82
+-- hash: 327a2d82769ec84b924f14400948e4bd8307be4791cbd7810a48856ce7827053
 
 name:           hal
 version:        0.4.8
@@ -82,11 +82,11 @@ library
     , http-client
     , http-types
     , mtl
-    , scientific >=0.3.7.0 && <0.4
+    , scientific >=0.3.3.0 && <0.4
     , text
     , time
     , unordered-containers
-    , vector >=0.12.3.1 && <0.13
+    , vector >=0.12.0.0 && <0.13
   default-language: Haskell2010
 
 test-suite hal-test
