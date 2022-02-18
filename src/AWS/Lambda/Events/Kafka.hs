@@ -41,6 +41,7 @@ module AWS.Lambda.Events.Kafka (
 ) where
 
 import           Data.Aeson
+import           Data.Aeson.Encoding    (text)
 import           Data.Aeson.Types
 import           Data.ByteString        (ByteString)
 import qualified Data.ByteString        as B
@@ -117,6 +118,12 @@ instance ToJSON KafkaEvent where
     , "records" .= records e
     ] <> maybeToList (("eventSourceArn" .=) <$> eventSourceArn e)
 
+  toEncoding e = pairs . mconcat $
+    [ "eventSource" .= eventSource e
+    , "bootstrapServers" .= T.intercalate "," (NE.toList (bootstrapServers e))
+    , "records" .= records e
+    ] <> maybeToList (("eventSourceArn" .=) <$> eventSourceArn e)
+
 data EventSource
   = AwsKafka -- ^ @"aws:kafka"@
   | SelfManagedKafka -- ^ @"SelfManagedKafka"@
@@ -132,6 +139,10 @@ instance ToJSON EventSource where
   toJSON = \case
     AwsKafka -> String "aws:kafka"
     SelfManagedKafka -> String "SelfManagedKafka"
+
+  toEncoding = text . \case
+    AwsKafka -> "aws:kafka"
+    SelfManagedKafka -> "SelfManagedKafka"
 
 -- | Convenience alias: most of the time you will parse the records
 -- straight into some app-specific structure.
@@ -182,6 +193,20 @@ instance ToJSON (Record' ByteString) where
       ]
     ]
 
+  toEncoding r = pairs . mconcat . concat $
+    [
+      [ "offset" .= offset r
+      , "partition" .= partition r
+      , "topic" .= topic r
+      , "headers" .= headers r
+      ]
+    , unparseTimestamp (timestamp r)
+    , catMaybes
+      [ ("key" .=) . TE.decodeUtf8 . B64.encode <$> key r
+      , ("value" .=) . TE.decodeUtf8 . B64.encode <$> value r
+      ]
+    ]
+
 -- | AWS serialises record headers to JSON as an array of
 -- objects. From their docs:
 --
@@ -204,6 +229,7 @@ instance FromJSON Header where
 
 instance ToJSON Header where
   toJSON (Header key value) = object [keyFromText key .= B.unpack value]
+  toEncoding (Header key value) = pairs $ keyFromText key .= B.unpack value
 
 -- | Kafka timestamp types, derived from the Java client's enum at:
 -- https://github.com/apache/kafka/blob/trunk/clients/src/main/java/org/apache/kafka/common/record/TimestampType.java
