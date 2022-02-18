@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs             #-}
 {-# LANGUAGE NamedFieldPuns    #-}
 
 {-|
@@ -157,7 +156,7 @@ data Record' a = Record {
 } deriving (Eq, Show, Generic, Functor, Foldable, Traversable)
 
 -- | Decodes base64-encoded keys and values, where present.
-instance a ~ ByteString => FromJSON (Record' a) where
+instance FromJSON (Record' ByteString) where
   parseJSON = withObject "Record" $ \o -> do
     topic <- o .: "topic"
     partition <- o .: "partition"
@@ -169,7 +168,7 @@ instance a ~ ByteString => FromJSON (Record' a) where
     pure Record { topic, partition, offset, timestamp, headers, key, value }
 
 -- | Encodes keys and values into base64.
-instance a ~ ByteString => ToJSON (Record' a) where
+instance ToJSON (Record' ByteString) where
   toJSON r = object $ concat
     [
       [ "offset" .= offset r
