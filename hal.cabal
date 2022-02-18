@@ -86,7 +86,6 @@ library
     , text
     , time
     , unordered-containers
-    , vector >=0.12.0.0 && <0.13
   default-language: Haskell2010
 
 test-suite hal-test
@@ -144,5 +143,5 @@ test-suite hal-test
     , time
     , transformers
     , unordered-containers
-    , vector
+    , vector >=0.12.0.0 && <0.13
   default-language: Haskell2010

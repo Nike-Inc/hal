@@ -12,8 +12,6 @@ import qualified Data.List.NonEmpty          as NE
 import qualified Data.Map                    as M
 import           Data.Time                   (UTCTime(..), fromGregorian,
                                               picosecondsToDiffTime)
-import           Data.Vector                 (Vector)
-import qualified Data.Vector                 as V
 import           Hedgehog                    (forAll, tripping)
 import           Test.Hspec                  (Spec, describe, shouldBe, specify)
 import           Test.Hspec.Hedgehog         (hedgehog)
@@ -84,7 +82,7 @@ expectedMskPayload = KafkaEvent
     ]
   , records = M.fromList
     [ ( "welcome-to-the-space-jam-0"
-      , [ withHeaders (V.singleton $ Header "headerKey" "headerValue")
+      , [ withHeaders [Header "headerKey" "headerValue"]
           . slamJamRecord 1
           $ UTCTime
               (fromGregorian 2021 05 18)
@@ -191,11 +189,11 @@ slamJamRecord off stamp = Record
   { topic = "welcome-to-the-space-jam"
   , partition = 0
   , offset = off
-  , headers = V.fromList []
+  , headers = []
   , timestamp = CreateTime stamp
   , key = Just "slam"
   , value = Just "jam"
   }
 
-withHeaders :: Vector Header -> Record -> Record
+withHeaders :: [Header] -> Record -> Record
 withHeaders headers record = record { headers }

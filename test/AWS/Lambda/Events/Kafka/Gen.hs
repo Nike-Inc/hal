@@ -19,8 +19,6 @@ import           Data.Text                  (Text)
 import qualified Data.Text                  as T
 import           Data.Time                  (UTCTime)
 import           Data.Traversable           (for)
-import           Data.Vector
-import qualified Data.Vector                as V
 import           Hedgehog                   (Gen)
 import qualified Hedgehog.Gen               as Gen
 import qualified Hedgehog.Range             as Range
@@ -97,8 +95,8 @@ timestamp = Gen.choice
     utcTime = int64ToUTCTime <$> Gen.int64
       (Range.exponentialFrom 1600000000000 1650000000000 1700000000000)
 
-headers :: Gen (Vector Header)
-headers = V.fromList <$> Gen.list (Range.linear 0 10)
+headers :: Gen [Header]
+headers = Gen.list (Range.linear 0 10)
   (Header
     <$> Gen.text (Range.linear 0 512) Gen.unicode
     <*> Gen.bytes (Range.linear 0 512))

@@ -59,7 +59,6 @@ import qualified Data.Text.Encoding     as TE
 import           Data.Time              (UTCTime)
 import           Data.Time.Clock.POSIX  (posixSecondsToUTCTime,
                                          utcTimeToPOSIXSeconds)
-import           Data.Vector            (Vector)
 import           GHC.Generics           (Generic)
 
 #if MIN_VERSION_aeson(2,0,0)
@@ -150,7 +149,7 @@ data Record' a = Record {
   offset :: !Int64,
   timestamp :: !Timestamp,
   -- | NOTE: there can be multiple headers for a given key.
-  headers :: !(Vector Header),
+  headers :: [Header],
   key :: !(Maybe ByteString),
   value :: !(Maybe a)
 } deriving (Eq, Show, Generic, Functor, Foldable, Traversable)
