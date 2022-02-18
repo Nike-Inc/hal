@@ -142,7 +142,7 @@ type Record = Record' ByteString
 -- you can do things like parse a JSON-encoded payload:
 --
 -- @
--- 'traverse' 'decodeStrict' :: 'FromJSON' a => Record ByteString -> Maybe (Record a)
+-- 'traverse' 'decodeStrict' :: 'FromJSON' a => Record -> Maybe (Record' a)
 -- @
 data Record' a = Record {
   topic :: !Text,
