@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.5.
+-- This file has been generated from package.yaml by hpack version 0.33.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e409c6f94d9233f3717ac3daa95fbd3d9e657ac64b956c2ba9ca28ad6bec4791
+-- hash: 78eb5c9ecf1ce3cfda314e04bee0fe37fa34a31473a6348fd64299eecb2e2a0b
 
 name:           hal
 version:        0.4.8
@@ -132,7 +132,7 @@ test-suite hal-test
     , case-insensitive
     , containers
     , hal
-    , hedgehog >=1.0.3 && <1.1
+    , hedgehog >=1.0.3 && <1.2
     , hspec
     , hspec-hedgehog
     , http-client

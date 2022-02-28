@@ -87,7 +87,7 @@ tests:
     - bytestring
     - case-insensitive
     - containers
-    - hedgehog ^>= 1.0.3
+    - hedgehog >= 1.0.3 && < 1.2
     - hspec
     - hspec-hedgehog
     - http-client
