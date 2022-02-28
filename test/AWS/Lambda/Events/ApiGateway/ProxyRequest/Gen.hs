@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 module AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen where
 
 import qualified AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen.Resource as Resource
@@ -6,7 +8,6 @@ import           AWS.Lambda.Events.ApiGateway.ProxyRequest
 import           Control.Applicative                        (liftA2)
 import           Data.Aeson                                 (Value(..))
 import qualified Data.ByteString.Lazy                       as BL
-import qualified Data.HashMap.Strict                        as H
 import           Data.Scientific                            (fromFloatDigits)
 import qualified Data.Vector                                as V
 import qualified Gen.Header                                 as Header
@@ -16,6 +17,21 @@ import qualified Hedgehog.Range                             as Range
 import           Network.HTTP.Types                         (renderStdMethod)
 import           Data.Text                                  (Text)
 import qualified Data.Text.Encoding                         as TE
+
+#if MIN_VERSION_aeson(2,0,0)
+import           Data.Aeson.Key         (Key)
+import qualified Data.Aeson.Key         as Key
+import qualified Data.Aeson.KeyMap      as KM
+
+keyFromText :: Text -> Key
+keyFromText = Key.fromText
+#else
+import qualified Data.HashMap.Strict    as KM
+type Key = Text
+
+keyFromText :: Text -> Key
+keyFromText = id
+#endif
 
 proxyRequest :: Gen (ProxyRequest NoAuthorizer)
 proxyRequest = do
@@ -105,8 +121,8 @@ authJson = Gen.recursive Gen.choice
     [string, number, Bool <$> Gen.bool]
     [object, array]
     where
-        object = Object . H.fromList <$> Gen.list (Range.linear 1 50) entry
-        entry = liftA2 (,) text authJson
+        object = Object . KM.fromList <$> Gen.list (Range.linear 1 50) entry
+        entry = liftA2 (,) (keyFromText <$> text) authJson
         array = Array . V.fromList <$> Gen.list (Range.linear 1 50) authJson
         string = String <$> Gen.text (Range.exponential 1 200) Gen.unicode
         number = Number . fromFloatDigits <$>

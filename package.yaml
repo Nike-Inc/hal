@@ -55,21 +55,22 @@ library:
   source-dirs: src
   dependencies:
     - aeson
+    - base64-bytestring
     - bytestring
+    - case-insensitive
     - conduit
     - conduit-extra
+    - containers
     - envy
+    - exceptions
     - hashable
     - http-client
     - http-types
-    - exceptions
     - mtl
-    - containers
-    - unordered-containers
-    - time
+    - scientific ^>=0.3.3.0
     - text
-    - base64-bytestring
-    - case-insensitive
+    - time
+    - unordered-containers
 
 tests:
   hal-test:
@@ -81,7 +82,7 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - hal
-    - aeson
+    - aeson >=1.2.0.0 && <1.6 || ^>=2.0.0.0
     - base64-bytestring
     - bytestring
     - case-insensitive
@@ -91,9 +92,10 @@ tests:
     - hspec-hedgehog
     - http-client
     - http-types ^>= 0.12.2
+    - raw-strings-qq ^>=1.1
     - scientific
     - text
     - time
     - transformers
     - unordered-containers
-    - vector
+    - vector ^>=0.12.0.0

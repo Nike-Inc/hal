@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.5.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7c955e07ae70fb5926acbb0029b59e32fb611f8acf5fbac34f5112f883602f07
+-- hash: e409c6f94d9233f3717ac3daa95fbd3d9e657ac64b956c2ba9ca28ad6bec4791
 
 name:           hal
 version:        0.4.8
@@ -35,6 +35,7 @@ library
       AWS.Lambda.Context
       AWS.Lambda.Events.ApiGateway.ProxyRequest
       AWS.Lambda.Events.ApiGateway.ProxyResponse
+      AWS.Lambda.Events.Kafka
       AWS.Lambda.Events.S3
       AWS.Lambda.Events.SQS
       AWS.Lambda.Internal
@@ -46,7 +47,25 @@ library
       Paths_hal
   hs-source-dirs:
       src
-  default-extensions: OverloadedStrings BangPatterns DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DuplicateRecordFields EmptyCase GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses MultiWayIf OverloadedStrings PatternSynonyms ScopedTypeVariables
+  default-extensions:
+      OverloadedStrings
+      BangPatterns
+      DefaultSignatures
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveLift
+      DeriveTraversable
+      DuplicateRecordFields
+      EmptyCase
+      GeneralizedNewtypeDeriving
+      InstanceSigs
+      LambdaCase
+      MultiParamTypeClasses
+      MultiWayIf
+      OverloadedStrings
+      PatternSynonyms
+      ScopedTypeVariables
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -fno-warn-partial-type-signatures -fno-warn-name-shadowing -fwarn-tabs -fwarn-unused-imports -fwarn-missing-signatures -fwarn-incomplete-patterns
   build-depends:
       aeson
@@ -63,6 +82,7 @@ library
     , http-client
     , http-types
     , mtl
+    , scientific >=0.3.3.0 && <0.4
     , text
     , time
     , unordered-containers
@@ -75,15 +95,37 @@ test-suite hal-test
       AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen
       AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen.Parameters
       AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen.Resource
+      AWS.Lambda.Events.ApiGateway.ProxyRequest.Spec
       AWS.Lambda.Events.ApiGateway.ProxyResponse.Gen
+      AWS.Lambda.Events.ApiGateway.ProxyResponse.Spec
+      AWS.Lambda.Events.Kafka.Gen
+      AWS.Lambda.Events.Kafka.Spec
       Gen.Header
       Paths_hal
   hs-source-dirs:
       test
-  default-extensions: OverloadedStrings BangPatterns DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DuplicateRecordFields EmptyCase GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses MultiWayIf OverloadedStrings PatternSynonyms ScopedTypeVariables
+  default-extensions:
+      OverloadedStrings
+      BangPatterns
+      DefaultSignatures
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveLift
+      DeriveTraversable
+      DuplicateRecordFields
+      EmptyCase
+      GeneralizedNewtypeDeriving
+      InstanceSigs
+      LambdaCase
+      MultiParamTypeClasses
+      MultiWayIf
+      OverloadedStrings
+      PatternSynonyms
+      ScopedTypeVariables
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -fno-warn-partial-type-signatures -fno-warn-name-shadowing -fwarn-tabs -fwarn-unused-imports -fwarn-missing-signatures -fwarn-incomplete-patterns -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      aeson
+      aeson >=1.2.0.0 && <1.6 || >=2.0.0.0 && <2.1
     , base >=4.7 && <5
     , base64-bytestring
     , bytestring
@@ -95,10 +137,11 @@ test-suite hal-test
     , hspec-hedgehog
     , http-client
     , http-types >=0.12.2 && <0.13
+    , raw-strings-qq ==1.1.*
     , scientific
     , text
     , time
     , transformers
     , unordered-containers
-    , vector
+    , vector >=0.12.0.0 && <0.13
   default-language: Haskell2010
