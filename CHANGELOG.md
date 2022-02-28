@@ -5,11 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
-## Unreleased
+## `0.4.9` - 2022-02-28
 
   - Add `KafkaEvent` type for subscribing Lambda functions to Kafka
     topics
   - Support `aeson ^>=2.0.0.0`
+  - Drop official support for GHC 8.0.2
+  - Expand hedgehog bounds to include 1.1 to keep ahead of Stack nightly
 
 ## `0.4.8` - 2021-05-07
 
