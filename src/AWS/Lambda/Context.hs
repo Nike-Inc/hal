@@ -15,8 +15,6 @@ module AWS.Lambda.Context (
   CognitoIdentity(..),
   LambdaContext(..),
   getRemainingTime,
-  HasLambdaContext(..),
-  defConfig
 ) where
 
 import           Control.Monad.IO.Class (MonadIO, liftIO)
@@ -25,9 +23,7 @@ import           Data.Map               (Map)
 import           Data.Text              (Text)
 import           Data.Time.Clock        (DiffTime, UTCTime,
                                          diffUTCTime, getCurrentTime)
-import           Data.Time.Clock.POSIX  (posixSecondsToUTCTime)
 import           GHC.Generics           (Generic)
-import           System.Envy            (DefConfig (..))
 
 data ClientApplication = ClientApplication
   { appTitle       :: Text,
@@ -74,18 +70,3 @@ data LambdaContext = LambdaContext
     clientContext      :: Maybe ClientContext,
     identity           :: Maybe CognitoIdentity
   } deriving (Show, Generic, Eq)
-
-{-# DEPRECATED HasLambdaContext "HasLambdaContext will be removed along with the original mRuntimeWithContext.  This utility is no longer necessary without it." #-}
-class HasLambdaContext r where
-  withContext :: (LambdaContext -> r -> r)
-
-instance HasLambdaContext LambdaContext where
-  withContext = const
-
--- TODO: This sticks around for backwards compatibility, and as a conevient-ish
--- way to runReaderTLambdaContext.  In the long term, all runtimes where the
--- LambdaContext is (incorrectly) available outside of the request/response
--- cycle will be removed.  This instance (and its dependent package, envy) can
--- be dropped on that breaking change.
-instance DefConfig LambdaContext where
-  defConfig = LambdaContext "" "" 0 "" "" "" "" "" (posixSecondsToUTCTime 0) Nothing Nothing
