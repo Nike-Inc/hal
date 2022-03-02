@@ -3,7 +3,7 @@
 module Main where
 
 import AWS.Lambda.Context (LambdaContext(..))
-import AWS.Lambda.Runtime (mRuntimeWithContext')
+import AWS.Lambda.Runtime (mRuntimeWithContext)
 import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
 import Control.Monad.Trans (liftIO)
 import Data.Aeson (Value, FromJSON, parseJSON)
@@ -30,4 +30,4 @@ myHandler LambdaContext { functionName } jsonAst =
       return $ greeting ++ name ++ " (" ++ show greetingCount ++ ") from " ++ unpack functionName ++ "!"
 
 main :: IO ()
-main = evalStateT (mRuntimeWithContext' myHandler) 0
+main = evalStateT (mRuntimeWithContext myHandler) 0

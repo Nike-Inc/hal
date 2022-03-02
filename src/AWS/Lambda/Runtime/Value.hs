@@ -35,8 +35,8 @@ module AWS.Lambda.Runtime.Value (
   ioRuntime,
   ioRuntimeWithContext,
   readerTRuntime,
-  mRuntimeWithContext',
   mRuntime,
+  mRuntimeWithContext,
 ) where
 
 import           AWS.Lambda.RuntimeClient (RuntimeClientConfig, getRuntimeClientConfig,
@@ -78,9 +78,6 @@ runtimeLoop runtimeClientConfig fn = do
 -- caching behaviours or are comfortable manipulating monad
 -- transformers, and want full control over your monadic interface.
 --
--- In a future version, this function will be renamed to
--- @mRuntimeWithContext@ (after the deprecated function is removed).
---
 -- A contrived example, that parses the 'Value' argument directly
 -- instead of using the higher-level features in
 -- @AWS.Lambda.Runtime.Value@:
@@ -91,7 +88,7 @@ runtimeLoop runtimeClientConfig fn = do
 -- module Main where
 --
 -- import AWS.Lambda.Context (LambdaContext(..))
--- import AWS.Lambda.Runtime (mRuntimeWithContext')
+-- import AWS.Lambda.Runtime (mRuntimeWithContext)
 -- import Control.Monad.Catch (Exception, throwM)
 -- import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
 -- import Control.Monad.Trans (liftIO)
@@ -120,10 +117,10 @@ runtimeLoop runtimeClientConfig fn = do
 --   return $ greeting ++ name ++ " (" ++ show greetingCount ++ ") from " ++ unpack functionName ++ "!"
 --
 -- main :: IO ()
--- main = evalStateT (mRuntimeWithContext' myHandler) 0
+-- main = evalStateT (mRuntimeWithContext myHandler) 0
 -- @
-mRuntimeWithContext' :: (MonadCatch m, MonadIO m, ToJSON result) => (LambdaContext -> Value -> m result) -> m ()
-mRuntimeWithContext' fn = do
+mRuntimeWithContext :: (MonadCatch m, MonadIO m, ToJSON result) => (LambdaContext -> Value -> m result) -> m ()
+mRuntimeWithContext fn = do
   runtimeClientConfig <- liftIO getRuntimeClientConfig
 
   forever $ runtimeLoop runtimeClientConfig fn
@@ -173,7 +170,7 @@ mRuntimeWithContext' fn = do
 -- main = evalStateT (mRuntime myHandler) 0
 -- @
 mRuntime :: (MonadCatch m, MonadIO m, ToJSON result) => (Value -> m result) -> m ()
-mRuntime = mRuntimeWithContext' . withoutContext
+mRuntime = mRuntimeWithContext . withoutContext
 
 -- | For functions that can read the lambda context and use IO within the same monad.
 --
@@ -216,7 +213,7 @@ mRuntime = mRuntimeWithContext' . withoutContext
 -- @
 readerTRuntime :: ToJSON result =>
   (Value -> ReaderT LambdaContext IO result) -> IO ()
-readerTRuntime fn = mRuntimeWithContext' $ flip (runReaderT . fn)
+readerTRuntime fn = mRuntimeWithContext $ flip (runReaderT . fn)
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --
@@ -257,7 +254,7 @@ readerTRuntime fn = mRuntimeWithContext' $ flip (runReaderT . fn)
 -- @
 ioRuntimeWithContext :: ToJSON result =>
   (LambdaContext -> Value -> IO (Either String result)) -> IO ()
-ioRuntimeWithContext fn = mRuntimeWithContext' (\lc -> either error pure <=< liftIO . fn lc)
+ioRuntimeWithContext fn = mRuntimeWithContext (\lc -> either error pure <=< liftIO . fn lc)
 
 -- | For functions with IO that can fail in a pure way (or via throw).
 --
@@ -334,7 +331,7 @@ ioRuntime = ioRuntimeWithContext . withoutContext
 -- @
 fallibleRuntimeWithContext :: ToJSON result =>
   (LambdaContext -> Value -> Either String result) -> IO ()
-fallibleRuntimeWithContext = mRuntimeWithContext' . fmap (fmap pure)
+fallibleRuntimeWithContext = mRuntimeWithContext . fmap (fmap pure)
 
 -- | For pure functions that can still fail.
 --
@@ -407,7 +404,7 @@ fallibleRuntime = fallibleRuntimeWithContext . withoutContext
 -- @
 pureRuntimeWithContext :: ToJSON result =>
   (LambdaContext -> Value -> result) -> IO ()
-pureRuntimeWithContext = mRuntimeWithContext' . fmap (fmap pure)
+pureRuntimeWithContext = mRuntimeWithContext . fmap (fmap pure)
 
 -- | For pure functions that can never fail.
 --

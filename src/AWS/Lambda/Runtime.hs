@@ -25,8 +25,8 @@ module AWS.Lambda.Runtime (
   ioRuntime,
   ioRuntimeWithContext,
   readerTRuntime,
-  mRuntimeWithContext',
-  mRuntime
+  mRuntime,
+  mRuntimeWithContext
 ) where
 
 import           AWS.Lambda.Combinators   (withInfallibleParse)
@@ -41,16 +41,13 @@ import           Data.Aeson               (FromJSON, ToJSON)
 -- caching behaviours or are comfortable manipulating monad
 -- transformers, and want full control over your monadic interface.
 --
--- In a future version, this function will be renamed to
--- @mRuntimeWithContext@ (after the deprecated function is removed).
---
 -- @
 -- {-\# LANGUAGE DeriveGeneric, NamedFieldPuns \#-}
 --
 -- module Main where
 --
 -- import AWS.Lambda.Context (LambdaContext(..))
--- import AWS.Lambda.Runtime (mRuntimeWithContext')
+-- import AWS.Lambda.Runtime (mRuntimeWithContext)
 -- import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
 -- import Control.Monad.Trans (liftIO)
 -- import Data.Aeson (FromJSON)
@@ -73,11 +70,10 @@ import           Data.Aeson               (FromJSON, ToJSON)
 --   return $ greeting ++ name ++ " (" ++ show greetingCount ++ ") from " ++ unpack functionName ++ "!"
 --
 -- main :: IO ()
--- main = evalStateT (mRuntimeWithContext' myHandler) 0
+-- main = evalStateT (mRuntimeWithContext myHandler) 0
 -- @
-mRuntimeWithContext' :: (MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => (LambdaContext -> event -> m result) -> m ()
-mRuntimeWithContext' = ValueRuntime.mRuntimeWithContext' . fmap withInfallibleParse
-
+mRuntimeWithContext :: (MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => (LambdaContext -> event -> m result) -> m ()
+mRuntimeWithContext = ValueRuntime.mRuntimeWithContext . fmap withInfallibleParse
 
 -- | For any monad that supports 'IO' and 'catch'. Useful if you need
 -- caching behaviours or are comfortable manipulating monad
