@@ -16,12 +16,10 @@ module AWS.Lambda.Context (
   LambdaContext(..),
   getRemainingTime,
   HasLambdaContext(..),
-  defConfig,
-  runReaderTLambdaContext
+  defConfig
 ) where
 
 import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Control.Monad.Reader   (ReaderT, runReaderT)
 import           Data.Aeson             (FromJSON, ToJSON)
 import           Data.Map               (Map)
 import           Data.Text              (Text)
@@ -91,8 +89,3 @@ instance HasLambdaContext LambdaContext where
 -- be dropped on that breaking change.
 instance DefConfig LambdaContext where
   defConfig = LambdaContext "" "" 0 "" "" "" "" "" (posixSecondsToUTCTime 0) Nothing Nothing
-
--- | Helper for using arbitrary monads with only the LambdaContext in its Reader
-{-# DEPRECATED runReaderTLambdaContext "runReaderTLambdaContext will be removed along with the original mRuntimeWithContext.  This particular approach was problematic, in that it required a default LambdaContext, when in reality, there is no valid instance." #-}
-runReaderTLambdaContext :: ReaderT LambdaContext m a -> m a
-runReaderTLambdaContext = flip runReaderT defConfig

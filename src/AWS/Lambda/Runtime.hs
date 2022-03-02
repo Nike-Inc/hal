@@ -26,16 +26,15 @@ module AWS.Lambda.Runtime (
   ioRuntimeWithContext,
   readerTRuntime,
   mRuntimeWithContext',
-  mRuntime,
-  mRuntimeWithContext
+  mRuntime
 ) where
 
 import           AWS.Lambda.Combinators   (withInfallibleParse)
-import           AWS.Lambda.Context       (LambdaContext(..), HasLambdaContext(..))
+import           AWS.Lambda.Context       (LambdaContext(..))
 import qualified AWS.Lambda.Runtime.Value as ValueRuntime
 import           Control.Monad.Catch      (MonadCatch)
 import           Control.Monad.IO.Class   (MonadIO)
-import           Control.Monad.Reader     (MonadReader, ReaderT)
+import           Control.Monad.Reader     (ReaderT)
 import           Data.Aeson               (FromJSON, ToJSON)
 
 -- | For any monad that supports 'IO' and 'catch'. Useful if you need
@@ -116,57 +115,6 @@ mRuntimeWithContext' = ValueRuntime.mRuntimeWithContext' . fmap withInfalliblePa
 -- @
 mRuntime :: (MonadCatch m, MonadIO m, FromJSON event, ToJSON result) => (event -> m result) -> m ()
 mRuntime = ValueRuntime.mRuntime . withInfallibleParse
-
-
---TODO: Revisit all names before we put them under contract
--- | For any monad that supports IO\/catch\/Reader LambdaContext.
---
--- This function is problematic, and has been deprecated. The
--- 'HasLambdaContext' constraint requires that a 'LambdaContext' is
--- settable in the @m@ monad, but that is not the case - we only have
--- a 'LambdaContext' during the request/response cycle.
---
--- If you need caching behavours or are comfortable manipulating monad
--- transformers and want full control over your monadic interface,
--- consider 'mRuntimeWithContext''.
---
--- @
--- {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
---
--- module Main where
---
--- import AWS.Lambda.Context (LambdaContext(..), runReaderTLambdaContext)
--- import AWS.Lambda.Runtime (mRuntimeWithContext)
--- import Control.Monad.Reader (ReaderT, ask)
--- import Control.Monad.State.Lazy (StateT, evalStateT, get, put)
--- import Control.Monad.Trans (liftIO)
--- import Data.Aeson (FromJSON)
--- import Data.Text (unpack)
--- import System.Environment (getEnv)
--- import GHC.Generics (Generic)
---
--- data Named = Named {
---   name :: String
--- } deriving Generic
--- instance FromJSON Named
---
--- myHandler :: Named -> StateT Int (ReaderT LambdaContext IO) String
--- myHandler Named { name } = do
---   LambdaContext { functionName } <- ask
---   greeting <- liftIO $ getEnv \"GREETING\"
---
---   greetingCount <- get
---   put $ greetingCount + 1
---
---   return $ greeting ++ name ++ " (" ++ show greetingCount ++ ") from " ++ unpack functionName ++ "!"
---
--- main :: IO ()
--- main = runReaderTLambdaContext (evalStateT (mRuntimeWithContext myHandler) 0)
--- @
-{-# DEPRECATED mRuntimeWithContext "mRuntimeWithContext will be replaced by mRuntimeWithContext' in a future version. This type signature makes impossible promises - see the haddock for details." #-}
-mRuntimeWithContext :: (HasLambdaContext r, MonadCatch m, MonadReader r m, MonadIO m, FromJSON event, ToJSON result) =>
-  (event -> m result) -> m ()
-mRuntimeWithContext = ValueRuntime.mRuntimeWithContext . withInfallibleParse
 
 -- | For functions that can read the lambda context and use IO within the same monad.
 --
