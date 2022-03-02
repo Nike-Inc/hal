@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
+## `0.5.0` - unreleased
+
+  - Remove deprecated functions and classes:
+    - `AWS.Lambda.Combinators.withFallibleInterface`
+    - `AWS.Lambda.Combinators.withIOInterface`
+    - `AWS.Lambda.Combinators.withPureInterface`
+    - `AWS.Lambda.Context.HasLambdaContext` (`class`)
+    - `AWS.Lambda.Context.runReaderTLambdaContext`
+    - `AWS.Lambda.Runtime.Value.mRuntimeWithContext`
+
+  - Rename `mRuntimeWithContext'` to `mRuntimeWithContext` in the following modules:
+    - `AWS.Lambda.Runtime`
+    - `AWS.Lambda.Runtime.Value`
+
+  - Remove dependency on `envy`
+
 ## `0.4.9` - 2022-02-28
 
   - Add `KafkaEvent` type for subscribing Lambda functions to Kafka
