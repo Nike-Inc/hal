@@ -271,4 +271,4 @@ setRequestPath p req = req { path = p }
 -- specific formatting (similar to the Rust runtime).  But for now, not sure
 -- we'll ever see such an ask.
 logErrorMsg :: String -> IO ()
-logErrorMsg = hPutStrLn stderr . (<>) "ERROR " . show
+logErrorMsg = hPutStrLn stderr . (<>) "ERROR Message: " . show
