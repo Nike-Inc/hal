@@ -23,7 +23,7 @@ import           Control.Applicative               ((<*>))
 import           Control.Concurrent                (threadDelay)
 import           Control.Exception                 (IOException, displayException,
                                                     throw, try)
-import           Control.Monad                     (unless)
+import           Control.Monad                     (unless, void)
 import           Control.Monad.IO.Class            (MonadIO, liftIO)
 import           Data.Aeson                        (Value, encode)
 import           Data.Aeson.Parser                 (value')
@@ -156,7 +156,8 @@ sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest manager _) reqId js
 sendEventError :: RuntimeClientConfig -> BS.ByteString -> String -> IO ()
 sendEventError (RuntimeClientConfig baseRuntimeRequest manager _) reqId e = do
   logErrorMsg e
-  fmap (const ()) $ runtimeClientRetry $ flip httpNoBody manager $ toEventErrorRequest reqId e baseRuntimeRequest
+  let request = httpNoBody (toEventErrorRequest reqId e baseRuntimeRequest) manager
+  void $ runtimeClientRetry request
 
 sendInitError :: Request -> Manager -> String -> IO ()
 sendInitError baseRuntimeRequest manager e =
