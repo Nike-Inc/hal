@@ -28,7 +28,9 @@ import Prelude        hiding (id)
 -- | Convenience alias for events of unknown type. Most of the time
 -- you will want to define or use a data type @Foo@ representing the
 -- @detail@ payload, and write an @instance FromJSON Foo@ to get
--- @instance FromJSON ('EventBridgeEvent'' Foo)@.
+-- @instance FromJSON ('EventBridgeEvent'' Foo)@. See the
+-- @AWS.Lambda.Events.EventBridge.Detail.*@ modules for data types
+-- which you can use.
 type EventBridgeEvent = EventBridgeEvent' Value
 
 -- | Represents an event from Amazon EventBridge.

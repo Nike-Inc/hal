@@ -7,7 +7,7 @@ import           Prelude                                                    hidi
 
 import           AWS.Lambda.Events.EventBridge
 import qualified AWS.Lambda.Events.EventBridge.Gen                          as EventBridge
-import qualified AWS.Lambda.Events.EventBridge.SSM.ParameterStoreChange.Gen as ParameterStoreChange
+import qualified AWS.Lambda.Events.EventBridge.Detail.SSM.ParameterStoreChange.Gen as ParameterStoreChange
 import           Data.Aeson                                                 (decode, eitherDecode, encode,
                                                                              object, (.=), Value(..))
 import           Data.ByteString.Lazy                                       (ByteString)

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 68b3cac6222e592c289ae94ffd12cf45a8b4cfd9e5663cd68f24cbb5d1b53bd2
+-- hash: 74eea8417962f96e94b219f2124875c4638a9df4d6811b215e9aa6ead08209c3
 
 name:           hal
 version:        0.4.9
@@ -36,7 +36,7 @@ library
       AWS.Lambda.Events.ApiGateway.ProxyRequest
       AWS.Lambda.Events.ApiGateway.ProxyResponse
       AWS.Lambda.Events.EventBridge
-      AWS.Lambda.Events.EventBridge.SSM.ParameterStoreChange
+      AWS.Lambda.Events.EventBridge.Detail.SSM.ParameterStoreChange
       AWS.Lambda.Events.Kafka
       AWS.Lambda.Events.S3
       AWS.Lambda.Events.SQS
@@ -100,9 +100,9 @@ test-suite hal-test
       AWS.Lambda.Events.ApiGateway.ProxyRequest.Spec
       AWS.Lambda.Events.ApiGateway.ProxyResponse.Gen
       AWS.Lambda.Events.ApiGateway.ProxyResponse.Spec
+      AWS.Lambda.Events.EventBridge.Detail.SSM.ParameterStoreChange.Gen
       AWS.Lambda.Events.EventBridge.Gen
       AWS.Lambda.Events.EventBridge.Spec
-      AWS.Lambda.Events.EventBridge.SSM.ParameterStoreChange.Gen
       AWS.Lambda.Events.Kafka.Gen
       AWS.Lambda.Events.Kafka.Spec
       Gen.Header

@@ -2,13 +2,13 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 -- |
--- Module      : AWS.Lambda.Events.EventBridge.SSM.ParameterStoreChange
+-- Module      : AWS.Lambda.Events.EventBridge.Detail.SSM.ParameterStoreChange
 -- Description : Data types for AWS Systems Manager Parameter Store Change events.
 -- License     : BSD3
 -- Stability   : stable
-module AWS.Lambda.Events.EventBridge.SSM.ParameterStoreChange
+module AWS.Lambda.Events.EventBridge.Detail.SSM.ParameterStoreChange
   ( ParameterStoreChange (..),
-    Operation (..),
+    Operation (.., Create, Update, Delete, LabelParameterVersion),
     Type (..),
   )
 where
@@ -77,11 +77,24 @@ instance ToJSON ParameterStoreChange where
           "description" .= description change
         ]
 
--- | AWS provides no schema for the @"operation"@ field, but this
--- appears to be a complete set for this event type, based on the
--- documentation.
-data Operation = Create | Update | Delete | LabelParameterVersion
-  deriving (Eq, Ord, Show, Enum, Bounded, Generic)
+-- | AWS provides no schema for the @"operation"@ field, so we provide
+-- a newtype wrapper and pattern synonyms which we think are complete,
+-- based on AWS documentation.
+newtype Operation = Operation Text deriving (Eq, Show, Generic)
+
+pattern Create :: Operation
+pattern Create = Operation "Create"
+
+pattern Update :: Operation
+pattern Update = Operation "Update"
+
+pattern Delete :: Operation
+pattern Delete = Operation "Delete"
+
+pattern LabelParameterVersion :: Operation
+pattern LabelParameterVersion = Operation "LabelParameterVersion"
+
+{-# COMPLETE Create, Update, Delete, LabelParameterVersion #-}
 
 instance FromJSON Operation where
   parseJSON = withText "Operation" $ \case
@@ -92,19 +105,8 @@ instance FromJSON Operation where
     t -> fail $ "Unrecognized operation: " ++ show t
 
 instance ToJSON Operation where
-  toJSON =
-    Aeson.String . \case
-      Create -> "Create"
-      Update -> "Update"
-      Delete -> "Delete"
-      LabelParameterVersion -> "LabelParameterVersion"
-
-  toEncoding =
-    text . \case
-      Create -> "Create"
-      Update -> "Update"
-      Delete -> "Delete"
-      LabelParameterVersion -> "LabelParameterVersion"
+  toJSON (Operation op) = Aeson.String op
+  toEncoding (Operation op) = text op
 
 -- | AWS provides no schema for the @"type"@ field, but these are the
 -- only three types of parameters you can create in Parameter Store.
