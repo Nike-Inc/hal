@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
   - When the runtime encounters an error, write it out to the Cloudwatch logs
     (via stderr), and do so in a format that can be guaranteed and later
     extended.
+  - Eliminate redundant import compiler warnings
 
 ## `0.4.9` - 2022-02-28
 
