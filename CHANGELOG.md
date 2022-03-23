@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
+## Unreleased
+
+  - Add `AWS.Lambda.Events.EventBridge.EventBridgeEvent` type for
+    subscribing Lambda functions to AWS EventBridge Events
+  - Add `AWS.Lambda.Events.EventBridge.SSM.ParameterStoreChange` type
+    for parsing AWS Systems Manager Parameter Store Change events
+    delivered via AWS EventBridge.
+
 ## `0.4.9` - 2022-02-28
 
   - Add `KafkaEvent` type for subscribing Lambda functions to Kafka
