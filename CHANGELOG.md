@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
-## Unreleased
+## `0.4.10` - 2022-03-22
 
   - Add `AWS.Lambda.Events.EventBridge.EventBridgeEvent` type for
     subscribing Lambda functions to AWS EventBridge Events
