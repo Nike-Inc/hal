@@ -23,7 +23,7 @@ import           Control.Applicative               ((<*>))
 import           Control.Concurrent                (threadDelay)
 import           Control.Exception                 (IOException, displayException,
                                                     throw, try)
-import           Control.Monad                     (unless)
+import           Control.Monad                     (unless, void)
 import           Control.Monad.IO.Class            (MonadIO, liftIO)
 import           Data.Aeson                        (Value, encode)
 import           Data.Aeson.Parser                 (value')
@@ -59,6 +59,7 @@ import           Network.HTTP.Types.Status         (Status, status403,
                                                     status413,
                                                     statusIsSuccessful)
 import           System.Environment                (getEnv)
+import           System.IO                         (hPutStrLn, stderr)
 
 -- | Lambda runtime error that we pass back to AWS
 data LambdaError = LambdaError
@@ -153,8 +154,10 @@ sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest manager _) reqId js
     Right () -> return ()
 
 sendEventError :: RuntimeClientConfig -> BS.ByteString -> String -> IO ()
-sendEventError (RuntimeClientConfig baseRuntimeRequest manager _) reqId e =
-  fmap (const ()) $ runtimeClientRetry $ flip httpNoBody manager $ toEventErrorRequest reqId e baseRuntimeRequest
+sendEventError (RuntimeClientConfig baseRuntimeRequest manager _) reqId e = do
+  logErrorMsg e
+  let request = httpNoBody (toEventErrorRequest reqId e baseRuntimeRequest) manager
+  void $ runtimeClientRetry request
 
 sendInitError :: Request -> Manager -> String -> IO ()
 sendInitError baseRuntimeRequest manager e =
@@ -260,3 +263,13 @@ setRequestMethod m req = req { method = m }
 
 setRequestPath :: BS.ByteString -> Request -> Request
 setRequestPath p req = req { path = p }
+
+-- Log Helpers
+
+-- TODO: This logging more-or-less looks like other runtimes, but there doesn't
+-- seem to be any specific standard or recommendations around this, and it
+-- varies across runtimes.  In the future, it may make sense to enable user
+-- specific formatting (similar to the Rust runtime).  But for now, not sure
+-- we'll ever see such an ask.
+logErrorMsg :: String -> IO ()
+logErrorMsg = hPutStrLn stderr . (<>) "ERROR Message: " . show
