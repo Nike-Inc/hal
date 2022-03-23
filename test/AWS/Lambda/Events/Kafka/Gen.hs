@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module AWS.Lambda.Events.Kafka.Gen where
 
 import AWS.Lambda.Events.Kafka              (KafkaEvent(KafkaEvent),
@@ -14,7 +15,9 @@ import           Data.List                  (intersperse)
 import qualified Data.List.NonEmpty         as NE
 import           Data.List.NonEmpty         (NonEmpty)
 import           Data.Map                   (Map)
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Semigroup             ((<>))
+#endif
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
 import           Data.Time                  (UTCTime)

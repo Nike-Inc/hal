@@ -53,7 +53,9 @@ import           Data.Int               (Int32, Int64)
 import           Data.Map               (Map)
 import           Data.Maybe             (catMaybes, maybeToList)
 import           Data.Scientific        (toBoundedInteger)
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Semigroup         ((<>))
+#endif
 import           Data.Text              (Text)
 import qualified Data.Text              as T
 import qualified Data.Text.Encoding     as TE

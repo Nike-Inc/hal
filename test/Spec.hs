@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 import           AWS.Lambda.Context                 (ClientApplication (..),
                                                      ClientContext (..),
                                                      CognitoIdentity (..),
@@ -13,7 +14,9 @@ import           AWS.Lambda.RuntimeClient.Internal  (eventResponseToNextData)
 import           Data.Aeson                         (Value (Null))
 import qualified Data.CaseInsensitive               as CI
 import           Data.Map                           (singleton)
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Semigroup                     ((<>))
+#endif
 import           Data.Time.Clock.POSIX              (posixSecondsToUTCTime)
 import           Hedgehog
 import qualified Hedgehog.Gen                       as Gen

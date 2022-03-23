@@ -1,9 +1,12 @@
+{-# LANGUAGE CPP #-}
 module AWS.Lambda.Events.ApiGateway.ProxyRequest.Gen.Parameters where
 
 import           Control.Monad.Trans.State
 import           Data.HashMap.Strict       (HashMap)
 import qualified Data.HashMap.Strict       as H
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Semigroup            ((<>))
+#endif
 import           Data.Set                  (Set)
 import qualified Data.Set                  as S
 import           Data.Text                 (Text)
