@@ -97,12 +97,7 @@ pattern LabelParameterVersion = Operation "LabelParameterVersion"
 {-# COMPLETE Create, Update, Delete, LabelParameterVersion #-}
 
 instance FromJSON Operation where
-  parseJSON = withText "Operation" $ \case
-    "Create" -> pure Create
-    "Update" -> pure Update
-    "Delete" -> pure Delete
-    "LabelParameterVersion" -> pure LabelParameterVersion
-    t -> fail $ "Unrecognized operation: " ++ show t
+  parseJSON = withText "Operation" $ pure . Operation
 
 instance ToJSON Operation where
   toJSON (Operation op) = Aeson.String op

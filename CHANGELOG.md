@@ -5,12 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
+## Unreleased
+
+  - `instance FromJSON AWS.Lambda.Events.EventBridge.Detail.SSM.ParameterStoreChange.Operation`
+    now accepts arbitrary `Text` instead of the four currently-known
+    operations.
+
 ## `0.4.10` - 2022-03-22
 
   - Add `AWS.Lambda.Events.EventBridge.EventBridgeEvent` type for
     subscribing Lambda functions to AWS EventBridge Events
-  - Add `AWS.Lambda.Events.EventBridge.SSM.ParameterStoreChange` type
-    for parsing AWS Systems Manager Parameter Store Change events
+  - Add `AWS.Lambda.Events.EventBridge.Detail.SSM.ParameterStoreChange`
+    type for parsing AWS Systems Manager Parameter Store Change events
     delivered via AWS EventBridge.
   - When the runtime encounters an error, write it out to the Cloudwatch logs
     (via stderr), and do so in a format that can be guaranteed and later
