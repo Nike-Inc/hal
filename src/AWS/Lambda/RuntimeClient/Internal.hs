@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-|
 Module      : AWS.Lambda.RuntimeClient.Internal
 Description : Internal HTTP related machinery for talking to the AWS Lambda Custom Runtime interface.
@@ -22,7 +23,9 @@ import qualified Data.ByteString.Char8    as BSC
 import qualified Data.ByteString.Internal as BSI
 import qualified Data.ByteString.Lazy     as BSW
 import           Data.CaseInsensitive     (original)
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Semigroup           ((<>))
+#endif
 import           Data.Text.Encoding       (decodeUtf8)
 import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
 import           Network.HTTP.Client      (Response, responseBody,

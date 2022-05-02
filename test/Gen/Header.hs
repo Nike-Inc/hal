@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module Gen.Header where
 
 import           Control.Monad.Trans.State
@@ -6,7 +7,9 @@ import qualified Data.CaseInsensitive      as CI
 import           Data.Char                 (toUpper, toLower)
 import           Data.HashMap.Strict       (HashMap)
 import qualified Data.HashMap.Strict       as H
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Semigroup            ((<>))
+#endif
 import           Data.Set                  (Set)
 import qualified Data.Set                  as S
 import           Data.Text                 (Text)

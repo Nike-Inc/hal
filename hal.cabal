@@ -35,6 +35,8 @@ library
       AWS.Lambda.Context
       AWS.Lambda.Events.ApiGateway.ProxyRequest
       AWS.Lambda.Events.ApiGateway.ProxyResponse
+      AWS.Lambda.Events.EventBridge
+      AWS.Lambda.Events.EventBridge.Detail.SSM.ParameterStoreChange
       AWS.Lambda.Events.Kafka
       AWS.Lambda.Events.S3
       AWS.Lambda.Events.SQS
@@ -97,6 +99,9 @@ test-suite hal-test
       AWS.Lambda.Events.ApiGateway.ProxyRequest.Spec
       AWS.Lambda.Events.ApiGateway.ProxyResponse.Gen
       AWS.Lambda.Events.ApiGateway.ProxyResponse.Spec
+      AWS.Lambda.Events.EventBridge.Detail.SSM.ParameterStoreChange.Gen
+      AWS.Lambda.Events.EventBridge.Gen
+      AWS.Lambda.Events.EventBridge.Spec
       AWS.Lambda.Events.Kafka.Gen
       AWS.Lambda.Events.Kafka.Spec
       Gen.Header

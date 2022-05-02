@@ -1,28 +1,32 @@
-import           AWS.Lambda.Context                (ClientApplication (..),
-                                                    ClientContext (..),
-                                                    CognitoIdentity (..),
-                                                    LambdaContext (..))
-import qualified Gen.Header                        as Header
+{-# LANGUAGE CPP #-}
+import           AWS.Lambda.Context                 (ClientApplication (..),
+                                                     ClientContext (..),
+                                                     CognitoIdentity (..),
+                                                     LambdaContext (..))
+import qualified Gen.Header                         as Header
 import qualified AWS.Lambda.Events.ApiGateway.ProxyRequest.Spec as ProxyRequest
 import qualified AWS.Lambda.Events.ApiGateway.ProxyResponse.Spec as ProxyResponse
 
-import qualified AWS.Lambda.Events.Kafka.Spec      as Kafka
-import           AWS.Lambda.Internal               (StaticContext (..))
-import           AWS.Lambda.RuntimeClient.Internal (eventResponseToNextData)
-import           Data.Aeson                        (Value (Null))
-import qualified Data.CaseInsensitive              as CI
-import           Data.Map                          (singleton)
-import           Data.Semigroup                    ((<>))
-import           Data.Time.Clock.POSIX             (posixSecondsToUTCTime)
+import qualified AWS.Lambda.Events.EventBridge.Spec as EventBridge
+import qualified AWS.Lambda.Events.Kafka.Spec       as Kafka
+import           AWS.Lambda.Internal                (StaticContext (..))
+import           AWS.Lambda.RuntimeClient.Internal  (eventResponseToNextData)
+import           Data.Aeson                         (Value (Null))
+import qualified Data.CaseInsensitive               as CI
+import           Data.Map                           (singleton)
+#if !MIN_VERSION_base(4,11,0)
+import           Data.Semigroup                     ((<>))
+#endif
+import           Data.Time.Clock.POSIX              (posixSecondsToUTCTime)
 import           Hedgehog
-import qualified Hedgehog.Gen                      as Gen
-import qualified Hedgehog.Range                    as Range
-import           Network.HTTP.Client.Internal      (Response (..))
-import           Network.HTTP.Types                (Header)
-import           Test.Hspec                        (describe, it, shouldBe,
-                                                    shouldStartWith, specify)
-import           Test.Hspec.Hedgehog               (hedgehog)
-import           Test.Hspec.Runner                 (hspec)
+import qualified Hedgehog.Gen                       as Gen
+import qualified Hedgehog.Range                     as Range
+import           Network.HTTP.Client.Internal       (Response (..))
+import           Network.HTTP.Types                 (Header)
+import           Test.Hspec                         (describe, it, shouldBe,
+                                                     shouldStartWith, specify)
+import           Test.Hspec.Hedgehog                (hedgehog)
+import           Test.Hspec.Runner                  (hspec)
 
 main :: IO ()
 main =
@@ -31,6 +35,7 @@ main =
       describe "ApiGateway" $ do
         describe "ProxyRequest" ProxyRequest.spec
         describe "ProxyResponse" ProxyResponse.spec
+      describe "EventBridge" EventBridge.spec
       describe "Kafka" Kafka.spec
 
     describe "Event Response Data" $ do
