@@ -25,21 +25,15 @@ import           Data.Aeson.Types       (parseEither)
 -- This allows us to use other combinators to construct a lambda runtime that accepts
 -- a handler that ignores 'AWS.Lambda.Context.LambdaContext'.
 --
--- In the example below, we reconstruct 'AWS.Lambda.Runtime.pureRuntime' without actually using it.
--- The 'AWS.Lambda.Runtime.readerTRuntime' expects a handler in the form of
--- @event -> ReaderT LambdaContext IO result@ (ignoring constraints).
--- By composing it with `withPureInterface` we get a new runtime which
--- expects a function in the form of @LambdaContext -> event -> result@,
--- And then finally we also compose `withoutContext` so it accepts the signature
--- @event -> result@ which matches that of `myHandler`.
---
+-- In the example below, we reconstruct 'AWS.Lambda.Runtime.pureRuntime'
+-- without actually using it.
 -- @
 --     {-\# LANGUAGE NamedFieldPuns, DeriveGeneric \#-}
 --
 --     module Main where
 --
---     import AWS.Lambda.Runtime (readerTRuntime)
---     import AWS.Lambda.Combinators (withPureInterface, withoutContext)
+--     import AWS.Lambda.Runtime (pureRuntimeWithContext)
+--     import AWS.Lambda.Combinators (withoutContext)
 --     import Data.Aeson (FromJSON)
 --     import GHC.Generics (Generic)
 --
@@ -53,7 +47,7 @@ import           Data.Aeson.Types       (parseEither)
 --       "Hello, " ++ name
 --
 --     main :: IO ()
---     main = (readerTRuntime . withPureInterface . withoutContext) myHandler
+--     main = (pureRuntimeWithContext . withoutContext) myHandler
 -- @
 withoutContext :: a -> b -> a
 withoutContext = const
