@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e409c6f94d9233f3717ac3daa95fbd3d9e657ac64b956c2ba9ca28ad6bec4791
+-- hash: 022a1d2e9f16eff96540d96d1b5f8d27de5396c3ac76d2fc6fffe4fe133a1a1c
 
 name:           hal
 version:        0.4.8
@@ -125,7 +125,7 @@ test-suite hal-test
       ScopedTypeVariables
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -fno-warn-partial-type-signatures -fno-warn-name-shadowing -fwarn-tabs -fwarn-unused-imports -fwarn-missing-signatures -fwarn-incomplete-patterns -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      aeson >=1.2.0.0 && <1.6 || >=2.0.0.0 && <2.1
+      aeson >=1.2.0.0 && <1.6 || >=2.0.0.0 && <2.2.0.0
     , base >=4.7 && <5
     , base64-bytestring
     , bytestring
