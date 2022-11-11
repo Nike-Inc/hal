@@ -27,6 +27,7 @@ default-extensions:
   - DeriveGeneric
   - DeriveLift
   - DeriveTraversable
+  - DisambiguateRecordFields
   - DuplicateRecordFields
   - EmptyCase
   - GeneralizedNewtypeDeriving
