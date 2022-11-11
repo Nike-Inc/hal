@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6db9f32350cdd6e49054d6fb475e90c464a07aa86ea3ae1a9b773772e9044aa3
+-- hash: 675d226101332b6bbf9f10dbadac03bf421abfb2253542bf48aed3623036bf28
 
 name:           hal
 version:        1.0.0
@@ -58,6 +58,7 @@ library
       DeriveGeneric
       DeriveLift
       DeriveTraversable
+      DisambiguateRecordFields
       DuplicateRecordFields
       EmptyCase
       GeneralizedNewtypeDeriving
@@ -117,6 +118,7 @@ test-suite hal-test
       DeriveGeneric
       DeriveLift
       DeriveTraversable
+      DisambiguateRecordFields
       DuplicateRecordFields
       EmptyCase
       GeneralizedNewtypeDeriving

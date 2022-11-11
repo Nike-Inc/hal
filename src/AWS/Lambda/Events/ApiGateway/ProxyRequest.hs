@@ -93,21 +93,24 @@ instance FromJSON a => FromJSON (RequestContext a) where
 
 -- | @since 0.4.8
 instance ToJSON a => ToJSON (RequestContext a) where
-    toJSON r = object $ catMaybes
-        [ Just $ "path" .= path (r :: RequestContext a)
-        , Just $ "accountId" .= accountId (r :: RequestContext a)
-        , ("authorizer" .=) <$> authorizer r
-        , Just $ "resourceId" .= resourceId r
-        , Just $ "stage" .= stage r
-        , ("domainPrefix" .=) <$> domainPrefix r
-        , Just $ "requestId" .= requestId r
-        , Just $ "identity" .= identity r
-        , ("domainName" .=) <$> domainName r
-        , Just $ "resourcePath" .= resourcePath r
-        , Just $ "httpMethod" .= httpMethod (r :: RequestContext a)
-        , ("extendedRequestId" .=) <$> extendedRequestId r
-        , Just $ "apiId" .= apiId r
-        ]
+    toJSON r = object $ catMaybes $
+        let
+            RequestContext { path = p, accountId = a, httpMethod = h } = r
+        in
+            [ Just $ "path" .= p
+            , Just $ "accountId" .= a
+            , ("authorizer" .=) <$> authorizer r
+            , Just $ "resourceId" .= resourceId r
+            , Just $ "stage" .= stage r
+            , ("domainPrefix" .=) <$> domainPrefix r
+            , Just $ "requestId" .= requestId r
+            , Just $ "identity" .= identity r
+            , ("domainName" .=) <$> domainName r
+            , Just $ "resourcePath" .= resourcePath r
+            , Just $ "httpMethod" .= h
+            , ("extendedRequestId" .=) <$> extendedRequestId r
+            , Just $ "apiId" .= apiId r
+            ]
 
 -- TODO: Should also include websocket fields
 -- | This type is for representing events that come from API Gateway via the
@@ -203,24 +206,27 @@ instance FromJSON a => FromJSON (ProxyRequest a) where
 
 -- | @since 0.4.8
 instance ToJSON a => ToJSON (ProxyRequest a) where
-    toJSON r = object $ catMaybes
-        [ Just $ "path" .= path (r :: ProxyRequest a)
-        , toMaybe (not . null $ headers r) $
-              "headers" .= fromCIHashMap (headers r)
-        , toMaybe (not . null $ multiValueHeaders r) $
-              "multiValueHeaders" .= fromCIHashMap (multiValueHeaders r)
-        , toMaybe (not . null $ pathParameters r) $
-              "pathParameters" .= pathParameters r
-        , toMaybe (not . null $ stageVariables r) $
-              "stageVariables" .= stageVariables r
-        , Just $ "requestContext" .= requestContext r
-        , Just $ "resource" .= resource r
-        , Just $ "httpMethod" .= httpMethod (r :: ProxyRequest a)
-        , toMaybe (not . null $ queryStringParameters r) $
-              "queryStringParameters" .= queryStringParameters r
-        , toMaybe (not . null $ multiValueQueryStringParameters r) $
-              "multiValueQueryStringParameters" .=
-                  multiValueQueryStringParameters r
-        , Just $ "isBase64Encoded" .= True
-        , Just $ "body" .= TLE.decodeUtf8 (encode (body r))
-        ]
+    toJSON r = object $ catMaybes $
+        let
+            ProxyRequest { path = p, httpMethod = h } = r
+        in
+            [ Just $ "path" .= p
+            , toMaybe (not . null $ headers r) $
+                  "headers" .= fromCIHashMap (headers r)
+            , toMaybe (not . null $ multiValueHeaders r) $
+                  "multiValueHeaders" .= fromCIHashMap (multiValueHeaders r)
+            , toMaybe (not . null $ pathParameters r) $
+                  "pathParameters" .= pathParameters r
+            , toMaybe (not . null $ stageVariables r) $
+                  "stageVariables" .= stageVariables r
+            , Just $ "requestContext" .= requestContext r
+            , Just $ "resource" .= resource r
+            , Just $ "httpMethod" .= h
+            , toMaybe (not . null $ queryStringParameters r) $
+                  "queryStringParameters" .= queryStringParameters r
+            , toMaybe (not . null $ multiValueQueryStringParameters r) $
+                  "multiValueQueryStringParameters" .=
+                      multiValueQueryStringParameters r
+            , Just $ "isBase64Encoded" .= True
+            , Just $ "body" .= TLE.decodeUtf8 (encode (body r))
+            ]
