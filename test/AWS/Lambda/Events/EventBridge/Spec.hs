@@ -16,7 +16,6 @@ import           Data.Time                                                  (UTC
 import           Hedgehog                                                   (forAll, tripping)
 import           Test.Hspec                                                 (Spec, describe, shouldBe, specify)
 import           Test.Hspec.Hedgehog                                        (hedgehog)
-import           Test.Hspec.Runner                                          (hspec)
 import           Text.RawString.QQ                                          (r)
 
 spec :: Spec
