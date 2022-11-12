@@ -237,6 +237,9 @@ minResponse headers body =
     , responseBody = body
     , responseCookieJar = undefined
     , responseClose' = undefined
+#if MIN_VERSION_http_client(0,7,8)
+    , responseOriginalRequest = undefined
+#endif
     }
 
 minJsonResponse :: [Header] -> Response Value
