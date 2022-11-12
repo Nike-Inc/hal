@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-|
 Module      : AWS.Lambda.Events.ApiGateway.ProxyRequest
 Description : Data types that represent typical lambda responses
@@ -168,10 +169,23 @@ data ProxyRequest a = ProxyRequest
     , body                            :: ByteString
     } deriving (Eq, Generic, Show)
 
-toCIHashMap :: (Eq k, FoldCase k, Hashable k) => HashMap k a -> HashMap (CI k) a
+toCIHashMap ::
+#if !MIN_VERSION_hashable(1,4,0)
+    Eq k =>
+#endif
+    FoldCase k =>
+    Hashable k =>
+    HashMap k a ->
+    HashMap (CI k) a
 toCIHashMap = foldrWithKey (insert . mk) mempty
 
-fromCIHashMap :: (Eq k, Hashable k) => HashMap (CI k) a -> HashMap k a
+fromCIHashMap ::
+#if !MIN_VERSION_hashable(1,4,0)
+    Eq k =>
+#endif
+    Hashable k =>
+    HashMap (CI k) a ->
+    HashMap k a
 fromCIHashMap = foldrWithKey (insert . original) mempty
 
 toByteString :: Bool -> TL.Text -> ByteString
