@@ -4,7 +4,7 @@ description: |
   This library uniquely supports different types of AWS Lambda Handlers for your
   needs/comfort with advanced Haskell. Instead of exposing a single function
   that constructs a Lambda, this library exposes many.
-version:             0.4.10.1
+version:             0.4.10.2
 github:              Nike-inc/hal
 license:             BSD3
 author:              Nike, Inc.
@@ -54,7 +54,7 @@ ghc-options:
 library:
   source-dirs: src
   dependencies:
-    - aeson >=1.2.0.0 && <1.6 || >=2.0.0.0 && <2.2.0.0
+    - aeson >=1.2.0.0 && <1.6 || >=2.0.0.0 && <2.3.0.0
     - base64-bytestring
     - bytestring
     - case-insensitive

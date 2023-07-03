@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
+## `0.4.10.2` - 2023-07-06
+
+  - Add support for aeson 2.3
+
 ## `0.4.10.1` - 2022-03-28
 
   - `instance FromJSON AWS.Lambda.Events.EventBridge.Detail.SSM.ParameterStoreChange.Operation`
