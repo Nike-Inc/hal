@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 671c8b253aaf057202f09b6ff72cb7076fd74b491f5cb7f37a73c9d58972ef5c
+-- hash: d510cbbfa87d1ff7979d9f0e8bf24ce6ad3b512e4cc67a9a968877703815f14e
 
 name:           hal
-version:        0.4.10.1
+version:        0.4.10.2
 synopsis:       A runtime environment for Haskell applications running on AWS Lambda.
 description:    This library uniquely supports different types of AWS Lambda Handlers for your
                 needs/comfort with advanced Haskell. Instead of exposing a single function
@@ -70,7 +70,8 @@ library
       ScopedTypeVariables
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -fno-warn-partial-type-signatures -fno-warn-name-shadowing -fwarn-tabs -fwarn-unused-imports -fwarn-missing-signatures -fwarn-incomplete-patterns
   build-depends:
-      aeson >=1.2.0.0 && <1.6 || >=2.0.0.0 && <2.2.0.0
+      aeson >=1.2.0.0 && <1.6 || >=2.0.0.0 && <2.3.0.0
+    , attoparsec-aeson
     , base >=4.7 && <5
     , base64-bytestring
     , bytestring
@@ -137,7 +138,7 @@ test-suite hal-test
     , case-insensitive
     , containers
     , hal
-    , hedgehog >=1.0.3 && <1.2
+    , hedgehog >=1.0.3 && <1.3
     , hspec
     , hspec-hedgehog
     , http-client
@@ -148,5 +149,5 @@ test-suite hal-test
     , time
     , transformers
     , unordered-containers
-    , vector >=0.12.0.0 && <0.13
+    , vector >=0.12.0.0 && <0.14.0.0
   default-language: Haskell2010

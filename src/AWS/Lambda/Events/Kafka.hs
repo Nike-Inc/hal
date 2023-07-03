@@ -253,7 +253,11 @@ parseTimestamp o = explicitParseField parseSubtype o "timestampType"
       int64ToUTCTime <$> (toBoundedInteger stamp &
         maybe (fail "timestamp out of range") pure :: Parser Int64)
 
+#if MIN_VERSION_aeson(2,2,0)
+unparseTimestamp :: KeyValue e kv => Timestamp -> [kv]
+#else
 unparseTimestamp :: KeyValue kv => Timestamp -> [kv]
+#endif
 unparseTimestamp = \case
   NoTimestampType -> ["timestampType" .= String "NO_TIMESTAMP_TYPE"]
   CreateTime ts ->
