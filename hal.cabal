@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.5.
+-- This file has been generated from package.yaml by hpack version 0.34.7.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6db9f32350cdd6e49054d6fb475e90c464a07aa86ea3ae1a9b773772e9044aa3
+-- hash: b8f8b97c6e43370835ecf4a2034be20ea39ccba6884be94601d2eb9eaa2458d8
 
 name:           hal
 version:        1.0.0
@@ -70,7 +70,7 @@ library
       ScopedTypeVariables
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -fno-warn-partial-type-signatures -fno-warn-name-shadowing -fwarn-tabs -fwarn-unused-imports -fwarn-missing-signatures -fwarn-incomplete-patterns
   build-depends:
-      aeson
+      aeson >=1.2.0.0 && <1.6 || >=2.0.0.0 && <2.2.0.0
     , base >=4.7 && <5
     , base64-bytestring
     , bytestring
@@ -129,7 +129,7 @@ test-suite hal-test
       ScopedTypeVariables
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -fno-warn-partial-type-signatures -fno-warn-name-shadowing -fwarn-tabs -fwarn-unused-imports -fwarn-missing-signatures -fwarn-incomplete-patterns -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      aeson >=1.2.0.0 && <1.6 || >=2.0.0.0 && <2.2.0.0
+      aeson
     , base >=4.7 && <5
     , base64-bytestring
     , bytestring
