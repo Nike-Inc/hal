@@ -5,7 +5,6 @@ module AWS.Lambda.Events.EventBridge.Gen where
 
 import           AWS.Lambda.Events.EventBridge (EventBridgeEvent'(..),
                                                 EventBridgeEvent)
-import           Data.List                     (intersperse)
 import           Data.Text                     (Text)
 import qualified Data.Text                     as T
 import           Data.Time                     (UTCTime)

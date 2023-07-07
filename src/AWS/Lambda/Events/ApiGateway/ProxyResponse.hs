@@ -159,7 +159,14 @@ data ProxyResponse = ProxyResponse
     , body              :: ProxyBody
     } deriving (Eq, Generic, Show)
 
-toCIHashMap :: (Eq k, FoldCase k, Hashable k) => HashMap k a -> HashMap (CI k) a
+toCIHashMap ::
+#if !MIN_VERSION_hashable(1,4,0)
+    Eq k =>
+#endif
+    FoldCase k =>
+    Hashable k =>
+    HashMap k a ->
+    HashMap (CI k) a
 toCIHashMap = H.foldrWithKey (H.insert . mk) mempty
 
 -- | Smart constructor for creating a ProxyResponse from a status and a body
