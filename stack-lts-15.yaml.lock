@@ -5,6 +5,13 @@
 
 packages:
 - completed:
+    hackage: attoparsec-aeson-2.1.0.0@sha256:fa83aba43bfa58490de8f274d19b9d58b6403a207b12cac5f93922102b084c52,1154
+    pantry-tree:
+      sha256: 294c3a8a19a7ddad58097e18c624c6b34894b3c4a4cc490759cb31d842db242a
+      size: 114
+  original:
+    hackage: attoparsec-aeson-2.1.0.0@sha256:fa83aba43bfa58490de8f274d19b9d58b6403a207b12cac5f93922102b084c52,1154
+- completed:
     hackage: hedgehog-1.0.5@sha256:85a2d8df595c91b815e9d2ef7734189d7028ce16212e83f35b2221807d87770b,4368
     pantry-tree:
       size: 2575
