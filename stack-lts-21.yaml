@@ -1,0 +1,5 @@
+resolver: lts-21.14
+packages:
+- .
+extra-deps:
+- attoparsec-aeson-2.1.0.0@sha256:fa83aba43bfa58490de8f274d19b9d58b6403a207b12cac5f93922102b084c52,1154
