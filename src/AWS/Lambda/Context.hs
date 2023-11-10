@@ -1,4 +1,5 @@
-{-# LANGUAGE NamedFieldPuns, OverloadedStrings #-}
+{-# LANGUAGE NamedFieldPuns    #-}
+
 
 {-|
 Module      : AWS.Lambda.Context
@@ -21,8 +22,8 @@ import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Aeson             (FromJSON, ToJSON)
 import           Data.Map               (Map)
 import           Data.Text              (Text)
-import           Data.Time.Clock        (DiffTime, UTCTime,
-                                         diffUTCTime, getCurrentTime)
+import           Data.Time.Clock        (DiffTime, UTCTime, diffUTCTime,
+                                         getCurrentTime)
 import           GHC.Generics           (Generic)
 
 data ClientApplication = ClientApplication
