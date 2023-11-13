@@ -30,7 +30,7 @@ module AWS.Lambda.Runtime (
 ) where
 
 import           AWS.Lambda.Combinators   (withInfallibleParse,
-                                           withInfallibleParseEither,
+                                           withFallibleParse,
                                            withoutContext)
 import           AWS.Lambda.Context       (LambdaContext (..))
 import qualified AWS.Lambda.Runtime.Value as ValueRuntime
@@ -256,7 +256,7 @@ ioRuntime = ValueRuntime.ioRuntime . withInfallibleParse
 -- @
 fallibleRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> Either String result) -> IO ()
-fallibleRuntimeWithContext fn = ValueRuntime.fallibleRuntimeWithContext $ \lc -> join . withInfallibleParseEither (fn lc)
+fallibleRuntimeWithContext fn = ValueRuntime.fallibleRuntimeWithContext $ \lc -> join . withFallibleParse (fn lc)
 
 -- | For pure functions that can still fail.
 --
@@ -321,7 +321,7 @@ fallibleRuntime = fallibleRuntimeWithContext . withoutContext
 -- @
 pureRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> result) -> IO ()
-pureRuntimeWithContext fn = ValueRuntime.fallibleRuntimeWithContext $ withInfallibleParseEither . fn
+pureRuntimeWithContext fn = ValueRuntime.fallibleRuntimeWithContext $ withFallibleParse . fn
 
 -- | For pure functions that can never fail.
 --
