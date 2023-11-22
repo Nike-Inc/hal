@@ -52,11 +52,15 @@ ghc-options:
   - -fwarn-missing-signatures
   - -fwarn-incomplete-patterns
 
+flags:
+  use-aeson-2-2:
+    description: Required parsers are split out into a different package
+    default: true
+    manual: false
+
 library:
   source-dirs: src
   dependencies:
-    - aeson >=1.2.0.0 && <1.6 || >=2.0.0.0 && <2.3.0.0
-    - attoparsec-aeson
     - base64-bytestring
     - bytestring
     - case-insensitive
@@ -72,6 +76,15 @@ library:
     - text
     - time
     - unordered-containers
+  when:
+    - condition: flag(use-aeson-2-2)
+      then:
+        dependencies:
+          - aeson >=2.2.0.0 && <2.3.0.0
+          - attoparsec-aeson
+      else:
+        dependencies:
+          - aeson >=1.2.0.0 && <1.6 || >=2.0.0.0 && <2.2.0.0
 
 tests:
   hal-test:
