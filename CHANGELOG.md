@@ -5,9 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
-## unreleased - 2023-07-06
+## unreleased - 2023-11-23
 
   - Add support for aeson 2.2
+  - `fallibleRuntime` and `fallibleRuntimeWithContext` reports errors to AWS
+    instead of returning `{"Left": "some error"}`.
+  - `pureRuntime`, `pureRuntimeWithContext`, `fallibleRuntime` and `fallibleRuntimeWithContext`
+    no longer crash the Lambda runtime if input can't be parsed from JSON.
 
 ## `1.0.0.1` - 2022-09-10
 
