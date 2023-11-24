@@ -32,7 +32,7 @@ module AWS.Lambda.Runtime (
 import           AWS.Lambda.Combinators   (withInfallibleParse,
                                            withFallibleParse,
                                            withoutContext)
-import           AWS.Lambda.Context       (LambdaContext (..))
+import           AWS.Lambda.Context       (LambdaContext(..))
 import qualified AWS.Lambda.Runtime.Value as ValueRuntime
 import           Control.Monad            (join)
 import           Control.Monad.Catch      (MonadCatch)

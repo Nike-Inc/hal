@@ -17,8 +17,8 @@ module AWS.Lambda.Combinators (
     withFallibleParse
 ) where
 
-import           Data.Aeson       (FromJSON, Value, parseJSON)
-import           Data.Aeson.Types (parseEither)
+import           Data.Aeson             (FromJSON, parseJSON, Value)
+import           Data.Aeson.Types       (parseEither)
 
 -- | An alias of 'const', this upgrades a handler that does not accept
 -- 'AWS.Lambda.Context.LambdaContext' as its first curried argument to one that does.

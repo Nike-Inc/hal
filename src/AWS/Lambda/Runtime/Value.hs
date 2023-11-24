@@ -40,12 +40,12 @@ module AWS.Lambda.Runtime.Value (
 ) where
 
 import           AWS.Lambda.Combinators   (withoutContext)
-import           AWS.Lambda.Context       (LambdaContext (..))
+import           AWS.Lambda.Context       (LambdaContext(..))
 import           AWS.Lambda.RuntimeClient (RuntimeClientConfig, getNextData,
                                            getRuntimeClientConfig,
                                            sendEventError, sendEventSuccess)
 import           Control.Exception        (SomeException, displayException)
-import           Control.Monad            (forever, (<=<))
+import           Control.Monad            ((<=<), forever)
 import           Control.Monad.Catch      (MonadCatch, try)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)
 import           Control.Monad.Reader     (ReaderT, runReaderT)
