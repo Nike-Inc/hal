@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.35.0.
+-- This file has been generated from package.yaml by hpack version 0.34.7.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d8620c73a5fa1420a588e2d7fd6ac5d10500c751d2d88d05b1b4d0ce44d45883
+-- hash: 83b1a5a9a4a65cd4ce0ee8eda5ac9cb84640ca07b5164078babd4a7726aeddb3
 
 name:           hal
 version:        1.0.0.1
@@ -32,7 +32,7 @@ source-repository head
 flag use-aeson-2-2
   description: Required parsers are split out into a different package
   manual: False
-  default: True
+  default: False
 
 library
   exposed-modules:
