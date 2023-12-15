@@ -55,7 +55,7 @@ ghc-options:
 flags:
   use-aeson-2-2:
     description: Required parsers are split out into a different package
-    default: true
+    default: false
     manual: false
 
 library:
