@@ -15,6 +15,10 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
   - `pureRuntime`, `pureRuntimeWithContext`, `fallibleRuntime` and `fallibleRuntimeWithContext`
     no longer crash the Lambda runtime if input can't be parsed from JSON.
 
+## `1.0.1` - 2023-12-15
+
+  - Add support for aeson 2.2.  Users can opt in by setting the `use-aeson-2-2` flag to `true`, which for many users will be set automatically.  In a future breaking change release, this flag will default to `true`.
+
 ## `1.0.0.1` - 2022-09-10
 
   - Support GHC 9.4 by eliminating compiler errors
