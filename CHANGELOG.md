@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
   - Add support for aeson 2.2
   - `fallibleRuntime` and `fallibleRuntimeWithContext` reports errors to AWS
     instead of returning `{"Left": "some error"}`.
+  - `fallibleRuntime` and `fallibleRuntimeWithContext` no longer wrap their
+    successful responses in `{"Right": ...}`
   - `pureRuntime`, `pureRuntimeWithContext`, `fallibleRuntime` and `fallibleRuntimeWithContext`
     no longer crash the Lambda runtime if input can't be parsed from JSON.
 
