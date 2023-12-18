@@ -321,7 +321,7 @@ fallibleRuntime = fallibleRuntimeWithContext . withoutContext
 -- @
 pureRuntimeWithContext :: (FromJSON event, ToJSON result) =>
   (LambdaContext -> event -> result) -> IO ()
-pureRuntimeWithContext fn = ValueRuntime.fallibleRuntimeWithContext $ withFallibleParse . fn
+pureRuntimeWithContext = fallibleRuntimeWithContext . fmap (fmap pure)
 
 -- | For pure functions that can never fail.
 --
