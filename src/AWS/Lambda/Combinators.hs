@@ -13,7 +13,8 @@ They map functions (instead of values) to turn basic handlers into handlers comp
 
 module AWS.Lambda.Combinators (
     withoutContext,
-    withInfallibleParse
+    withInfallibleParse,
+    withFallibleParse
 ) where
 
 import           Data.Aeson             (FromJSON, parseJSON, Value)
@@ -70,3 +71,7 @@ withoutContext = const
 -- on a failure to convert the JSON AST sent to the Lambda.
 withInfallibleParse :: FromJSON a => (a -> b) -> Value -> b
 withInfallibleParse fn = either error fn . parseEither parseJSON
+
+-- | Like 'withInfallibleParse', but return the result in an 'Either' instead of using 'error'.
+withFallibleParse :: FromJSON a => (a -> b) -> Value -> Either String b
+withFallibleParse fn = fmap fn . parseEither parseJSON

@@ -39,10 +39,11 @@ module AWS.Lambda.Runtime.Value (
   mRuntimeWithContext,
 ) where
 
-import           AWS.Lambda.RuntimeClient (RuntimeClientConfig, getRuntimeClientConfig,
-                                           getNextData, sendEventError, sendEventSuccess)
 import           AWS.Lambda.Combinators   (withoutContext)
 import           AWS.Lambda.Context       (LambdaContext(..))
+import           AWS.Lambda.RuntimeClient (RuntimeClientConfig, getNextData,
+                                           getRuntimeClientConfig,
+                                           sendEventError, sendEventSuccess)
 import           Control.Exception        (SomeException, displayException)
 import           Control.Monad            ((<=<), forever)
 import           Control.Monad.Catch      (MonadCatch, try)
@@ -331,7 +332,7 @@ ioRuntime = ioRuntimeWithContext . withoutContext
 -- @
 fallibleRuntimeWithContext :: ToJSON result =>
   (LambdaContext -> Value -> Either String result) -> IO ()
-fallibleRuntimeWithContext = mRuntimeWithContext . fmap (fmap pure)
+fallibleRuntimeWithContext fn = mRuntimeWithContext (\lc -> either error pure . fn lc)
 
 -- | For pure functions that can still fail.
 --
