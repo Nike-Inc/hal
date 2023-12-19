@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
-## unreleased - 2023-11-23
+## `1.1` - 2023-12-18
 
   - `fallibleRuntime` and `fallibleRuntimeWithContext` report errors to AWS
     instead of returning `{"Left": "some error"}`.
