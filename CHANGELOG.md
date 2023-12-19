@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
     successful responses in `{"Right": ...}`.
   - `pureRuntime`, `pureRuntimeWithContext`, `fallibleRuntime` and `fallibleRuntimeWithContext`
     no longer crash the Lambda runtime if input can't be parsed from JSON.
+  - By default, Aeson 2.2 is used.  This a breaking change only for specific
+    cases when using or maintaining curated package sets (stackage, nix, etc).
+    Optionally, one can set the `use-aeson-2-2` flag to `false` to use an older
+    verison.
 
 ## `1.0.1` - 2023-12-15
 
