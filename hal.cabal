@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 135f92bc103710363cac34b23a95869b5a3cdf72e04a2e41652864d0d7559ff7
+-- hash: 43aeb1fe8cab6199f506ac5347f73c7cab5c0c647744236c862a5e05ff6b3b1c
 
 name:           hal
 version:        1.0.1
@@ -32,7 +32,7 @@ source-repository head
 flag use-aeson-2-2
   description: Required parsers are split out into a different package
   manual: False
-  default: False
+  default: True
 
 library
   exposed-modules:
