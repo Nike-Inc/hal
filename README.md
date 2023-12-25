@@ -114,6 +114,9 @@ You'll need to either build on a compatible linux host or inside a compatible do
 Note that current Stack LTS images are _not_ compatible.
 If you see an error message that contains "version 'GLIBC_X.XX' not found" when running (hosted or locally), then your build environment is not compatible.
 
+An example Dockerfile is included in this repo, which can build out later Stack LTS snapshots (also see Troubleshooting Builds for Specific Package).
+Build it with `docker build -t ${BUILD_IMAGE_NAME} ${DOCKER_FILE_ROOT_DIR}`.
+
 Enable stack's docker integration and define an optional image within stack.yaml:
 
 ```yaml
@@ -121,7 +124,7 @@ Enable stack's docker integration and define an optional image within stack.yaml
 docker:
   enabled: true
   # If omitted, this defaults to fpco/stack-build:lts-${YOUR_LTS_VERSION}
-  image: ${BUILD_IMAGE}
+  image: ${BUILD_IMAGE_NAME}
 ```
 
 Don't forget to define your [CloudFormation] stack:
@@ -202,6 +205,22 @@ Note that hal currently only supports [aws-sam-cli] on versions <1.0.
 ```bash
 echo '{ "accountId": "byebye" }' | sam local invoke --region us-east-1
 ```
+
+## Troubleshooting Builds for Specific Package
+
+Some packages require a few additional settings to build without issue, where a Docker based solution is impractical.
+
+### cryptonite 0.27
+
+To get this version to build you'll need to pass the Cabal flag `use_target_attributes` false.
+You can put the following in your `stack.yaml` to do this:
+
+```
+flags:
+  cryptonite:
+    use_target_attributes: false
+```
+
 
 [AWS Lambda]: https://docs.aws.amazon.com/lambda/latest/dg/welcome.html
 [Haskell]: https://www.haskell.org/
