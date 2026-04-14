@@ -3,8 +3,6 @@ cabal-version: 1.12
 -- This file has been generated from package.yaml by hpack version 0.39.1.
 --
 -- see: https://github.com/sol/hpack
---
--- hash: a8f1e61978a7c0772b00f7d79b8d54b83646f1aac9da8e964f32057442567c95
 
 name:           hal
 version:        1.1
@@ -28,11 +26,6 @@ extra-source-files:
 source-repository head
   type: git
   location: https://github.com/Nike-inc/hal
-
-flag use-aeson-2-2
-  description: Required parsers are split out into a different package
-  manual: False
-  default: True
 
 library
   exposed-modules:
@@ -76,7 +69,9 @@ library
       ScopedTypeVariables
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -fno-warn-partial-type-signatures -fno-warn-name-shadowing -fwarn-tabs -fwarn-unused-imports -fwarn-missing-signatures -fwarn-incomplete-patterns
   build-depends:
-      base >=4.7 && <5
+      aeson >=1.4.1.0 && <2.3
+    , attoparsec-aeson >=2.1.0.0 && <2.3
+    , base >=4.7 && <5
     , base64-bytestring
     , bytestring
     , case-insensitive
@@ -93,13 +88,6 @@ library
     , time
     , unordered-containers
   default-language: Haskell2010
-  if flag(use-aeson-2-2)
-    build-depends:
-        aeson >=2.2.0.0 && <2.3.0.0
-      , attoparsec-aeson
-  else
-    build-depends:
-        aeson >=1.2.0.0 && <1.6 || >=2.0.0.0 && <2.2.0.0
 
 test-suite hal-test
   type: exitcode-stdio-1.0

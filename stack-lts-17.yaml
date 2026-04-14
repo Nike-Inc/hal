@@ -1,6 +1,5 @@
 resolver: lts-17
 packages:
 - .
-flags:
-  hal:
-    use-aeson-2-2: false
+extra-deps:
+- attoparsec-aeson-2.1.0.0
