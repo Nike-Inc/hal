@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.7.
+-- This file has been generated from package.yaml by hpack version 0.38.3.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 68071e7a76bb7ee4441cd578bc9de2a1c3ffb2622ab059ce676d816922ed3d4b
+-- hash: 7d2b383d5d9e18970386660420500cc1f0ca2854bd5d44259e9bd962bf82a63d
 
 name:           hal
 version:        1.1
@@ -28,11 +28,6 @@ extra-source-files:
 source-repository head
   type: git
   location: https://github.com/Nike-inc/hal
-
-flag use-aeson-2-2
-  description: Required parsers are split out into a different package
-  manual: False
-  default: True
 
 library
   exposed-modules:
@@ -76,7 +71,9 @@ library
       ScopedTypeVariables
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -fno-warn-partial-type-signatures -fno-warn-name-shadowing -fwarn-tabs -fwarn-unused-imports -fwarn-missing-signatures -fwarn-incomplete-patterns
   build-depends:
-      base >=4.7 && <5
+      aeson >=1.4.1.0 && <2.3
+    , attoparsec-aeson >=2.1.0.0 && <2.3
+    , base >=4.7 && <5
     , base64-bytestring
     , bytestring
     , case-insensitive
@@ -93,13 +90,6 @@ library
     , time
     , unordered-containers
   default-language: Haskell2010
-  if flag(use-aeson-2-2)
-    build-depends:
-        aeson >=2.2.0.0 && <2.3.0.0
-      , attoparsec-aeson
-  else
-    build-depends:
-        aeson >=1.2.0.0 && <1.6 || >=2.0.0.0 && <2.2.0.0
 
 test-suite hal-test
   type: exitcode-stdio-1.0
@@ -149,7 +139,7 @@ test-suite hal-test
     , case-insensitive
     , containers
     , hal
-    , hedgehog >=1.0.3 && <1.5
+    , hedgehog >=1.0.3 && <1.8
     , hspec
     , hspec-hedgehog
     , http-client
