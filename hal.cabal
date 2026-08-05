@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.7.
+-- This file has been generated from package.yaml by hpack version 0.39.1.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 68071e7a76bb7ee4441cd578bc9de2a1c3ffb2622ab059ce676d816922ed3d4b
+-- hash: a8f1e61978a7c0772b00f7d79b8d54b83646f1aac9da8e964f32057442567c95
 
 name:           hal
 version:        1.1
@@ -116,6 +116,7 @@ test-suite hal-test
       AWS.Lambda.Events.EventBridge.Spec
       AWS.Lambda.Events.Kafka.Gen
       AWS.Lambda.Events.Kafka.Spec
+      AWS.Lambda.Events.SQS.Spec
       Gen.Header
       Paths_hal
   hs-source-dirs:
@@ -149,7 +150,7 @@ test-suite hal-test
     , case-insensitive
     , containers
     , hal
-    , hedgehog >=1.0.3 && <1.5
+    , hedgehog >=1.0.3 && <1.8
     , hspec
     , hspec-hedgehog
     , http-client
