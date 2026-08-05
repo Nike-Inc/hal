@@ -44,12 +44,6 @@ jobs:
         with:
           ghc-version: ${{ matrix.plan.ghc-version }}
           cabal-version: ${{ matrix.plan.cabal-version }}
-      - name: Install Project Dependencies (Cabal v3)
-        run: |
-          set -ex
-          cabal install --lib --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1
-          set +ex
-        if: "startsWith(matrix.plan.cabal-version, '3')"
       - name: Install Project Dependencies (Cabal v2)
         run: |
           set -ex
