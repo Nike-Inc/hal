@@ -35,7 +35,10 @@ jobs:
             ~/.cabal/packages
             ~/.cabal/store
             dist-newstyle
-          key: ${{ matrix.plan.ghc-version }}
+          key: ${{ matrix.plan.ghc-version }}-${{ hashFiles('hal.cabal') }}
+          # Still use a reasonable warm start on a miss
+          restore-keys: |
+            ${{ matrix.plan.ghc-version }}-
       - name: Install Cabal
         uses: haskell/actions/setup@v1
         with:
