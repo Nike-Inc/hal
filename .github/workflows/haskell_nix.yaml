@@ -1,0 +1,37 @@
+name: Nix Haskell Builds
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      matrix:
+        channel:
+          - 26-05
+          - 25-11
+          - 25-05
+        experimental:
+          - false
+        include:
+          - channel: unstable
+            experimental: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+      - name: Cache Nix Store
+        uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Build Project
+        run: |
+          set -ex
+          nix-build --arg channel '"${{ matrix.channel }}"' --show-trace
+          set +ex
