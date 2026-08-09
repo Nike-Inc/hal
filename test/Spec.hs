@@ -9,6 +9,7 @@ import qualified AWS.Lambda.Events.ApiGateway.ProxyResponse.Spec as ProxyRespons
 
 import qualified AWS.Lambda.Events.EventBridge.Spec as EventBridge
 import qualified AWS.Lambda.Events.Kafka.Spec       as Kafka
+import qualified AWS.Lambda.Events.SQS.Spec         as SQS
 import           AWS.Lambda.Internal                (StaticContext (..))
 import           AWS.Lambda.RuntimeClient.Internal  (eventResponseToNextData)
 import           Data.Aeson                         (Value (Null))
@@ -37,6 +38,7 @@ main =
         describe "ProxyResponse" ProxyResponse.spec
       describe "EventBridge" EventBridge.spec
       describe "Kafka" Kafka.spec
+      describe "SQS" SQS.spec
 
     describe "Event Response Data" $ do
       let staticContext =

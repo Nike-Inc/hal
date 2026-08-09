@@ -1,3 +1,6 @@
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE RecordWildCards #-}
+
 {-|
 Module      : AWS.Lambda.Events.SQS
 Description : Data types for working with SQS events.
@@ -18,9 +21,13 @@ import Data.Map     (Map)
 import Data.Text    (Text)
 import GHC.Generics (Generic)
 
+-- | Represents an event from AWS SQS.
+--
+-- See the <https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html AWS documentation>
+-- for a sample payload.
 newtype Records = Records {
   records :: [SQSEvent]
-} deriving (Show, Eq)
+} deriving (Show, Eq, Generic)
 
 instance FromJSON Records where
   parseJSON = withObject "Records" $ \v -> Records <$> v .: "Records"
@@ -29,16 +36,18 @@ data Attributes = Attributes {
   approximateReceiveCount          :: Text,
   sentTimestamp                    :: Text,
   senderId                         :: Text,
-  approximateFirstReceiveTimestamp :: Text
-} deriving (Show, Eq)
+  approximateFirstReceiveTimestamp :: Text,
+  messageGroupId                   :: Text
+} deriving (Show, Eq, Generic)
 
 instance FromJSON Attributes where
-  parseJSON = withObject "Attributes" $ \v ->
-    Attributes
-      <$> v .: "ApproximateReceiveCount"
-      <*> v .: "SentTimestamp"
-      <*> v .: "SenderId"
-      <*> v .: "ApproximateFirstReceiveTimestamp"
+  parseJSON = withObject "Attributes" $ \v -> do
+    approximateReceiveCount <- v .: "ApproximateReceiveCount"
+    sentTimestamp <- v .: "SentTimestamp"
+    senderId <- v .: "SenderId"
+    approximateFirstReceiveTimestamp <- v .: "ApproximateFirstReceiveTimestamp"
+    messageGroupId <- v .: "MessageGroupId"
+    pure Attributes {..}
 
 data SQSEvent = SQSEvent {
   messageId         :: Text,
