@@ -26,6 +26,12 @@ jobs:
             cabal-version: '3.0'
           - ghc-version: '9.4.2'
             cabal-version: '3.0'
+          - ghc-version: '9.6.7'
+            cabal-version: '3.10'
+          - ghc-version: '9.8.4'
+            cabal-version: '3.12'
+          - ghc-version: '9.10.3'
+            cabal-version: '3.14'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -41,7 +47,7 @@ jobs:
           restore-keys: |
             ${{ matrix.plan.ghc-version }}-
       - name: Install Cabal
-        uses: haskell/actions/setup@v1
+        uses: haskell-actions/setup@v2
         with:
           ghc-version: ${{ matrix.plan.ghc-version }}
           cabal-version: ${{ matrix.plan.cabal-version }}
