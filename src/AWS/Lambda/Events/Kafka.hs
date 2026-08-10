@@ -174,10 +174,15 @@ instance FromJSON (Record' ByteString) where
     partition <- o .: "partition"
     offset <- o .: "offset"
     timestamp <- parseTimestamp o
-    headers <- o .: "headers"
+    headers <- o .: "headers" >>= fmap catMaybes . traverse parseNullableHeader
     key <- fmap (B64.decodeLenient . TE.encodeUtf8) <$> o .:? "key"
     value <- fmap (B64.decodeLenient . TE.encodeUtf8) <$> o .:? "value"
     pure Record { topic, partition, offset, timestamp, headers, key, value }
+    where
+      -- AWS serialises Kafka headers with null values as {}, which has no
+      -- key to extract. Skip these rather than failing.
+      parseNullableHeader (Object o) | KM.null o = pure Nothing
+      parseNullableHeader v                       = Just <$> parseJSON v
 
 -- | Encodes keys and values into base64.
 instance ToJSON (Record' ByteString) where

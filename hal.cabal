@@ -116,6 +116,7 @@ test-suite hal-test
       AWS.Lambda.Events.EventBridge.Spec
       AWS.Lambda.Events.Kafka.Gen
       AWS.Lambda.Events.Kafka.Spec
+      AWS.Lambda.Events.SQS.Spec
       Gen.Header
       Paths_hal
   hs-source-dirs:
