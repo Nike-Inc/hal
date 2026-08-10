@@ -13,17 +13,17 @@ jobs:
     strategy:
       matrix:
         plan:
-          - ghc-version: '8.4.4'
+          - ghc-version: '8.4'
             cabal-version: '2.4'
           - ghc-version: '8.8'
             cabal-version: '3.0'
-          - ghc-version: '8.10.7'
+          - ghc-version: '8.10'
             cabal-version: '3.0'
-          - ghc-version: '9.0.2'
+          - ghc-version: '9.0'
             cabal-version: '3.0'
-          - ghc-version: '9.2.4'
+          - ghc-version: '9.2'
             cabal-version: '3.0'
-          - ghc-version: '9.4.2'
+          - ghc-version: '9.4'
             cabal-version: '3.0'
     runs-on: ubuntu-latest
     steps:
