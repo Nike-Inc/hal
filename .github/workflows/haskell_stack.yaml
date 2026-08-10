@@ -24,6 +24,9 @@ jobs:
           - lts-19
           - lts-20
           - lts-21
+          - lts-22
+          - lts-23
+          - lts-24
         experimental:
           - false
         include:
