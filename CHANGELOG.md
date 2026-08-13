@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
+## Unreleased
+  - Add `messageGroupId` to SQS Attributes.
+
 ## `1.1` - 2023-12-18
 
   - `fallibleRuntime` and `fallibleRuntimeWithContext` report errors to AWS
