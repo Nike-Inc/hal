@@ -7,7 +7,9 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
 
 ## Unreleased
   - Add `messageGroupId` to SQS Attributes.
-  - Fix header parsing to accept `null` values serialised as `{}` 
+  - Fix header parsing to accept `null` values serialised as `{}`
+  - The `use-aeson-2.2` flag has been removed in favour of a
+    dependency on the `attoparsec-aeson` compatibility package.
 
 ## `1.1` - 2023-12-18
 

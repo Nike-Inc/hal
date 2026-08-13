@@ -1,6 +1,3 @@
 resolver: lts-21
 packages:
 - .
-flags:
-  hal:
-    use-aeson-2-2: false
