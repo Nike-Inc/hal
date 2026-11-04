@@ -68,7 +68,7 @@ context :: Text -> Text -> Text -> Gen (RequestContext NoAuthorizer)
 context path resourcePath httpMethod = do
   accountId <- Gen.text (Range.singleton 12) Gen.digit
   authorizer <- Gen.maybe authJson
-  resourceId <- text
+  resourceId <- Gen.maybe text
   stage <- text
   domainPrefix <- Gen.maybe $ Gen.text (Range.linear 1 15) Gen.alphaNum
   requestId <- text
@@ -76,6 +76,10 @@ context path resourcePath httpMethod = do
   domainName <- Gen.maybe text
   extendedRequestId <- Gen.maybe text
   apiId <- text
+  operationName <- Gen.maybe text
+  protocol <- Gen.maybe text
+  requestTime <- Gen.maybe text
+  requestTimeEpoch <- Gen.maybe $ Gen.int64 Range.linearBounded
   pure $ RequestContext
       { path = path
       , accountId = accountId
@@ -90,6 +94,10 @@ context path resourcePath httpMethod = do
       , httpMethod = httpMethod
       , extendedRequestId = extendedRequestId
       , apiId = apiId
+      , operationName = operationName
+      , protocol = protocol
+      , requestTime = requestTime
+      , requestTimeEpoch = requestTimeEpoch
       }
 
 ident :: Gen Identity
@@ -100,6 +108,7 @@ ident = Identity
   <*> Gen.maybe text
   <*> Gen.maybe text
   <*> text
+  <*> Gen.maybe text
   <*> Gen.maybe text
   <*> Gen.maybe text
   <*> Gen.maybe text
