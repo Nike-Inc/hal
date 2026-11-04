@@ -27,6 +27,7 @@ import           Data.CaseInsensitive        (CI, FoldCase, mk, original)
 import           Data.Foldable               (fold)
 import           Data.Hashable               (Hashable)
 import           Data.HashMap.Strict         (HashMap, foldrWithKey, insert)
+import           Data.Int                    (Int64)
 import           Data.Maybe                  (catMaybes)
 import           Data.Text                   (Text)
 import qualified Data.Text.Lazy              as TL
@@ -55,6 +56,7 @@ data Identity = Identity
     , apiKeyId                      :: Maybe Text
     , userAgent                     :: Maybe Text
     , user                          :: Maybe Text
+    , principalOrgId                :: Maybe Text
     } deriving (Eq, Generic, Show)
 
 instance FromJSON Identity
@@ -74,6 +76,10 @@ data RequestContext a = RequestContext
     , httpMethod        :: Text
     , extendedRequestId :: Maybe Text
     , apiId             :: Text
+    , operationName     :: Maybe Text
+    , protocol          :: Maybe Text
+    , requestTime       :: Maybe Text
+    , requestTimeEpoch  :: Maybe Int64
     } deriving (Eq, Generic, Show)
 
 instance FromJSON a => FromJSON (RequestContext a) where
@@ -89,7 +95,11 @@ instance FromJSON a => FromJSON (RequestContext a) where
         v .: "resourcePath" <*>
         v .: "httpMethod" <*>
         v .:? "extendedRequestId" <*>
-        v .: "apiId"
+        v .: "apiId" <*>
+        v .:? "operationName" <*>
+        v .:? "protocol" <*>
+        v .:? "requestTime" <*>
+        v .:? "requestTimeEpoch"
 
 -- | @since 0.4.8
 instance ToJSON a => ToJSON (RequestContext a) where
@@ -110,6 +120,10 @@ instance ToJSON a => ToJSON (RequestContext a) where
             , Just $ "httpMethod" .= h
             , ("extendedRequestId" .=) <$> extendedRequestId r
             , Just $ "apiId" .= apiId r
+            , ("operationName" .=) <$> operationName r
+            , ("protocol" .=) <$> protocol r
+            , ("requestTime" .=) <$> requestTime r
+            , ("requestTimeEpoch" .=) <$> requestTimeEpoch r
             ]
 
 -- TODO: Should also include websocket fields
