@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
 ## Unreleased
   - Add `messageGroupId` to SQS Attributes.
   - Fix the type of `messageAttributes` in `SQSEvent`.
+  - Add `messageDeduplicationId`, `sequenceNumber`, `awsTraceHeader` and
+    `deadLetterQueueSourceArn` to SQS `Attributes`, and
+    `md5OfMessageAttributes` to `SQSEvent`.
+  - Add `versionId` to `S3Object`, and make `sequencer` optional, since only
+    PUT and DELETE events include it.
+  - Add `operationName`, `protocol`, `requestTime` and `requestTimeEpoch` to
+    API Gateway `RequestContext`, and `principalOrgId` to `Identity`.
+    `resourceId` is now optional, since it's `null` for HTTP API payload
+    format 1.0.
+  - Add `replayName` to `EventBridgeEvent'`.
   - Fix header parsing to accept `null` values serialised as `{}`
   - The `use-aeson-2.2` flag has been removed in favour of a
     dependency on the `attoparsec-aeson` compatibility package.

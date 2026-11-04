@@ -25,6 +25,7 @@ eventBridgeEvent = do
   account <- awsAccount
   time <- utcTime
   region <- awsRegion
+  replayName <- Gen.maybe $ Gen.text (Range.linear 1 64) Gen.alphaNum
   resources <- Gen.list (Range.linear 1 5) resource
   let detail = "{}"
 
@@ -36,6 +37,7 @@ eventBridgeEvent = do
     , account
     , time
     , region
+    , replayName
     , resources
     , detail
     }

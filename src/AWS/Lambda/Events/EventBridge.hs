@@ -78,6 +78,12 @@ data EventBridgeEvent' a = EventBridgeEvent {
   -- | Identifies the AWS Region where the event originated.
   region :: Text,
 
+  -- | Present only for archived events that are resent as part of a
+  -- replay.
+  --
+  -- __NOTE:__ This is called @replay-name@ in the AWS payload.
+  replayName :: Maybe Text,
+
   -- | A JSON array that contains ARNs that identify resources that
   -- are involved in the event. The service generating the event
   -- determines whether to include these ARNs. For example, Amazon EC2
@@ -105,6 +111,7 @@ instance FromJSON a => FromJSON (EventBridgeEvent' a) where
     account <- o .: "account"
     time <- o .: "time"
     region <- o .: "region"
+    replayName <- o .:? "replay-name"
     resources <- o .: "resources"
     detail <- o .: "detail"
 
@@ -116,6 +123,7 @@ instance FromJSON a => FromJSON (EventBridgeEvent' a) where
       , account
       , time
       , region
+      , replayName
       , resources
       , detail
       }
@@ -129,6 +137,7 @@ instance ToJSON a => ToJSON (EventBridgeEvent' a) where
     , "account" .= account event
     , "time" .= time event
     , "region" .= region event
+    , "replay-name" .= replayName event
     , "resources" .= resources event
     , "detail" .= detail event
     ]
@@ -141,6 +150,7 @@ instance ToJSON a => ToJSON (EventBridgeEvent' a) where
     , "account" .= account event
     , "time" .= time event
     , "region" .= region event
+    , "replay-name" .= replayName event
     , "resources" .= resources event
     , "detail" .= detail event
     ]
