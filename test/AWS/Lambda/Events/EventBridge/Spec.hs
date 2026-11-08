@@ -25,6 +25,9 @@ spec = do
     specify "read sample payload" $
       eitherDecode samplePayload `shouldBe` Right expectedPayload
 
+    specify "write sample payload" $
+      decode (encode expectedPayload) `shouldBe` (decode samplePayload :: Maybe Value)
+
     describe "properties" $ do
       specify "EventBridgeEvent tripping" $
         hedgehog $ do
@@ -68,6 +71,7 @@ expectedPayload = EventBridgeEvent
   , account = "123456789012"
   , time = UTCTime (fromGregorian 2016 11 16) (secondsToDiffTime $ 58 * 60 + 37)
   , region = "us-east-2"
+  , replayName = Nothing
   , resources =
     [ "arn:aws:ssm:us-east-2:123456789012:maintenancewindow/mw-0ed7251d3fcf6e0c2"
     , "arn:aws:ssm:us-east-2:123456789012:windowtarget/e7265f13-3cc5-4f2f-97a9-7d3ca86c32a6"
