@@ -13,7 +13,8 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
     `md5OfMessageAttributes` to `SQSEvent`.
   - Add `versionId` to `S3Object`.
   - Add `operationName`, `protocol`, `requestTime` and `requestTimeEpoch` to
-    API Gateway `RequestContext`, and `principalOrgId` to `Identity`.
+    API Gateway `RequestContext`, and `principalOrgId` and `clientCert` to
+    `Identity`.
   - Add `replayName` to `EventBridgeEvent'`.
   - Fix header parsing to accept `null` values serialised as `{}`
   - The `use-aeson-2.2` flag has been removed in favour of a
