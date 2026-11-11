@@ -153,7 +153,7 @@ main =
         fmap clientContext context `shouldBe`
           (Left
              "Runtime Error: Unable to decode Context from event response.\nToo many values for header Lambda-Runtime-Cognito-Identity")
-      it "fails to create the context if trace Id is not provided" $ do
+      it "has an empty trace Id if trace Id is not provided" $ do
         let headers =
               [ ("Lambda-Runtime-Aws-Request-Id", "abc")
               , ("Lambda-Runtime-Invoked-Function-Arn", "arn")
@@ -161,9 +161,7 @@ main =
               ]
         let (_, _, context) =
               eventResponseToNextData staticContext (minJsonResponse headers)
-        context `shouldBe`
-          (Left
-             "Runtime Error: Unable to decode Context from event response.\nMissing response header Lambda-Runtime-Trace-Id")
+        fmap xRayTraceId context `shouldBe` Right ""
       it "fails to create the context if trace id has multiple values" $ do
         let headers = ("Lambda-Runtime-Trace-Id", "123") : basicValidHeaders
         let (_, _, context) =

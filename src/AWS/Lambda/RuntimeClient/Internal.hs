@@ -39,7 +39,10 @@ eventResponseToNextData staticContext nextRes =
     reqIdBS = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
 
     eCtx = first ("Runtime Error: Unable to decode Context from event response.\n" <>) $ do
-      traceId <- fmap decodeUtf8 $ exactlyOneHeader "Lambda-Runtime-Trace-Id" nextRes
+      -- The trace header is omitted when there is no trace to propagate (for
+      -- example, under the Lambda Runtime Interface Emulator), so an absent
+      -- header becomes an empty trace id.
+      traceId <- fmap decodeUtf8 $ atMostOneHeader "Lambda-Runtime-Trace-Id" nextRes
       functionArn <- fmap decodeUtf8 $ exactlyOneHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
       deadlineHeader <- exactlyOneHeader "Lambda-Runtime-Deadline-Ms" nextRes
       milliseconds :: Double <- maybeToEither "Could not parse deadline" $ readMaybe $ BSC.unpack deadlineHeader
@@ -75,6 +78,15 @@ exactlyOneHeader name res =
   in case getResponseHeader name res of
     [a] -> Right a
     [] -> Left ("Missing response header " <> nameStr)
+    _ ->  Left ("Too many values for header " <> nameStr)
+
+-- Like exactlyOneHeader, but a missing header yields an empty value
+atMostOneHeader :: HeaderName -> Response Value -> Either String BS.ByteString
+atMostOneHeader name res =
+  let nameStr = headerNameToString name
+  in case getResponseHeader name res of
+    [a] -> Right a
+    [] -> Right BS.empty
     _ ->  Left ("Too many values for header " <> nameStr)
 
 maybeToEither :: b -> Maybe a -> Either b a
