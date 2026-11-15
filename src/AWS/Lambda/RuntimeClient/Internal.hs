@@ -82,11 +82,12 @@ generateRootTraceId = mkRootTraceId <$> getPOSIXTime <*> randomIO <*> randomIO
 -- See <https://docs.aws.amazon.com/xray/latest/devguide/xray-api-sendingdata.html#xray-api-traceids>
 mkRootTraceId :: POSIXTime -> Word32 -> Word64 -> Text
 mkRootTraceId time idHigh idLow =
-  T.pack $ "Root=1-" <> hexPadded 8 epochSeconds <> "-" <> hexPadded 8 idHigh <> hexPadded 16 idLow <> ";Sampled=0"
+  T.pack $ "Root=1-" <> hexPadded 8 (toInteger epochSeconds) <> "-" <> hexPadded 8 (toInteger idHigh) <> hexPadded 16 (toInteger idLow) <> ";Sampled=0"
   where
     -- Truncated to 32 bits, the format's fixed width
     epochSeconds = fromIntegral (floor time :: Integer) :: Word32
-    hexPadded :: Integral a => Int -> a -> String
+    -- Monomorphic, since showHex needs a Show constraint on older bases
+    hexPadded :: Int -> Integer -> String
     hexPadded width n = let digits = showHex n "" in replicate (width - length digits) '0' <> digits
 
 -- Helpers (mostly) for Headers
