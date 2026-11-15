@@ -13,7 +13,8 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
     dependency on the `attoparsec-aeson` compatibility package.
   - Accept a missing `Lambda-Runtime-Trace-Id` header, which the Lambda
     Runtime Interface Emulator omits when an invocation has no trace ID.
-    `xRayTraceId` is empty in that case.
+    A new, unsampled X-Ray root trace is generated for `xRayTraceId` in
+    that case.
 
 ## `1.1` - 2023-12-18
 

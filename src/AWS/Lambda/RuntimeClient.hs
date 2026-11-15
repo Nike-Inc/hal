@@ -19,7 +19,8 @@ module AWS.Lambda.RuntimeClient (
 
 import           AWS.Lambda.Context                (LambdaContext)
 import           AWS.Lambda.Internal               (StaticContext, getStaticContext)
-import           AWS.Lambda.RuntimeClient.Internal (eventResponseToNextData)
+import           AWS.Lambda.RuntimeClient.Internal (eventResponseToNextData,
+                                                    generateRootTraceId)
 import           Control.Concurrent                (threadDelay)
 import           Control.Exception                 (IOException, displayException,
                                                     throw, try)
@@ -109,8 +110,11 @@ getRuntimeClientConfig = do
 
 
 getNextData :: RuntimeClientConfig -> IO (BS.ByteString, Value, Either String LambdaContext)
-getNextData runtimeClientConfig@(RuntimeClientConfig _ _ staticContext) =
-  eventResponseToNextData staticContext <$> getNextEvent runtimeClientConfig
+getNextData runtimeClientConfig@(RuntimeClientConfig _ _ staticContext) = do
+  nextRes <- getNextEvent runtimeClientConfig
+  -- Only used when the response has no trace header
+  fallbackTraceId <- generateRootTraceId
+  return $ eventResponseToNextData staticContext fallbackTraceId nextRes
 
 -- AWS lambda guarantees that we will get valid JSON,
 -- so parsing is guaranteed to succeed.

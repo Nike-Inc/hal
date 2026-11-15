@@ -10,6 +10,8 @@ Stability   : stable
 
 module AWS.Lambda.RuntimeClient.Internal (
   eventResponseToNextData,
+  generateRootTraceId,
+  mkRootTraceId,
 ) where
 
 import           AWS.Lambda.Context       (LambdaContext)
@@ -26,23 +28,31 @@ import           Data.CaseInsensitive     (original)
 #if !MIN_VERSION_base(4,11,0)
 import           Data.Semigroup           ((<>))
 #endif
+import           Data.Text                (Text)
+import qualified Data.Text                as T
 import           Data.Text.Encoding       (decodeUtf8)
-import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
+import           Data.Time.Clock.POSIX    (POSIXTime, getPOSIXTime,
+                                           posixSecondsToUTCTime)
+import           Data.Word                (Word32, Word64)
 import           Network.HTTP.Client      (Response, responseBody,
                                            responseHeaders)
 import           Network.HTTP.Types       (HeaderName)
+import           Numeric                  (showHex)
+import           System.Random            (randomIO)
 
-eventResponseToNextData :: StaticContext -> Response Value -> (BS.ByteString, Value, Either String LambdaContext)
-eventResponseToNextData staticContext nextRes =
+-- | The 'Text' argument is the trace id to use if the response has no
+-- @Lambda-Runtime-Trace-Id@ header (see 'generateRootTraceId').
+eventResponseToNextData :: StaticContext -> Text -> Response Value -> (BS.ByteString, Value, Either String LambdaContext)
+eventResponseToNextData staticContext fallbackTraceId nextRes =
   -- If we got an event but our requestId is invalid/missing, there's no hope of meaningful recovery
   let
     reqIdBS = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
 
     eCtx = first ("Runtime Error: Unable to decode Context from event response.\n" <>) $ do
       -- The trace header is omitted when there is no trace to propagate (for
-      -- example, under the Lambda Runtime Interface Emulator), so an absent
-      -- header becomes an empty trace id.
-      traceId <- fmap decodeUtf8 $ atMostOneHeader "Lambda-Runtime-Trace-Id" nextRes
+      -- example, under the Lambda Runtime Interface Emulator).  There is
+      -- nothing to connect to in that case, so we start a new root trace.
+      traceId <- maybe fallbackTraceId decodeUtf8 <$> atMostOneHeader "Lambda-Runtime-Trace-Id" nextRes
       functionArn <- fmap decodeUtf8 $ exactlyOneHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
       deadlineHeader <- exactlyOneHeader "Lambda-Runtime-Deadline-Ms" nextRes
       milliseconds :: Double <- maybeToEither "Could not parse deadline" $ readMaybe $ BSC.unpack deadlineHeader
@@ -60,6 +70,24 @@ eventResponseToNextData staticContext nextRes =
   -- Return the interesting components
   in (reqIdBS, getResponseBody nextRes, eCtx)
 
+
+-- | Start a new, unsampled X-Ray root trace, formatted as a
+-- @Lambda-Runtime-Trace-Id@ header value.
+generateRootTraceId :: IO Text
+generateRootTraceId = mkRootTraceId <$> getPOSIXTime <*> randomIO <*> randomIO
+
+-- | Format a root trace id from its start time and the two halves of its
+-- 96-bit identifier, e.g. @Root=1-5759e988-bd862e3fe1be46a994272793;Sampled=0@.
+--
+-- See <https://docs.aws.amazon.com/xray/latest/devguide/xray-api-sendingdata.html#xray-api-traceids>
+mkRootTraceId :: POSIXTime -> Word32 -> Word64 -> Text
+mkRootTraceId time idHigh idLow =
+  T.pack $ "Root=1-" <> hexPadded 8 epochSeconds <> "-" <> hexPadded 8 idHigh <> hexPadded 16 idLow <> ";Sampled=0"
+  where
+    -- Truncated to 32 bits, the format's fixed width
+    epochSeconds = fromIntegral (floor time :: Integer) :: Word32
+    hexPadded :: Integral a => Int -> a -> String
+    hexPadded width n = let digits = showHex n "" in replicate (width - length digits) '0' <> digits
 
 -- Helpers (mostly) for Headers
 
@@ -80,13 +108,13 @@ exactlyOneHeader name res =
     [] -> Left ("Missing response header " <> nameStr)
     _ ->  Left ("Too many values for header " <> nameStr)
 
--- Like exactlyOneHeader, but a missing header yields an empty value
-atMostOneHeader :: HeaderName -> Response Value -> Either String BS.ByteString
+-- Like exactlyOneHeader, but the header may be absent
+atMostOneHeader :: HeaderName -> Response Value -> Either String (Maybe BS.ByteString)
 atMostOneHeader name res =
   let nameStr = headerNameToString name
   in case getResponseHeader name res of
-    [a] -> Right a
-    [] -> Right BS.empty
+    [a] -> Right (Just a)
+    [] -> Right Nothing
     _ ->  Left ("Too many values for header " <> nameStr)
 
 maybeToEither :: b -> Maybe a -> Either b a

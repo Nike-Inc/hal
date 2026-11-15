@@ -11,10 +11,14 @@ import qualified AWS.Lambda.Events.EventBridge.Spec as EventBridge
 import qualified AWS.Lambda.Events.Kafka.Spec       as Kafka
 import qualified AWS.Lambda.Events.SQS.Spec         as SQS
 import           AWS.Lambda.Internal                (StaticContext (..))
-import           AWS.Lambda.RuntimeClient.Internal  (eventResponseToNextData)
+import           AWS.Lambda.RuntimeClient.Internal  (eventResponseToNextData,
+                                                     generateRootTraceId,
+                                                     mkRootTraceId)
 import           Data.Aeson                         (Value (Null))
 import qualified Data.CaseInsensitive               as CI
 import           Data.Map                           (singleton)
+import           Data.Text                          (Text)
+import qualified Data.Text                          as T
 #if !MIN_VERSION_base(4,11,0)
 import           Data.Semigroup                     ((<>))
 #endif
@@ -55,11 +59,13 @@ main =
             , ("Lambda-Runtime-Invoked-Function-Arn", "arn")
             , ("Lambda-Runtime-Deadline-Ms", "12332000")
             ]
+      let fallbackTraceId =
+            "Root=1-5821d5ce-0001234500000000000000ab;Sampled=0" :: Text
       it "Works given valid inputs" $ do
         let inputBody = Null
         let response = minResponse basicValidHeaders inputBody
         let (id, outputBody, context) =
-              eventResponseToNextData staticContext response
+              eventResponseToNextData staticContext fallbackTraceId response
         id `shouldBe` "abc"
         outputBody `shouldBe` inputBody
         context `shouldBe`
@@ -83,7 +89,7 @@ main =
               , "{ \"client\": { \"appTitle\": \"title\", \"appVersionName\": \"versionName\", \"appVersionCode\": \"versionCode\", \"appPackageName\": \"packageName\" }, \"custom\": { \"key1\": \"value1\" }, \"environment\": { \"key2\": \"value2\" } }") :
               basicValidHeaders
         let (_, _, context) =
-              eventResponseToNextData staticContext (minJsonResponse headers)
+              eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
         fmap clientContext context `shouldBe`
           (Right
              (Just
@@ -102,7 +108,7 @@ main =
         let headers =
               ("Lambda-Runtime-Client-Context", "{}") : basicValidHeaders
         let (_, _, context) =
-              eventResponseToNextData staticContext (minJsonResponse headers)
+              eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
         let msg = either id (const (error "Was able to parse a context that should have failed!")) context
         msg `shouldStartWith`
           "Runtime Error: Unable to decode Context from event response.\nCould not JSON decode header Lambda-Runtime-Client-Context: "
@@ -114,7 +120,7 @@ main =
               ] <>
               basicValidHeaders
         let (_, _, context) =
-              eventResponseToNextData staticContext (minJsonResponse headers)
+              eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
         fmap clientContext context `shouldBe`
           (Left
              "Runtime Error: Unable to decode Context from event response.\nToo many values for header Lambda-Runtime-Client-Context")
@@ -124,7 +130,7 @@ main =
               , "{ \"identityId\": \"identityId\", \"identityPoolId\": \"identityPoolId\" }") :
               basicValidHeaders
         let (_, _, context) =
-              eventResponseToNextData staticContext (minJsonResponse headers)
+              eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
         fmap identity context `shouldBe`
           (Right
              (Just
@@ -137,7 +143,7 @@ main =
         let headers =
               ("Lambda-Runtime-Cognito-Identity", "{}") : basicValidHeaders
         let (_, _, context) =
-              eventResponseToNextData staticContext (minJsonResponse headers)
+              eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
         let msg = either id (const (error "Was able to parse a context that should have failed!")) context
         msg `shouldStartWith`
           "Runtime Error: Unable to decode Context from event response.\nCould not JSON decode header Lambda-Runtime-Cognito-Identity: "
@@ -149,23 +155,23 @@ main =
               ] <>
               basicValidHeaders
         let (_, _, context) =
-              eventResponseToNextData staticContext (minJsonResponse headers)
+              eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
         fmap clientContext context `shouldBe`
           (Left
              "Runtime Error: Unable to decode Context from event response.\nToo many values for header Lambda-Runtime-Cognito-Identity")
-      it "has an empty trace Id if trace Id is not provided" $ do
+      it "uses the fallback trace Id if trace Id is not provided" $ do
         let headers =
               [ ("Lambda-Runtime-Aws-Request-Id", "abc")
               , ("Lambda-Runtime-Invoked-Function-Arn", "arn")
               , ("Lambda-Runtime-Deadline-Ms", "12332000")
               ]
         let (_, _, context) =
-              eventResponseToNextData staticContext (minJsonResponse headers)
-        fmap xRayTraceId context `shouldBe` Right ""
+              eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
+        fmap xRayTraceId context `shouldBe` Right fallbackTraceId
       it "fails to create the context if trace id has multiple values" $ do
         let headers = ("Lambda-Runtime-Trace-Id", "123") : basicValidHeaders
         let (_, _, context) =
-              eventResponseToNextData staticContext (minJsonResponse headers)
+              eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
         context `shouldBe`
           (Left
              "Runtime Error: Unable to decode Context from event response.\nToo many values for header Lambda-Runtime-Trace-Id")
@@ -176,7 +182,7 @@ main =
               , ("Lambda-Runtime-Deadline-Ms", "12332000")
               ]
         let (_, _, context) =
-              eventResponseToNextData staticContext (minJsonResponse headers)
+              eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
         context `shouldBe`
           (Left
              "Runtime Error: Unable to decode Context from event response.\nMissing response header Lambda-Runtime-Invoked-Function-Arn")
@@ -184,7 +190,7 @@ main =
         let headers =
               ("Lambda-Runtime-Invoked-Function-Arn", "arn") : basicValidHeaders
         let (_, _, context) =
-              eventResponseToNextData staticContext (minJsonResponse headers)
+              eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
         context `shouldBe`
           (Left
              "Runtime Error: Unable to decode Context from event response.\nToo many values for header Lambda-Runtime-Invoked-Function-Arn")
@@ -195,7 +201,7 @@ main =
               , ("Lambda-Runtime-Invoked-Function-Arn", "arn")
               ]
         let (_, _, context) =
-              eventResponseToNextData staticContext (minJsonResponse headers)
+              eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
         context `shouldBe`
           (Left
              "Runtime Error: Unable to decode Context from event response.\nMissing response header Lambda-Runtime-Deadline-Ms")
@@ -203,7 +209,7 @@ main =
         let headers =
               ("Lambda-Runtime-Deadline-Ms", "12332000") : basicValidHeaders
         let (_, _, context) =
-              eventResponseToNextData staticContext (minJsonResponse headers)
+              eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
         context `shouldBe`
           (Left
              "Runtime Error: Unable to decode Context from event response.\nToo many values for header Lambda-Runtime-Deadline-Ms")
@@ -215,10 +221,20 @@ main =
               , ("Lambda-Runtime-Deadline-Ms", "not a timestamp")
               ]
         let (_, _, context) =
-              eventResponseToNextData staticContext (minJsonResponse headers)
+              eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
         context `shouldBe`
           (Left
              "Runtime Error: Unable to decode Context from event response.\nCould not parse deadline")
+
+    describe "Root trace Id" $ do
+      it "formats the time and identifier as zero-padded hex" $ do
+        mkRootTraceId 1478612430 0x12345 0xab `shouldBe`
+          "Root=1-5821d5ce-0001234500000000000000ab;Sampled=0"
+      it "generates a trace Id of the expected shape" $ do
+        traceId <- generateRootTraceId
+        T.length traceId `shouldBe` 50
+        T.isPrefixOf "Root=1-" traceId `shouldBe` True
+        T.isSuffixOf ";Sampled=0" traceId `shouldBe` True
 
     describe "properties" $ do
         specify "Header.unfoldCase preserves equality" $
