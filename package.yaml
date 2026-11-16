@@ -68,6 +68,7 @@ library:
     - http-client
     - http-types
     - mtl
+    - random >=1.1
     - scientific ^>=0.3.3.0
     - text
     - time

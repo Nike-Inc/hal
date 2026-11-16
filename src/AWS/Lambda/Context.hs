@@ -65,6 +65,10 @@ data LambdaContext = LambdaContext
     -- The following context values come from headers rather than env vars.
     awsRequestId       :: Text,
     invokedFunctionArn :: Text,
+    -- | The value of the @Lambda-Runtime-Trace-Id@ header. When the header
+    -- is missing, this runtime generates a new, unsampled root trace
+    -- instead. That is only expected under the Lambda Runtime Interface
+    -- Emulator, not in production environments.
     xRayTraceId        :: Text,
     deadline           :: UTCTime,
     clientContext      :: Maybe ClientContext,

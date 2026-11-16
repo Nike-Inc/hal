@@ -19,6 +19,10 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
   - Fix header parsing to accept `null` values serialised as `{}`
   - The `use-aeson-2.2` flag has been removed in favour of a
     dependency on the `attoparsec-aeson` compatibility package.
+  - Accept a missing `Lambda-Runtime-Trace-Id` header, which the Lambda
+    Runtime Interface Emulator omits when an invocation has no trace ID.
+    A new, unsampled X-Ray root trace is generated for `xRayTraceId` in
+    that case.
 
 ## `1.1` - 2023-12-18
 
