@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
 [Haskell's Package Versioning Policy][pvp]
 
 ## Unreleased
+  - Breaking: `getNextData` (and `eventResponseToNextData`, in the unstable
+    Internal module) return a `NextData` record instead of a 3-tuple.  Most
+    users are not affected: this only matters if you call `getNextData`
+    yourself to write your own runtime loop, not if you use the runtimes in
+    `AWS.Lambda.Runtime` or `AWS.Lambda.Runtime.Value`.  The record also
+    carries the trace ID, so `_X_AMZN_TRACE_ID` is set even when the rest of
+    the context can't be decoded.
+  - Lower memory use for large events, with no change in behaviour: the
+    parsed event can now be garbage collected once the handler is done with
+    it, instead of being held until the invocation ends.
   - Add `messageGroupId` to SQS Attributes.
   - Fix the type of `messageAttributes` in `SQSEvent`.
   - Add `messageDeduplicationId`, `sequenceNumber`, `awsTraceHeader` and

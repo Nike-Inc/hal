@@ -11,19 +11,20 @@ Stability   : stable
 module AWS.Lambda.RuntimeClient (
   RuntimeClientConfig,
   getRuntimeClientConfig,
+  NextData(..),
   getNextData,
   getNextEvent,
   sendEventSuccess,
   sendEventError,
 ) where
 
-import           AWS.Lambda.Context                (LambdaContext)
 import           AWS.Lambda.Internal               (StaticContext, getStaticContext)
-import           AWS.Lambda.RuntimeClient.Internal (eventResponseToNextData,
+import           AWS.Lambda.RuntimeClient.Internal (NextData (..),
+                                                    eventResponseToNextData,
                                                     generateRootTraceId)
 import           Control.Concurrent                (threadDelay)
 import           Control.Exception                 (IOException, displayException,
-                                                    throw, try)
+                                                    evaluate, throw, try)
 import           Control.Monad                     (unless, void)
 import           Control.Monad.IO.Class            (MonadIO, liftIO)
 import           Data.Aeson                        (Value, encode)
@@ -109,12 +110,14 @@ getRuntimeClientConfig = do
     Right staticCtx -> return $ RuntimeClientConfig req man staticCtx
 
 
-getNextData :: RuntimeClientConfig -> IO (BS.ByteString, Value, Either String LambdaContext)
+getNextData :: RuntimeClientConfig -> IO NextData
 getNextData runtimeClientConfig@(RuntimeClientConfig _ _ staticContext) = do
   nextRes <- getNextEvent runtimeClientConfig
   -- Only used when the response has no trace header
   fallbackTraceId <- generateRootTraceId
-  return $ eventResponseToNextData staticContext fallbackTraceId nextRes
+  -- Evaluated here, so that the response can be let go of before the handler
+  -- runs, and a missing request ID is found before it runs too.
+  evaluate $ eventResponseToNextData staticContext fallbackTraceId nextRes
 
 -- AWS lambda guarantees that we will get valid JSON,
 -- so parsing is guaranteed to succeed.
