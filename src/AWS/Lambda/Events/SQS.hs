@@ -46,7 +46,11 @@ data Attributes = Attributes {
   sentTimestamp                    :: Text,
   senderId                         :: Text,
   approximateFirstReceiveTimestamp :: Text,
-  messageGroupId                   :: Maybe Text
+  messageGroupId                   :: Maybe Text,
+  messageDeduplicationId           :: Maybe Text,
+  sequenceNumber                   :: Maybe Text,
+  awsTraceHeader                   :: Maybe Text,
+  deadLetterQueueSourceArn         :: Maybe Text
 } deriving (Show, Eq, Generic)
 
 instance FromJSON Attributes where
@@ -56,6 +60,10 @@ instance FromJSON Attributes where
     senderId <- v .: "SenderId"
     approximateFirstReceiveTimestamp <- v .: "ApproximateFirstReceiveTimestamp"
     messageGroupId <- v .:? "MessageGroupId"
+    messageDeduplicationId <- v .:? "MessageDeduplicationId"
+    sequenceNumber <- v .:? "SequenceNumber"
+    awsTraceHeader <- v .:? "AWSTraceHeader"
+    deadLetterQueueSourceArn <- v .:? "DeadLetterQueueSourceArn"
     pure Attributes {..}
 
 -- | An SQS message attribute as it appears in Lambda SQS event payloads.
@@ -89,15 +97,16 @@ data MessageAttributeValue
   deriving (Show, Eq, Generic)
 
 data SQSEvent = SQSEvent {
-  messageId         :: Text,
-  receiptHandle     :: Text,
-  body              :: Text,
-  attributes        :: Attributes,
-  messageAttributes :: Map Text MessageAttribute,
-  md5OfBody         :: Text,
-  eventSource       :: Text,
-  eventSourceARN    :: Text,
-  awsRegion         :: Text
+  messageId              :: Text,
+  receiptHandle          :: Text,
+  body                   :: Text,
+  attributes             :: Attributes,
+  messageAttributes      :: Map Text MessageAttribute,
+  md5OfBody              :: Text,
+  md5OfMessageAttributes :: Maybe Text,
+  eventSource            :: Text,
+  eventSourceARN         :: Text,
+  awsRegion              :: Text
 } deriving (Show, Eq, Generic)
 
 instance FromJSON SQSEvent

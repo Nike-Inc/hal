@@ -94,10 +94,12 @@ data S3Object =
     eTag      :: Text,
     sequencer :: Text,
     key       :: Text,
-    size      :: Int
+    size      :: Int,
+    versionId :: Maybe Text
   } | DeleteObject {
     sequencer :: Text,
-    key       :: Text
+    key       :: Text,
+    versionId :: Maybe Text
   } deriving (Show, Eq, Generic)
 
 instance FromJSON S3Object where
@@ -106,9 +108,10 @@ instance FromJSON S3Object where
     maybeSize  <- o .:? "size"
     key'       <- o .:  "key"
     sequencer' <- o .:  "sequencer"
+    versionId' <- o .:? "versionId"
 
     return $ case (maybeEtag, maybeSize) of
-      (Just etag', Just size') -> PutObject etag' sequencer' key' size'
-      _                        -> DeleteObject sequencer' key'
+      (Just etag', Just size') -> PutObject etag' sequencer' key' size' versionId'
+      _                        -> DeleteObject sequencer' key' versionId'
 
   parseJSON invalid    = typeMismatch "S3Object" invalid

@@ -14,6 +14,8 @@ module AWS.Lambda.Events.ApiGateway.ProxyRequest
     ( ProxyRequest(..)
     , RequestContext(..)
     , Identity(..)
+    , ClientCert(..)
+    , Validity(..)
     , NoAuthorizer
     , StrictlyNoAuthorizer
     ) where
@@ -27,10 +29,13 @@ import           Data.CaseInsensitive        (CI, FoldCase, mk, original)
 import           Data.Foldable               (fold)
 import           Data.Hashable               (Hashable)
 import           Data.HashMap.Strict         (HashMap, foldrWithKey, insert)
+import           Data.Int                    (Int64)
 import           Data.Maybe                  (catMaybes)
 import           Data.Text                   (Text)
 import qualified Data.Text.Lazy              as TL
 import qualified Data.Text.Lazy.Encoding     as TLE
+import           Data.Time                   (UTCTime, defaultTimeLocale,
+                                              formatTime, parseTimeM)
 import           Data.Void                   (Void)
 import           GHC.Generics                (Generic (..))
 
@@ -55,10 +60,51 @@ data Identity = Identity
     , apiKeyId                      :: Maybe Text
     , userAgent                     :: Maybe Text
     , user                          :: Maybe Text
+    , principalOrgId                :: Maybe Text
+    , clientCert                    :: Maybe ClientCert
     } deriving (Eq, Generic, Show)
 
 instance FromJSON Identity
 instance ToJSON Identity
+
+-- | The certificate a client presented for mutual TLS, which API Gateway has
+-- already validated.  X.509 requires every field, so only the certificate as
+-- a whole is optional.
+data ClientCert = ClientCert
+    { clientCertPem :: Text
+    , subjectDN     :: Text
+    -- ^ Can be empty, which X.509 allows when the subject is only named in its
+    -- subject alternative name.
+    , issuerDN      :: Text
+    , serialNumber  :: Text
+    -- ^ Seen both in decimal and as colon-separated hex.
+    , validity      :: Validity
+    } deriving (Eq, Generic, Show)
+
+instance FromJSON ClientCert
+instance ToJSON ClientCert
+
+-- | AWS formats these dates like OpenSSL, e.g. @Sep 19 06:38:12 2020 GMT@,
+-- rather than as ISO 8601.
+data Validity = Validity
+    { notBefore :: UTCTime
+    , notAfter  :: UTCTime
+    } deriving (Eq, Show)
+
+instance FromJSON Validity where
+    parseJSON = withObject "Validity" $ \o ->
+        Validity <$> date o "notBefore" <*> date o "notAfter"
+      where
+        date o k = o .: k >>= parseTimeM False defaultTimeLocale certTimeFormat
+
+instance ToJSON Validity where
+    toJSON (Validity before after) =
+        object ["notBefore" .= date before, "notAfter" .= date after]
+      where
+        date = formatTime defaultTimeLocale certTimeFormat
+
+certTimeFormat :: String
+certTimeFormat = "%b %e %H:%M:%S %Y GMT"
 
 data RequestContext a = RequestContext
     { path              :: Text
@@ -74,6 +120,10 @@ data RequestContext a = RequestContext
     , httpMethod        :: Text
     , extendedRequestId :: Maybe Text
     , apiId             :: Text
+    , operationName     :: Maybe Text
+    , protocol          :: Maybe Text
+    , requestTime       :: Maybe Text
+    , requestTimeEpoch  :: Maybe Int64
     } deriving (Eq, Generic, Show)
 
 instance FromJSON a => FromJSON (RequestContext a) where
@@ -89,7 +139,11 @@ instance FromJSON a => FromJSON (RequestContext a) where
         v .: "resourcePath" <*>
         v .: "httpMethod" <*>
         v .:? "extendedRequestId" <*>
-        v .: "apiId"
+        v .: "apiId" <*>
+        v .:? "operationName" <*>
+        v .:? "protocol" <*>
+        v .:? "requestTime" <*>
+        v .:? "requestTimeEpoch"
 
 -- | @since 0.4.8
 instance ToJSON a => ToJSON (RequestContext a) where
@@ -110,6 +164,10 @@ instance ToJSON a => ToJSON (RequestContext a) where
             , Just $ "httpMethod" .= h
             , ("extendedRequestId" .=) <$> extendedRequestId r
             , Just $ "apiId" .= apiId r
+            , ("operationName" .=) <$> operationName r
+            , ("protocol" .=) <$> protocol r
+            , ("requestTime" .=) <$> requestTime r
+            , ("requestTimeEpoch" .=) <$> requestTimeEpoch r
             ]
 
 -- TODO: Should also include websocket fields

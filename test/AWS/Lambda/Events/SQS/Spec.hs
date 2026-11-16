@@ -31,7 +31,11 @@ samplePayload = [r|
         "SentTimestamp": "1523232000000",
         "SenderId": "123456789012",
         "ApproximateFirstReceiveTimestamp": "1523232000001",
-        "MessageGroupId": "group-1"
+        "MessageGroupId": "group-1",
+        "MessageDeduplicationId": "dedup-1",
+        "SequenceNumber": "18849496460467696128",
+        "AWSTraceHeader": "Root=1-5759e988-bd862e3fe1be46a994272793",
+        "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:123456789012:source-queue"
       },
       "messageAttributes": {
         "attribute1": {
@@ -62,6 +66,7 @@ samplePayload = [r|
         }
       },
       "md5OfBody": "9a0364b9e99bb480dd25e1f0284c8555",
+      "md5OfMessageAttributes": "582c92c5c5b6ac403040a4f3ab3115c9",
       "eventSource": "aws:sqs",
       "eventSourceARN": "arn:aws:sqs:us-east-1:123456789012:queue1",
       "awsRegion": "us-east-1"
@@ -83,6 +88,10 @@ expectedRecords = Records
               , senderId = "123456789012"
               , approximateFirstReceiveTimestamp = "1523232000001"
               , messageGroupId = Just "group-1"
+              , messageDeduplicationId = Just "dedup-1"
+              , sequenceNumber = Just "18849496460467696128"
+              , awsTraceHeader = Just "Root=1-5759e988-bd862e3fe1be46a994272793"
+              , deadLetterQueueSourceArn = Just "arn:aws:sqs:us-east-1:123456789012:source-queue"
               }
           , messageAttributes = M.fromList
               [ ( "attribute1"
@@ -111,6 +120,7 @@ expectedRecords = Records
                 )
               ]
           , md5OfBody = "9a0364b9e99bb480dd25e1f0284c8555"
+          , md5OfMessageAttributes = Just "582c92c5c5b6ac403040a4f3ab3115c9"
           , eventSource = "aws:sqs"
           , eventSourceARN = "arn:aws:sqs:us-east-1:123456789012:queue1"
           , awsRegion = "us-east-1"
