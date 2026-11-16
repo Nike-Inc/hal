@@ -5,7 +5,7 @@ Description : Internal HTTP related machinery for talking to the AWS Lambda Cust
 Copyright   : (c) Nike, Inc., 2018
 License     : BSD3
 Maintainer  : nathan.fairhurst@nike.com, fernando.freire@nike.com
-Stability   : stable
+Stability   : unstable
 -}
 
 module AWS.Lambda.RuntimeClient.Internal (
