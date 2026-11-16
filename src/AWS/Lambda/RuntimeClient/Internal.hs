@@ -9,6 +9,7 @@ Stability   : unstable
 -}
 
 module AWS.Lambda.RuntimeClient.Internal (
+  NextData(..),
   eventResponseToNextData,
   generateRootTraceId,
   mkRootTraceId,
@@ -36,30 +37,55 @@ import           Data.Time.Clock.POSIX    (POSIXTime, getPOSIXTime,
 import           Data.Word                (Word32, Word64)
 import           Network.HTTP.Client      (Response, responseBody,
                                            responseHeaders)
-import           Network.HTTP.Types       (HeaderName)
+import           Network.HTTP.Types       (HeaderName, ResponseHeaders)
 import           Numeric                  (showHex)
 import           System.Random            (randomIO)
 
+-- | What the runtime takes from a "next invocation" response.
+--
+-- The request ID, trace ID and event are strict: the runtime needs them on
+-- every invocation, and forcing them up front means nothing here keeps the
+-- response itself alive.  The context is deliberately lazy, since only some
+-- handlers look at it, and it is built from the response headers alone, so
+-- holding on to it does not hold on to the event.
+data NextData = NextData
+  { nextRequestId :: !BS.ByteString
+    -- | The trace header's value, or the fallback if the response had none.
+    -- 'Nothing' only if the response had more than one trace header.
+  , nextTraceId   :: !(Maybe Text)
+  , nextEvent     :: !Value
+  , nextContext   :: Either String LambdaContext
+  } deriving (Show, Eq)
+
 -- | The 'Text' argument is the trace id to use if the response has no
 -- @Lambda-Runtime-Trace-Id@ header (see 'generateRootTraceId').
-eventResponseToNextData :: StaticContext -> Text -> Response Value -> (BS.ByteString, Value, Either String LambdaContext)
+eventResponseToNextData :: StaticContext -> Text -> Response Value -> NextData
 eventResponseToNextData staticContext fallbackTraceId nextRes =
-  -- If we got an event but our requestId is invalid/missing, there's no hope of meaningful recovery
   let
-    reqIdBS = head $ getResponseHeader "Lambda-Runtime-Aws-Request-Id" nextRes
+    -- Everything below works from the headers, never from the response.
+    !nextResHeaders = responseHeaders nextRes
+
+    -- If we got an event but our requestId is invalid/missing, there's no hope of meaningful recovery
+    reqIdBS = either (error . ("Runtime Error: " <>)) id $
+      exactlyOneHeader "Lambda-Runtime-Aws-Request-Id" nextResHeaders
+
+    -- The trace header is omitted when there is no trace to propagate (for
+    -- example, under the Lambda Runtime Interface Emulator).  There is
+    -- nothing to connect to in that case, so we start a new root trace.
+    --
+    -- Read on its own, so that tracing does not depend on the rest of the
+    -- context being decodable.
+    eTraceId = maybe fallbackTraceId decodeUtf8 <$> atMostOneHeader "Lambda-Runtime-Trace-Id" nextResHeaders
 
     eCtx = first ("Runtime Error: Unable to decode Context from event response.\n" <>) $ do
-      -- The trace header is omitted when there is no trace to propagate (for
-      -- example, under the Lambda Runtime Interface Emulator).  There is
-      -- nothing to connect to in that case, so we start a new root trace.
-      traceId <- maybe fallbackTraceId decodeUtf8 <$> atMostOneHeader "Lambda-Runtime-Trace-Id" nextRes
-      functionArn <- fmap decodeUtf8 $ exactlyOneHeader "Lambda-Runtime-Invoked-Function-Arn" nextRes
-      deadlineHeader <- exactlyOneHeader "Lambda-Runtime-Deadline-Ms" nextRes
+      traceId <- eTraceId
+      functionArn <- fmap decodeUtf8 $ exactlyOneHeader "Lambda-Runtime-Invoked-Function-Arn" nextResHeaders
+      deadlineHeader <- exactlyOneHeader "Lambda-Runtime-Deadline-Ms" nextResHeaders
       milliseconds :: Double <- maybeToEither "Could not parse deadline" $ readMaybe $ BSC.unpack deadlineHeader
       let deadline = posixSecondsToUTCTime $ realToFrac $ milliseconds / 1000
 
-      clientContext <- decodeOptionalHeader "Lambda-Runtime-Client-Context" nextRes
-      identity <- decodeOptionalHeader "Lambda-Runtime-Cognito-Identity" nextRes
+      clientContext <- decodeOptionalHeader "Lambda-Runtime-Client-Context" nextResHeaders
+      identity <- decodeOptionalHeader "Lambda-Runtime-Cognito-Identity" nextResHeaders
 
       -- Build out the Dynamic portion of the Lambda Context
       let dynCtx = DynamicContext (decodeUtf8 reqIdBS) functionArn traceId deadline clientContext identity
@@ -68,7 +94,12 @@ eventResponseToNextData staticContext fallbackTraceId nextRes =
       return (mkContext staticContext dynCtx)
 
   -- Return the interesting components
-  in (reqIdBS, getResponseBody nextRes, eCtx)
+  in NextData
+       { nextRequestId = reqIdBS
+       , nextTraceId = either (const Nothing) Just eTraceId
+       , nextEvent = getResponseBody nextRes
+       , nextContext = eCtx
+       }
 
 
 -- | Start a new, unsampled X-Ray root trace, formatted as a
@@ -95,25 +126,25 @@ mkRootTraceId time idHigh idLow =
 getResponseBody :: Response a -> a
 getResponseBody = responseBody
 
-getResponseHeader :: HeaderName -> Response a -> [BS.ByteString]
-getResponseHeader headerName = fmap snd . filter ((==) headerName . fst) . responseHeaders
+getResponseHeader :: HeaderName -> ResponseHeaders -> [BS.ByteString]
+getResponseHeader headerName = fmap snd . filter ((==) headerName . fst)
 
 headerNameToString :: HeaderName -> String
 headerNameToString = fmap BSI.w2c . BS.unpack . original
 
-exactlyOneHeader :: HeaderName -> Response Value -> Either String BS.ByteString
-exactlyOneHeader name res =
+exactlyOneHeader :: HeaderName -> ResponseHeaders -> Either String BS.ByteString
+exactlyOneHeader name headers =
   let nameStr = headerNameToString name
-  in case getResponseHeader name res of
+  in case getResponseHeader name headers of
     [a] -> Right a
     [] -> Left ("Missing response header " <> nameStr)
     _ ->  Left ("Too many values for header " <> nameStr)
 
 -- Like exactlyOneHeader, but the header may be absent
-atMostOneHeader :: HeaderName -> Response Value -> Either String (Maybe BS.ByteString)
-atMostOneHeader name res =
+atMostOneHeader :: HeaderName -> ResponseHeaders -> Either String (Maybe BS.ByteString)
+atMostOneHeader name headers =
   let nameStr = headerNameToString name
-  in case getResponseHeader name res of
+  in case getResponseHeader name headers of
     [a] -> Right (Just a)
     [] -> Right Nothing
     _ ->  Left ("Too many values for header " <> nameStr)
@@ -137,10 +168,10 @@ decodeHeaderValue = eitherDecode . BSW.pack . fmap BSI.c2w . BSC.unpack
 -- If we have exactly one element, our outer maybe signals successful decode,
 --   and our inner maybe signals that there was content sent
 -- If we had more than one header value, the event was invalid
-decodeOptionalHeader :: FromJSON a => HeaderName -> Response Value -> Either String (Maybe a)
-decodeOptionalHeader name res =
+decodeOptionalHeader :: FromJSON a => HeaderName -> ResponseHeaders -> Either String (Maybe a)
+decodeOptionalHeader name headers =
   let nameStr = headerNameToString name
-  in case getResponseHeader name res of
+  in case getResponseHeader name headers of
     [] -> Right Nothing
     [x] -> first (\e -> "Could not JSON decode header " <> nameStr <> ": " <> e) $ fmap Just $ decodeHeaderValue x
     _ -> Left ("Too many values for header " <> nameStr)

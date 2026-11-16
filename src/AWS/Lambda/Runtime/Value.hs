@@ -40,9 +40,9 @@ module AWS.Lambda.Runtime.Value (
 ) where
 
 import           AWS.Lambda.Combinators   (withoutContext)
-import           AWS.Lambda.Context       (LambdaContext(..))
-import           AWS.Lambda.RuntimeClient (RuntimeClientConfig, getNextData,
-                                           getRuntimeClientConfig,
+import           AWS.Lambda.Context       (LambdaContext)
+import           AWS.Lambda.RuntimeClient (NextData (..), RuntimeClientConfig,
+                                           getNextData, getRuntimeClientConfig,
                                            sendEventError, sendEventSuccess)
 import           Control.Exception        (SomeException, displayException)
 import           Control.Monad            ((<=<), forever)
@@ -57,10 +57,10 @@ import           System.Environment       (setEnv)
 runtimeLoop :: (MonadCatch m, MonadIO m, ToJSON result) => RuntimeClientConfig -> (LambdaContext -> Value -> m result) -> m ()
 runtimeLoop runtimeClientConfig fn = do
   -- Get an event
-  (reqIdBS, event, eCtx) <- liftIO $ getNextData runtimeClientConfig
+  NextData reqIdBS traceId event eCtx <- liftIO $ getNextData runtimeClientConfig
 
   -- Propagate the tracing header (Exception safe for this env var name)
-  liftIO $ either (const (pure ())) (setEnv "_X_AMZN_TRACE_ID" . unpack . xRayTraceId) eCtx
+  liftIO $ mapM_ (setEnv "_X_AMZN_TRACE_ID" . unpack) traceId
 
   {- Catching like this is _usually_ considered bad practice, but this is a true
    case where we want to both catch all errors and propogate information about them.
