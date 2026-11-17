@@ -72,9 +72,10 @@ main =
       it "Works given valid inputs" $ do
         let inputBody = Null
         let response = minResponse basicValidHeaders inputBody
-        let NextData id traceId outputBody context =
+        let NextData id invocationId traceId outputBody context =
               eventResponseToNextData staticContext fallbackTraceId response
         id `shouldBe` "abc"
+        invocationId `shouldBe` Nothing
         traceId `shouldBe` Just "123"
         outputBody `shouldBe` inputBody
         context `shouldBe`
@@ -124,7 +125,7 @@ main =
       it "still has the request and trace ids if the Context can't be constructed" $ do
         let headers =
               ("Lambda-Runtime-Client-Context", "{}") : basicValidHeaders
-        let NextData id traceId _ context =
+        let NextData id _ traceId _ context =
               eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
         id `shouldBe` "abc"
         traceId `shouldBe` Just "123"
@@ -143,7 +144,19 @@ main =
         let headers = ("Lambda-Runtime-Aws-Request-Id", "def") : basicValidHeaders
         evaluate (eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers))
           `shouldThrow` anyErrorCall
-      -- The runtime holds the request id for the whole invocation, and a
+      it "has the invocation id if it was provided" $ do
+        let headers = ("Lambda-Runtime-Invocation-Id", "xyz") : basicValidHeaders
+        nextInvocationId (eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers))
+          `shouldBe` Just "xyz"
+      it "leaves out the invocation id if it has more than one value" $ do
+        let headers =
+              [ ("Lambda-Runtime-Invocation-Id", "xyz")
+              , ("Lambda-Runtime-Invocation-Id", "uvw")
+              ] <>
+              basicValidHeaders
+        nextInvocationId (eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers))
+          `shouldBe` Nothing
+      -- The runtime holds the ids for the whole invocation, and a
       -- handler may hold the context.  Neither may keep the event (which can
       -- be many megabytes once parsed) from being collected.
       --
@@ -154,7 +167,7 @@ main =
         it "can tell that an event is still reachable (sanity check)" $ do
           event <- evaluate . String . T.pack . show =<< getPOSIXTime
           weak <- mkWeakPtr event Nothing
-          NextData _ _ heldEvent _ <-
+          NextData _ _ _ heldEvent _ <-
             evaluate $
             eventResponseToNextData staticContext fallbackTraceId (minResponse basicValidHeaders event)
           performMajorGC
@@ -162,17 +175,19 @@ main =
           reachable `shouldBe` True
           -- Looked at only now, so it had to be held across the GC.
           heldEvent `shouldBe` event
-        it "does not keep the event reachable through the request id or the context" $ do
+        it "does not keep the event reachable through the ids or the context" $ do
           event <- evaluate . String . T.pack . show =<< getPOSIXTime
           weak <- mkWeakPtr event Nothing
-          NextData heldId _ _ heldContext <-
+          let headers = ("Lambda-Runtime-Invocation-Id", "xyz") : basicValidHeaders
+          NextData heldId heldInvocationId _ _ heldContext <-
             evaluate $
-            eventResponseToNextData staticContext fallbackTraceId (minResponse basicValidHeaders event)
+            eventResponseToNextData staticContext fallbackTraceId (minResponse headers event)
           performMajorGC
           reachable <- isJust <$> deRefWeak weak
           reachable `shouldBe` False
           -- Looked at only now, so they had to be held across the GC.
           heldId `shouldBe` "abc"
+          heldInvocationId `shouldBe` Just "xyz"
           fmap awsRequestId heldContext `shouldBe` Right "abc"
       it
         "fails to construct the Context if there are two client context headers" $ do
