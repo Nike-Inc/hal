@@ -43,18 +43,35 @@ import           System.Random            (randomIO)
 
 -- | What the runtime takes from a "next invocation" response.
 --
--- The request ID, trace ID and event are strict: the runtime needs them on
+-- The IDs and the event are strict: the runtime needs them on
 -- every invocation, and forcing them up front means nothing here keeps the
 -- response itself alive.  The context is deliberately lazy, since only some
 -- handlers look at it, and it is built from the response headers alone, so
 -- holding on to it does not hold on to the event.
 data NextData = NextData
-  { nextRequestId :: !BS.ByteString
+  { nextRequestId    :: !BS.ByteString
+    -- | Echoed back with the response or error, so that Lambda can reject one
+    -- from an earlier attempt at the same request.  'Nothing' if the response
+    -- had none, or more than one.
+    --
+    -- InvocationId only helps for async invocations in Managed Instances,
+    -- where it disambiguates responses across retries.  For sync invocations,
+    -- events are never retried, so there's at most one response.  For async
+    -- invocations in the regular lambda environment, the lambda won't retry
+    -- after a timeout until it knows that the runtime is cleaned up, which
+    -- means there can be at most one attempt in flight at once.  However, in
+    -- Managed Instances, this approach isn't realistic: the runtime may be
+    -- handling many concurrent requests, and shutting it down aborts them.
+    -- Since it doesn't kill the runtime, it's possible that the timed out
+    -- request does eventually respond--possibly before a retried attempt does.
+    -- This id allows detection of a timed out async retry, discarding it
+    -- instead of confusing it for the current attempt.
+  , nextInvocationId :: !(Maybe BS.ByteString)
     -- | The trace header's value, or the fallback if the response had none.
     -- 'Nothing' only if the response had more than one trace header.
-  , nextTraceId   :: !(Maybe Text)
-  , nextEvent     :: !Value
-  , nextContext   :: Either String LambdaContext
+  , nextTraceId      :: !(Maybe Text)
+  , nextEvent        :: !Value
+  , nextContext      :: Either String LambdaContext
   } deriving (Show, Eq)
 
 -- | The 'Text' argument is the trace id to use if the response has no
@@ -68,6 +85,11 @@ eventResponseToNextData staticContext fallbackTraceId nextRes =
     -- If we got an event but our requestId is invalid/missing, there's no hope of meaningful recovery
     reqIdBS = either (error . ("Runtime Error: " <>)) id $
       exactlyOneHeader "Lambda-Runtime-Aws-Request-Id" nextResHeaders
+
+    -- Lambda accepts a response or error without the invocation ID, so if the
+    -- header is repeated, we leave it out rather than guess.
+    invocationId = either (const Nothing) id $
+      atMostOneHeader "Lambda-Runtime-Invocation-Id" nextResHeaders
 
     -- The trace header is omitted when there is no trace to propagate (for
     -- example, under the Lambda Runtime Interface Emulator).  There is
@@ -96,6 +118,7 @@ eventResponseToNextData staticContext fallbackTraceId nextRes =
   -- Return the interesting components
   in NextData
        { nextRequestId = reqIdBS
+       , nextInvocationId = invocationId
        , nextTraceId = either (const Nothing) Just eTraceId
        , nextEvent = getResponseBody nextRes
        , nextContext = eCtx

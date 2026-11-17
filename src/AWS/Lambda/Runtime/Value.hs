@@ -57,7 +57,7 @@ import           System.Environment       (setEnv)
 runtimeLoop :: (MonadCatch m, MonadIO m, ToJSON result) => RuntimeClientConfig -> (LambdaContext -> Value -> m result) -> m ()
 runtimeLoop runtimeClientConfig fn = do
   -- Get an event
-  NextData reqIdBS traceId event eCtx <- liftIO $ getNextData runtimeClientConfig
+  NextData reqIdBS invocationId traceId event eCtx <- liftIO $ getNextData runtimeClientConfig
 
   -- Propagate the tracing header (Exception safe for this env var name)
   liftIO $ mapM_ (setEnv "_X_AMZN_TRACE_ID" . unpack) traceId
@@ -72,8 +72,8 @@ runtimeLoop runtimeClientConfig fn = do
   let result = first (displayException :: SomeException -> String) caughtResult
 
   liftIO $ case result of
-    Right r -> sendEventSuccess runtimeClientConfig reqIdBS r
-    Left e  -> sendEventError runtimeClientConfig reqIdBS e
+    Right r -> sendEventSuccess runtimeClientConfig reqIdBS invocationId r
+    Left e  -> sendEventError runtimeClientConfig reqIdBS invocationId e
 
 -- | For any monad that supports 'IO' and 'catch'. Useful if you need
 -- caching behaviours or are comfortable manipulating monad

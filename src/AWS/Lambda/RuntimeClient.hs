@@ -135,9 +135,9 @@ getNextEvent (RuntimeClientConfig baseRuntimeRequest manager _) = do
       error msg
     Right y -> return y
 
-sendEventSuccess :: ToJSON a => RuntimeClientConfig -> BS.ByteString -> a -> IO ()
-sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest manager _) reqId json = do
-  resOrEx <- runtimeClientRetryTry $ flip httpNoBody manager $ toEventSuccessRequest reqId json baseRuntimeRequest
+sendEventSuccess :: ToJSON a => RuntimeClientConfig -> BS.ByteString -> Maybe BS.ByteString -> a -> IO ()
+sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest manager _) reqId invocationId json = do
+  resOrEx <- runtimeClientRetryTry $ flip httpNoBody manager $ toEventSuccessRequest reqId invocationId json baseRuntimeRequest
 
   let resOrTypedMsg = case resOrEx of
         Left ex ->
@@ -158,14 +158,14 @@ sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest manager _) reqId js
   case resOrTypedMsg of
     Left (Left msg) ->
       -- If an exception occurs here, we want that to propogate
-      sendEventError rcc reqId msg
+      sendEventError rcc reqId invocationId msg
     Left (Right msg) -> error msg
     Right () -> return ()
 
-sendEventError :: RuntimeClientConfig -> BS.ByteString -> String -> IO ()
-sendEventError (RuntimeClientConfig baseRuntimeRequest manager _) reqId e = do
+sendEventError :: RuntimeClientConfig -> BS.ByteString -> Maybe BS.ByteString -> String -> IO ()
+sendEventError (RuntimeClientConfig baseRuntimeRequest manager _) reqId invocationId e = do
   logErrorMsg e
-  let request = httpNoBody (toEventErrorRequest reqId e baseRuntimeRequest) manager
+  let request = httpNoBody (toEventErrorRequest reqId invocationId e baseRuntimeRequest) manager
   void $ runtimeClientRetry request
 
 sendInitError :: Request -> Manager -> String -> IO ()
@@ -226,10 +226,11 @@ runtimeClientRetry = fmap (either throw id) . runtimeClientRetryTry
 toNextEventRequest :: Request -> Request
 toNextEventRequest = setRequestPath "2018-06-01/runtime/invocation/next"
 
-toEventSuccessRequest :: ToJSON a => BS.ByteString -> a -> Request -> Request
-toEventSuccessRequest reqId json =
+toEventSuccessRequest :: ToJSON a => BS.ByteString -> Maybe BS.ByteString -> a -> Request -> Request
+toEventSuccessRequest reqId invocationId json =
   setRequestBodyJSON json .
   setRequestMethod "POST" .
+  echoInvocationId invocationId .
   setRequestPath (BS.concat ["2018-06-01/runtime/invocation/", reqId, "/response"])
 
 toBaseErrorRequest :: String -> Request -> Request
@@ -239,9 +240,16 @@ toBaseErrorRequest e =
     . setRequestMethod "POST"
     . setRequestCheckStatus
 
-toEventErrorRequest :: BS.ByteString -> String -> Request -> Request
-toEventErrorRequest reqId e =
-  setRequestPath (BS.concat ["2018-06-01/runtime/invocation/", reqId, "/error"]) . toBaseErrorRequest e
+toEventErrorRequest :: BS.ByteString -> Maybe BS.ByteString -> String -> Request -> Request
+toEventErrorRequest reqId invocationId e =
+  setRequestPath (BS.concat ["2018-06-01/runtime/invocation/", reqId, "/error"])
+    . echoInvocationId invocationId
+    . toBaseErrorRequest e
+
+-- Lambda only rejects a response or error whose invocation ID doesn't match
+-- the active attempt's, so if the event came without one, we send none.
+echoInvocationId :: Maybe BS.ByteString -> Request -> Request
+echoInvocationId = maybe id (setRequestHeader "Lambda-Runtime-Invocation-Id" . pure)
 
 toInitErrorRequest :: String -> Request -> Request
 toInitErrorRequest e =

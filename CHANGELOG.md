@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
     `AWS.Lambda.Runtime` or `AWS.Lambda.Runtime.Value`.  The record also
     carries the trace ID, so `_X_AMZN_TRACE_ID` is set even when the rest of
     the context can't be decoded.
+  - Echo the `Lambda-Runtime-Invocation-Id` header back with each response
+    and error.
   - Lower memory use for large events, with no change in behaviour: the
     parsed event can now be garbage collected once the handler is done with
     it, instead of being held until the invocation ends.
