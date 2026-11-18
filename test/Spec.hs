@@ -99,6 +99,7 @@ main =
                 , deadline = posixSecondsToUTCTime 12332
                 , clientContext = Nothing
                 , identity = Nothing
+                , tenantId = Nothing
                 }))
       it "has clientContext if it was provided" $ do
         let headers =
@@ -243,6 +244,21 @@ main =
         fmap clientContext context `shouldBe`
           (Left
              "Runtime Error: Unable to decode Context from event response.\nToo many values for header Lambda-Runtime-Cognito-Identity")
+      it "has the tenant id if it was provided" $ do
+        let headers = ("Lambda-Runtime-Aws-Tenant-Id", "blue") : basicValidHeaders
+        let context =
+              nextContext $ eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
+        fmap tenantId context `shouldBe` Right (Just "blue")
+      it "fails to construct the Context if there are two tenant id headers" $ do
+        let headers =
+              [ ("Lambda-Runtime-Aws-Tenant-Id", "blue")
+              , ("Lambda-Runtime-Aws-Tenant-Id", "green")
+              ] <>
+              basicValidHeaders
+        let context =
+              nextContext $ eventResponseToNextData staticContext fallbackTraceId (minJsonResponse headers)
+        fmap tenantId context `shouldBe`
+          Left "Runtime Error: Unable to decode Context from event response.\nToo many values for header Lambda-Runtime-Aws-Tenant-Id"
       it "uses the fallback trace Id if trace Id is not provided" $ do
         let headers =
               [ ("Lambda-Runtime-Aws-Request-Id", "abc")

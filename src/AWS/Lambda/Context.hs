@@ -74,7 +74,8 @@ data LambdaContext = LambdaContext
     xRayTraceId        :: Text,
     deadline           :: UTCTime,
     clientContext      :: Maybe ClientContext,
-    identity           :: Maybe CognitoIdentity
+    identity           :: Maybe CognitoIdentity,
+    tenantId           :: Maybe Text
   } deriving (Show, Generic, Eq)
 
 -- | The function's log format, from @AWS_LAMBDA_LOG_FORMAT@.  Lambda only

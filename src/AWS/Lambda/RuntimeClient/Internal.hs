@@ -108,9 +108,10 @@ eventResponseToNextData staticContext fallbackTraceId nextRes =
 
       clientContext <- decodeOptionalHeader "Lambda-Runtime-Client-Context" nextResHeaders
       identity <- decodeOptionalHeader "Lambda-Runtime-Cognito-Identity" nextResHeaders
+      tenantId <- fmap decodeUtf8 <$> atMostOneHeader "Lambda-Runtime-Aws-Tenant-Id" nextResHeaders
 
       -- Build out the Dynamic portion of the Lambda Context
-      let dynCtx = DynamicContext (decodeUtf8 reqIdBS) functionArn traceId deadline clientContext identity
+      let dynCtx = DynamicContext (decodeUtf8 reqIdBS) functionArn traceId deadline clientContext identity tenantId
 
       -- combine our StaticContext and possible DynamicContext into a LambdaContext
       return (mkContext staticContext dynCtx)
