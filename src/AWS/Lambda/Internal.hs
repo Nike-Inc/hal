@@ -57,7 +57,8 @@ data DynamicContext = DynamicContext
     xRayTraceId        :: Text,
     deadline           :: UTCTime,
     clientContext      :: Maybe ClientContext,
-    identity           :: Maybe CognitoIdentity
+    identity           :: Maybe CognitoIdentity,
+    tenantId           :: Maybe Text
   } deriving (Show)
 
 mkContext :: StaticContext -> DynamicContext -> LambdaContext
@@ -74,3 +75,4 @@ mkContext static dynamic =
     (deadline dynamic)
     (clientContext dynamic)
     (identity dynamic)
+    (tenantId dynamic)

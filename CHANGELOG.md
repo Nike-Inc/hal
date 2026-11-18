@@ -37,6 +37,10 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
     Runtime Interface Emulator omits when an invocation has no trace ID.
     A new, unsampled X-Ray root trace is generated for `xRayTraceId` in
     that case.
+  - Breaking: `LambdaContext` has a new `tenantId` field, set from the
+    `Lambda-Runtime-Aws-Tenant-Id` header when the function uses tenant
+    isolation mode.  This only breaks code that constructs a
+    `LambdaContext` itself, and should not affect most users.
 
 ## `1.1` - 2023-12-18
 
