@@ -39,6 +39,7 @@ library
       AWS.Lambda.Events.S3
       AWS.Lambda.Events.SQS
       AWS.Lambda.Internal
+      AWS.Lambda.Log.Internal
       AWS.Lambda.Runtime
       AWS.Lambda.Runtime.Value
       AWS.Lambda.RuntimeClient

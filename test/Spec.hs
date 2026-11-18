@@ -1,8 +1,11 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE QuasiQuotes #-}
 import           AWS.Lambda.Context                 (ClientApplication (..),
                                                      ClientContext (..),
                                                      CognitoIdentity (..),
-                                                     LambdaContext (..))
+                                                     LambdaContext (..),
+                                                     LogFormat (..),
+                                                     LogLevel (..))
 import qualified Gen.Header                         as Header
 import qualified AWS.Lambda.Events.ApiGateway.ProxyRequest.Spec as ProxyRequest
 import qualified AWS.Lambda.Events.ApiGateway.ProxyResponse.Spec as ProxyResponse
@@ -10,7 +13,9 @@ import qualified AWS.Lambda.Events.ApiGateway.ProxyResponse.Spec as ProxyRespons
 import qualified AWS.Lambda.Events.EventBridge.Spec as EventBridge
 import qualified AWS.Lambda.Events.Kafka.Spec       as Kafka
 import qualified AWS.Lambda.Events.SQS.Spec         as SQS
-import           AWS.Lambda.Internal                (StaticContext (..))
+import           AWS.Lambda.Internal                (StaticContext (..),
+                                                     toLogFormat)
+import           AWS.Lambda.Log.Internal            (logLine)
 import           AWS.Lambda.RuntimeClient.Internal  (NextData (..),
                                                      eventResponseToNextData,
                                                      generateRootTraceId,
@@ -40,6 +45,7 @@ import           Test.Hspec                         (anyErrorCall, describe, it,
                                                      shouldThrow, specify)
 import           Test.Hspec.Hedgehog                (hedgehog)
 import           Test.Hspec.Runner                  (hspec)
+import           Text.RawString.QQ                  (r)
 
 main :: IO ()
 main =
@@ -60,6 +66,7 @@ main =
               , functionMemorySize = 128
               , logGroupName = "logGroupName"
               , logStreamName = "logStreamName"
+              , logFormat = JSON
               }
       let basicValidHeaders =
             [ ("Lambda-Runtime-Aws-Request-Id", "abc")
@@ -312,6 +319,21 @@ main =
         T.length traceId `shouldBe` 50
         T.isPrefixOf "Root=1-" traceId `shouldBe` True
         T.isSuffixOf ";Sampled=0" traceId `shouldBe` True
+
+    describe "Log" $ do
+      describe "format" $ do
+        it "defaults to Text" $
+          toLogFormat Nothing `shouldBe` PlainText
+        it "is read from Lambda's values" $
+          map (toLogFormat . Just) ["Text", "JSON"] `shouldBe` [PlainText, JSON]
+      describe "lines" $ do
+        let timestamp = posixSecondsToUTCTime 0.586
+        it "are JSON objects in the JSON format" $
+          logLine JSON timestamp Error "abc" "first line\nsecond line" `shouldBe`
+            [r|{"timestamp":"1970-01-01T00:00:00.586Z","level":"ERROR","message":"first line\nsecond line","requestId":"abc"}|]
+        it "keep Hal's error line format in the Text format" $
+          logLine PlainText timestamp Error "abc" "first line\nsecond line" `shouldBe`
+            [r|ERROR Message: "first line\nsecond line"|]
 
     describe "properties" $ do
         specify "Header.unfoldCase preserves equality" $

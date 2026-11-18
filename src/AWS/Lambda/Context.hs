@@ -14,6 +14,8 @@ module AWS.Lambda.Context (
   ClientContext(..),
   CognitoIdentity(..),
   LambdaContext(..),
+  LogFormat(..),
+  LogLevel(..),
   getRemainingTime,
 ) where
 
@@ -74,3 +76,12 @@ data LambdaContext = LambdaContext
     clientContext      :: Maybe ClientContext,
     identity           :: Maybe CognitoIdentity
   } deriving (Show, Generic, Eq)
+
+-- | The function's log format, from @AWS_LAMBDA_LOG_FORMAT@.  Lambda only
+-- reads log lines in the JSON format.
+data LogFormat = PlainText | JSON
+  deriving (Show, Eq)
+
+-- | Lambda's log levels, from most to least detailed.
+data LogLevel = Trace | Debug | Info | Warn | Error | Fatal
+  deriving (Show, Eq, Ord)
