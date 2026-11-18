@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
   - Lower memory use for large events, with no change in behaviour: the
     parsed event can now be garbage collected once the handler is done with
     it, instead of being held until the invocation ends.
+  - Invocation errors are logged in Lambda's JSON log format (at level
+    `ERROR`, with the request ID) when the function's log format is JSON.
   - Add `messageGroupId` to SQS Attributes.
   - Fix the type of `messageAttributes` in `SQSEvent`.
   - Add `messageDeduplicationId`, `sequenceNumber`, `awsTraceHeader` and
