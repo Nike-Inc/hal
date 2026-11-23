@@ -19,7 +19,9 @@ module AWS.Lambda.RuntimeClient (
 
 import           AWS.Lambda.Context                (LambdaContext)
 import           AWS.Lambda.Internal               (StaticContext, getStaticContext)
-import           AWS.Lambda.RuntimeClient.Internal (eventResponseToNextData,
+import           AWS.Lambda.RuntimeClient.Internal (ResponseOutcome (..),
+                                                    classifyEventResponse,
+                                                    eventResponseToNextData,
                                                     generateRootTraceId)
 import           Control.Concurrent                (threadDelay)
 import           Control.Exception                 (IOException, displayException,
@@ -59,7 +61,6 @@ import           Network.HTTP.Client               (BodyReader, HttpException,
                                                     withResponse)
 import           Network.HTTP.Types                (HeaderName)
 import           Network.HTTP.Types.Status         (Status, status403,
-                                                    status413,
                                                     statusIsSuccessful)
 import           System.Environment                (getEnv)
 import           System.IO                         (hPutStrLn, stderr)
@@ -135,29 +136,14 @@ getNextEvent (RuntimeClientConfig baseRuntimeRequest manager _) = do
 sendEventSuccess :: ToJSON a => RuntimeClientConfig -> BS.ByteString -> a -> IO ()
 sendEventSuccess rcc@(RuntimeClientConfig baseRuntimeRequest manager _) reqId json = do
   resOrEx <- runtimeClientRetryTry $ flip httpNoBody manager $ toEventSuccessRequest reqId json baseRuntimeRequest
-
-  let resOrTypedMsg = case resOrEx of
-        Left ex ->
-          -- aka NonRecoverable
-          Left $ Left $ displayException (ex :: HttpException)
-        Right res ->
-          if getResponseStatus res == status413 then
-            -- TODO Get the real error info from the response
-            -- aka Recoverable
-            Left (Right "Payload Too Large")
-          else if not $ statusIsSuccessful $ getResponseStatus res then
-            --aka NonRecoverable
-            Left (Left "Unexpected Runtime Error: Could not post handler result.")
-          else
-            --aka Success
-            Right ()
-
-  case resOrTypedMsg of
-    Left (Left msg) ->
-      -- If an exception occurs here, we want that to propogate
+  case classifyEventResponse resOrEx of
+    RecoverableError msg ->
+      -- If an exception occurs here, we want that to propagate
       sendEventError rcc reqId msg
-    Left (Right msg) -> error msg
-    Right () -> return ()
+    NonRecoverableError msg ->
+      error msg
+    ResponseSuccess ->
+      return ()
 
 sendEventError :: RuntimeClientConfig -> BS.ByteString -> String -> IO ()
 sendEventError (RuntimeClientConfig baseRuntimeRequest manager _) reqId e = do

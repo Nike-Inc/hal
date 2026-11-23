@@ -23,6 +23,10 @@ The format is based on [Keep a Changelog][chg] and this project adheres to
     Runtime Interface Emulator omits when an invocation has no trace ID.
     A new, unsampled X-Ray root trace is generated for `xRayTraceId` in
     that case.
+  - Fix inverted error handling in `sendEventSuccess`: HTTP 413 responses
+    are now reported to Lambda as invocation errors instead of crashing
+    the runtime, while transport errors and other non-2xx responses stop
+    the runtime.
 
 ## `1.1` - 2023-12-18
 
