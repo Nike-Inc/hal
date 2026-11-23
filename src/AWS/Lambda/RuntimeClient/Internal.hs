@@ -9,36 +9,63 @@ Stability   : unstable
 -}
 
 module AWS.Lambda.RuntimeClient.Internal (
+  ResponseOutcome (..),
+  classifyEventResponse,
   eventResponseToNextData,
   generateRootTraceId,
   mkRootTraceId,
 ) where
 
-import           AWS.Lambda.Context       (LambdaContext)
-import           AWS.Lambda.Internal      (DynamicContext (..), StaticContext,
-                                           mkContext)
-import           Data.Aeson               (Value, eitherDecode)
-import           Data.Aeson.Types         (FromJSON)
-import           Data.Bifunctor           (first)
-import qualified Data.ByteString          as BS
-import qualified Data.ByteString.Char8    as BSC
-import qualified Data.ByteString.Internal as BSI
-import qualified Data.ByteString.Lazy     as BSW
-import           Data.CaseInsensitive     (original)
+import           AWS.Lambda.Context        (LambdaContext)
+import           AWS.Lambda.Internal       (DynamicContext (..), StaticContext,
+                                            mkContext)
+import           Control.Exception         (displayException)
+import           Data.Aeson                (Value, eitherDecode)
+import           Data.Aeson.Types          (FromJSON)
+import           Data.Bifunctor            (first)
+import qualified Data.ByteString           as BS
+import qualified Data.ByteString.Char8     as BSC
+import qualified Data.ByteString.Internal  as BSI
+import qualified Data.ByteString.Lazy      as BSW
+import           Data.CaseInsensitive      (original)
 #if !MIN_VERSION_base(4,11,0)
-import           Data.Semigroup           ((<>))
+import           Data.Semigroup            ((<>))
 #endif
-import           Data.Text                (Text)
-import qualified Data.Text                as T
-import           Data.Text.Encoding       (decodeUtf8)
-import           Data.Time.Clock.POSIX    (POSIXTime, getPOSIXTime,
-                                           posixSecondsToUTCTime)
-import           Data.Word                (Word32, Word64)
-import           Network.HTTP.Client      (Response, responseBody,
-                                           responseHeaders)
-import           Network.HTTP.Types       (HeaderName)
-import           Numeric                  (showHex)
-import           System.Random            (randomIO)
+import           Data.Text                 (Text)
+import qualified Data.Text                 as T
+import           Data.Text.Encoding        (decodeUtf8)
+import           Data.Time.Clock.POSIX     (POSIXTime, getPOSIXTime,
+                                            posixSecondsToUTCTime)
+import           Data.Word                 (Word32, Word64)
+import           Network.HTTP.Client       (HttpException, Response,
+                                            responseBody, responseHeaders,
+                                            responseStatus)
+import           Network.HTTP.Types        (HeaderName)
+import           Network.HTTP.Types.Status (status413, statusIsSuccessful)
+import           Numeric                   (showHex)
+import           System.Random             (randomIO)
+
+-- | Outcome of posting an invocation response to the Lambda Runtime API.
+data ResponseOutcome
+  = ResponseSuccess
+  | RecoverableError String
+  | NonRecoverableError String
+  deriving (Eq, Show)
+
+-- | Classify the result of posting an invocation response.
+classifyEventResponse :: Either HttpException (Response a) -> ResponseOutcome
+classifyEventResponse resOrEx =
+  case resOrEx of
+    Left ex ->
+      NonRecoverableError (displayException ex)
+    Right res
+      | responseStatus res == status413 ->
+          -- TODO Get the real error info from the response
+          RecoverableError "Payload Too Large"
+      | not (statusIsSuccessful (responseStatus res)) ->
+          NonRecoverableError "Unexpected Runtime Error: Could not post handler result."
+      | otherwise ->
+          ResponseSuccess
 
 -- | The 'Text' argument is the trace id to use if the response has no
 -- @Lambda-Runtime-Trace-Id@ header (see 'generateRootTraceId').

@@ -11,9 +11,12 @@ import qualified AWS.Lambda.Events.EventBridge.Spec as EventBridge
 import qualified AWS.Lambda.Events.Kafka.Spec       as Kafka
 import qualified AWS.Lambda.Events.SQS.Spec         as SQS
 import           AWS.Lambda.Internal                (StaticContext (..))
-import           AWS.Lambda.RuntimeClient.Internal  (eventResponseToNextData,
+import           AWS.Lambda.RuntimeClient.Internal  (ResponseOutcome (..),
+                                                     classifyEventResponse,
+                                                     eventResponseToNextData,
                                                      generateRootTraceId,
                                                      mkRootTraceId)
+import           Control.Exception                  (displayException)
 import           Data.Aeson                         (Value (Null))
 import qualified Data.CaseInsensitive               as CI
 import           Data.Map                           (singleton)
@@ -26,8 +29,13 @@ import           Data.Time.Clock.POSIX              (posixSecondsToUTCTime)
 import           Hedgehog
 import qualified Hedgehog.Gen                       as Gen
 import qualified Hedgehog.Range                     as Range
+import           Network.HTTP.Client                (HttpException (HttpExceptionRequest),
+                                                     HttpExceptionContent (ConnectionTimeout),
+                                                     defaultRequest)
 import           Network.HTTP.Client.Internal       (Response (..))
-import           Network.HTTP.Types                 (Header)
+import           Network.HTTP.Types                 (Header, Status, status200,
+                                                     status202, status400,
+                                                     status413, status500)
 import           Test.Hspec                         (describe, it, shouldBe,
                                                      shouldStartWith, specify)
 import           Test.Hspec.Hedgehog                (hedgehog)
@@ -226,6 +234,27 @@ main =
           (Left
              "Runtime Error: Unable to decode Context from event response.\nCould not parse deadline")
 
+    describe "Event Success Response Classification" $ do
+      it "treats HTTP 200 as success" $
+        classifyEventResponse (Right (minStatusResponse status200)) `shouldBe`
+          ResponseSuccess
+      it "treats HTTP 202 as success" $
+        classifyEventResponse (Right (minStatusResponse status202)) `shouldBe`
+          ResponseSuccess
+      it "treats HTTP 413 as a recoverable error" $
+        classifyEventResponse (Right (minStatusResponse status413)) `shouldBe`
+          RecoverableError "Payload Too Large"
+      it "treats HTTP 400 as a non-recoverable error" $
+        classifyEventResponse (Right (minStatusResponse status400)) `shouldBe`
+          NonRecoverableError "Unexpected Runtime Error: Could not post handler result."
+      it "treats HTTP 500 as a non-recoverable error" $
+        classifyEventResponse (Right (minStatusResponse status500)) `shouldBe`
+          NonRecoverableError "Unexpected Runtime Error: Could not post handler result."
+      it "treats an HttpException as a non-recoverable error" $ do
+        let ex = HttpExceptionRequest defaultRequest ConnectionTimeout
+        classifyEventResponse (Left ex) `shouldBe`
+          NonRecoverableError (displayException ex)
+
     describe "Root trace Id" $ do
       it "formats the time and identifier as zero-padded hex" $ do
         mkRootTraceId 1478612430 0x12345 0xab `shouldBe`
@@ -257,3 +286,7 @@ minResponse headers body =
 
 minJsonResponse :: [Header] -> Response Value
 minJsonResponse = flip minResponse Null
+
+minStatusResponse :: Status -> Response ()
+minStatusResponse status =
+  (minResponse [] ()) { responseStatus = status }
